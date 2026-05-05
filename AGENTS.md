@@ -4,27 +4,62 @@
 
 This repository uses ESAA: Event Sourcing for Autonomous Agents.
 
-ESAA is the execution protocol for agent work in this repository. It is not optional process documentation.
+ESAA is the governance architecture and event-sourced execution protocol for autonomous agents. It is not merely a harness.
+
+The harness is the execution runtime that invokes agents and applies ESAA rules.
+
+The orchestrator is the state-transition authority and the single writer of the event store.
 
 Code changes are not task completion. A task is complete only when the ESAA closure rules for the current execution mode are satisfied.
 
-This file is the short operational guide for agents such as Codex. The canonical ESAA state remains inside `.roadmap/`.
+This file is the short operational guide for agents such as Codex. The canonical ESAA artifacts remain inside `.roadmap/`.
+
+---
+
+## Terminology
+
+Use these terms precisely:
+
+- ESAA: governance architecture and event-sourced protocol for autonomous agents.
+- Harness: runtime layer that prepares context, invokes agents, validates outputs, and applies ESAA rules.
+- Orchestrator: authority that validates, appends, projects, and verifies governed state transitions.
+- Event store: append-only activity log of what happened.
+- Roadmap: planned work and/or read-model projection of task state.
+- Roadmap plugin: additional roadmap file for a specific domain, such as security, docs, QA, or implementation.
+- Projection/read model: derived view used for navigation, planning, and task selection.
+
+Do not describe ESAA as merely a harness.
+
+Correct mental model:
+
+- ESAA governs the harness.
+- The harness executes the ESAA runtime flow.
+- The orchestrator admits state transitions.
+- The event store records activity.
+- Roadmap files define or expose planned work.
 
 ---
 
 ## Canonical ESAA Sources
 
-The canonical source of truth is:
+The event log is the canonical source of truth for ESAA activity events and governed state transitions:
 
 - `.roadmap/activity.jsonl`
 
-Roadmap files are projections/read models derived from the event log. They are not the primary source of truth.
+However, `.roadmap/activity.jsonl` is not necessarily the only source of truth for planned task definitions.
+
+Task definitions may come from recognized roadmap files and roadmap plugins, including:
+
+- `.roadmap/roadmap.json`
+- `.roadmap/roadmap.security.json`
+- `.roadmap/roadmap.*.json`
 
 Common ESAA artifacts may include:
 
 - `.roadmap/init.yaml`
 - `.roadmap/activity.jsonl`
 - `.roadmap/roadmap.json`
+- `.roadmap/roadmap.security.json`
 - `.roadmap/issues.json`
 - `.roadmap/lessons.json`
 - `.roadmap/AGENT_CONTRACT.yaml`
@@ -34,9 +69,73 @@ Common ESAA artifacts may include:
 
 Do not assume all artifacts exist.
 
-Before governed execution, read the available `.roadmap/` artifacts required to understand the current task, state, and runtime policy.
+Before governed execution, read only the `.roadmap/` artifacts required to understand the current task, effective state, and runtime policy.
 
 For read-only requests, inspect only what is necessary to answer safely.
+
+---
+
+## Roadmap Plugins
+
+This repository may use multiple roadmap files.
+
+Recognized roadmap files may include:
+
+- `.roadmap/roadmap.json`
+- `.roadmap/roadmap.security.json`
+- `.roadmap/roadmap.*.json`
+
+When the user asks for work in a specific domain, inspect the relevant roadmap plugin.
+
+Examples:
+
+- security work may use `.roadmap/roadmap.security.json`;
+- QA work may use a QA roadmap plugin, if present;
+- documentation work may use a docs roadmap plugin, if present.
+
+If a task exists in a recognized roadmap file and has no conflicting lifecycle event in `.roadmap/activity.jsonl`, treat it as a valid planned task candidate.
+
+Do not block execution merely because a roadmap task has no corresponding `task.create` event in `.roadmap/activity.jsonl`, unless the current runtime policy explicitly requires `task.create` events.
+
+A task that exists in a recognized roadmap file but has no activity events yet is simply an unstarted planned task.
+
+---
+
+## Relationship Between Roadmaps and Activity Log
+
+Use this rule:
+
+Activity log proves what happened.
+
+Roadmap files define or expose what can be done.
+
+The effective execution state is derived by combining:
+
+1. task definitions from recognized roadmap files;
+2. lifecycle events from `.roadmap/activity.jsonl`;
+3. runtime policy;
+4. dependency rules;
+5. active lessons and constraints.
+
+Do not treat every roadmap task missing from `.roadmap/activity.jsonl` as a mismatch.
+
+A mismatch exists when an activity event contradicts recognized roadmap state.
+
+Examples of real mismatches:
+
+- `.roadmap/activity.jsonl` shows a task as completed but the roadmap shows it as `todo`;
+- `.roadmap/activity.jsonl` contains a claim for one actor but the roadmap/effective state shows another actor;
+- `.roadmap/activity.jsonl` contains lifecycle events for a task that does not exist in any recognized roadmap file;
+- a task marked `done` in effective state is modified or reopened;
+- a roadmap projection claims a later state than the event log can justify.
+
+Examples that are not mismatches by themselves:
+
+- a task exists in `.roadmap/roadmap.security.json` but has no events yet;
+- a roadmap plugin contains `todo` tasks that have never been claimed;
+- the event log has no `task.create` event for a task defined in a recognized roadmap file, unless policy explicitly requires it.
+
+If activity log and roadmap projection disagree about a governed transition, treat `.roadmap/activity.jsonl` as authoritative and report the inconsistency.
 
 ---
 
@@ -52,7 +151,7 @@ Do not silently mutate roadmap state.
 
 Do not mark work as complete merely because files were changed.
 
-If event log and roadmap projection disagree, treat `.roadmap/activity.jsonl` as authoritative and report the inconsistency.
+If uncertain whether a roadmap file is recognized by project policy, report the uncertainty as a blocker instead of inventing rules.
 
 ---
 
@@ -108,7 +207,7 @@ Use read-only mode when the user asks to:
 
 In read-only mode:
 
-- do not select a task;
+- do not select a task for execution;
 - do not append `claim`;
 - do not append `complete`;
 - do not append `review`;
@@ -146,7 +245,7 @@ In governed execution mode:
 
 - work on exactly one task;
 - use the task explicitly provided by the user when one is provided;
-- if no task is provided, select exactly one eligible task according to `.roadmap/init.yaml` and the current roadmap state;
+- if no task is provided, select exactly one eligible task according to `.roadmap/init.yaml`, recognized roadmap files, and current effective state;
 - do not invent task IDs;
 - do not create a separate task for understanding ESAA;
 - do not execute multiple unrelated tasks in one run;
@@ -164,15 +263,37 @@ Before technical execution:
 
 1. Determine whether the request is read-only or governed execution.
 2. Read `.roadmap/init.yaml` if it exists.
-3. Read the relevant roadmap projection.
-4. Read the current event log from `.roadmap/activity.jsonl`.
-5. If governed execution, identify exactly one task.
-6. Verify that the task is not already `done`.
-7. Verify that dependencies are satisfied.
-8. If dependencies are not satisfied, report a blocker.
-9. If the task cannot be safely selected, stop and report a blocker.
+3. Identify the relevant roadmap file or roadmap plugin.
+4. Read the relevant roadmap projection or task-definition file.
+5. Read the current event log from `.roadmap/activity.jsonl`, if it exists.
+6. Compose effective task state from roadmap definitions and activity events.
+7. If governed execution, identify exactly one task.
+8. Verify that the task is not already `done` in effective state.
+9. Verify that dependencies are satisfied.
+10. If dependencies are not satisfied, report a blocker.
+11. If the task cannot be safely selected, stop and report a blocker.
 
 Do not modify files before the task is selected and validated.
+
+A task does not need a prior `task.create` event in `.roadmap/activity.jsonl` to be selected, unless runtime policy explicitly requires that.
+
+---
+
+## Eligibility Rules
+
+A task is eligible when all of the following are true:
+
+- it exists in a recognized roadmap file or roadmap plugin;
+- its effective status is executable, usually `todo` or equivalent;
+- it is not `done`;
+- its dependencies are satisfied;
+- there is no conflicting claim, completion, review, lock, or issue in `.roadmap/activity.jsonl`;
+- the requested work matches the task scope;
+- the runtime policy does not forbid execution.
+
+For example, if `.roadmap/roadmap.security.json` contains `SEC-001` in `todo` and `.roadmap/activity.jsonl` has no conflicting lifecycle event for `SEC-001`, then `SEC-001` is a valid planned task candidate.
+
+Do not reject `SEC-*` tasks merely because `.roadmap/activity.jsonl` lacks `task.create` events for them.
 
 ---
 
@@ -208,6 +329,7 @@ Do not:
 
 - invent task IDs;
 - create tasks only to understand ESAA;
+- reject roadmap plugin tasks only because they have no `task.create` event;
 - mutate tasks already marked as `done`;
 - directly rewrite completed history;
 - bypass `.roadmap/activity.jsonl`;
@@ -251,14 +373,15 @@ Do not stop after code changes.
 Before final response in governed execution mode, verify:
 
 1. the selected task ID is known;
-2. the technical work was performed;
-3. changed files are listed;
-4. tests were run or a reason is provided;
-5. ESAA event/projection policy was followed;
-6. no `done` task was mutated;
-7. no lifecycle step was collapsed;
-8. blockers are reported, if any;
-9. ESAA verification was run when available and appropriate.
+2. the task exists in a recognized roadmap file or plugin;
+3. the technical work was performed;
+4. changed files are listed;
+5. tests were run or a reason is provided;
+6. ESAA event/projection policy was followed;
+7. no `done` task was mutated;
+8. no lifecycle step was collapsed;
+9. blockers are reported, if any;
+10. ESAA verification was run when available and appropriate.
 
 A task is not complete merely because implementation work was done.
 
@@ -270,7 +393,7 @@ If ESAA closure cannot be satisfied, report `blocked` or `failed`. Do not claim 
 
 ## Activity Log Policy
 
-The event log is the source of truth:
+The event log is the source of truth for activity events and governed transitions:
 
 - `.roadmap/activity.jsonl`
 
@@ -292,15 +415,18 @@ Never fabricate event history.
 
 Never rewrite previous events to make the current state look valid.
 
+Remember: the absence of events for a planned roadmap task usually means no activity has happened yet. It does not automatically invalidate the task.
+
 ---
 
 ## Roadmap Projection Policy
 
-Roadmap files are projections/read models.
+Roadmap files are projections, planning artifacts, task-definition files, or roadmap plugins depending on repository policy.
 
 Examples may include:
 
 - `.roadmap/roadmap.json`
+- `.roadmap/roadmap.security.json`
 - `.roadmap/issues.json`
 - `.roadmap/lessons.json`
 
@@ -315,11 +441,17 @@ If projection updates are generated by the harness/orchestrator:
 - do not update roadmap projections directly;
 - report the technical result and allow the runtime to project state.
 
-If activity log and roadmap projection disagree:
+If activity log and roadmap projection disagree about execution state:
 
-- treat `.roadmap/activity.jsonl` as authoritative;
+- treat `.roadmap/activity.jsonl` as authoritative for activity events;
 - report the mismatch;
 - do not silently fix it unless the user requested governed execution for that correction.
+
+If a task exists in a recognized roadmap plugin but has no activity event:
+
+- treat it as a planned, unstarted task;
+- do not call it a mismatch;
+- do not block execution solely for that reason.
 
 ---
 
@@ -381,7 +513,7 @@ Use this format for every response:
 - Changed files: <list or Nenhum>
 - Tests run: <commands/results or Nenhum>
 - ESAA verification: <command/result or Not run>
-- ESAA closure status: <satisfied / not applicable / blocked / failed>
+- ESAA closure status: <satisfied / not applicable / blocked / failed / ready for governed execution>
 - Blockers, if any: <list or Nenhum>
 
 For read-only mode:
@@ -402,6 +534,12 @@ For governed execution mode:
 - report ESAA verification separately;
 - report whether ESAA closure was satisfied, blocked, or failed.
 
+For read-only task discovery:
+
+- report the first eligible task if requested;
+- do not claim or execute it;
+- use `ESAA closure status: ready for governed execution` only when the task is valid, unblocked, and no state transition was performed.
+
 ---
 
 ## Preferred Read-only Final Report Example
@@ -412,6 +550,18 @@ For governed execution mode:
 - Tests run: Nenhum.
 - ESAA verification: Not run.
 - ESAA closure status: Not applicable — read-only request. No governed state transition was required.
+- Blockers, if any: Nenhum.
+
+---
+
+## Preferred Read-only Task Discovery Example
+
+- Task ID: SEC-001
+- Summary: Inspected `.roadmap/roadmap.security.json`. `SEC-001` is the first eligible planned security task. No conflicting lifecycle event was found in `.roadmap/activity.jsonl`.
+- Changed files: Nenhum.
+- Tests run: Nenhum.
+- ESAA verification: Not run.
+- ESAA closure status: ready for governed execution.
 - Blockers, if any: Nenhum.
 
 ---
@@ -433,3 +583,9 @@ For governed execution mode:
 If you remember only one rule, use this:
 
 Code changes are not task completion. A task is complete only after ESAA closure is satisfied.
+
+If you remember two rules, use these:
+
+Activity log proves what happened.
+
+Roadmap files define or expose what can be done.
