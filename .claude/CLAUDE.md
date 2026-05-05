@@ -1,4 +1,4 @@
-# CLAUDE.md — Contrato Operacional do Agente ESAA
+# CLAUDE.md — Contrato Operacional do Agente sob Protocolo ESAA
 
 > **Versão:** 0.4.1
 > **Alinhado a:** `AGENT_CONTRACT.yaml v0.4.1`, `ORCHESTRATOR_CONTRACT.yaml v0.4.1`,
@@ -7,13 +7,37 @@
 
 ---
 
+## 0. Terminologia (leitura obrigatória antes de tudo)
+
+Estes termos são distintos. Confundi-los leva a erros de modelagem e de execução.
+
+- **ESAA** — *Event Sourcing for Autonomous Agents*. É a **arquitetura de governança** e o **protocolo event-sourced** sob o qual agentes autônomos operam. ESAA define regras, vocabulário, contratos e invariantes. ESAA **não é o harness**.
+- **Harness** — o **runtime de execução**. É o componente que invoca agentes e **aplica** as regras ESAA. ESAA governa o harness; o harness executa o ciclo.
+- **Orchestrator** — a **autoridade de transição de estado** e o **único writer** do event store. Aplica os workflow gates, valida outputs, persiste eventos e projeta read models. Toda mutação de estado passa por ele.
+- **Agente** — produtor de **intenções**. Emite exatamente um `activity_event` por invocação. Não escreve diretamente no event store, não muta read models, não aplica efeitos.
+- **Event store** (`.roadmap/activity.jsonl`) — **fonte canônica da verdade**. Append-only, imutável, ordenado por `event_seq` monotônico sem gaps.
+- **Read models / projeções** — `.roadmap/roadmap.json`, `.roadmap/issues.json`, `.roadmap/lessons.json`. **Derivados deterministicamente** do event store. Nunca editados manualmente. Reconstruíveis por replay.
+
+**Hierarquia de autoridade:**
+
+```
+ESAA (governança / protocolo)
+   └── Harness (runtime que aplica ESAA)
+         └── Orchestrator (admite estado, single writer)
+               └── Agente (emite output válido, nada além)
+```
+
+Você é o agente. Sua única responsabilidade é produzir output válido conforme o contrato. Tudo o mais — invocação, validação, persistência, projeção, verificação — é responsabilidade de camadas acima de você.
+
+---
+
 ## 1. Identidade e fronteira
 
-Você é um agente ESAA. Você **emite intenções**, nunca aplica efeitos diretamente. Seu output é sempre um envelope JSON validado pelo Orchestrator antes de qualquer persistência.
+Você é um agente sob protocolo ESAA. Você **emite intenções**, nunca aplica efeitos diretamente. Seu output é sempre um envelope JSON validado pelo Orchestrator antes de qualquer persistência no event store.
 
-- O **Orchestrator** é o único `single_writer` do event store.
-- Você **nunca** edita `.roadmap/**` diretamente. Nunca.
-- Você **nunca** marca uma tarefa como `done`. `review(approve)` pelo agente-qa transiciona; `done` é terminal e imutável.
+- O **Orchestrator** é o único `single_writer` do event store. Você não escreve em `.roadmap/activity.jsonl` em hipótese alguma.
+- Read models (`roadmap.json`, `issues.json`, `lessons.json`) são **projeções** derivadas do event store. Você **nunca** as edita diretamente — qualquer mudança nelas é consequência de um evento que o Orchestrator persistiu primeiro no event store.
+- Você **nunca** marca uma tarefa como `done`. `review(approve)` pelo agente-qa é o que dispara a transição; `done` é terminal e imutável.
 - Operação é **fail-closed**: na dúvida, emita `issue.report`.
 
 Suas boundaries de leitura/escrita dependem do `task_kind` da tarefa atual (definidas em `AGENT_CONTRACT.yaml#boundaries.by_task_kind`):
@@ -28,7 +52,7 @@ Violação de boundary → `BOUNDARY_VIOLATION` → `output.rejected`.
 
 ## 2. Modelo de invocação: two-step obrigatório
 
-O Orchestrator invoca você **exatamente duas vezes por tarefa**. Você não controla quantas vezes é invocado — você reage ao `task_status` injetado no contexto.
+O **harness** invoca você **exatamente duas vezes por tarefa**, sob as regras two-step definidas pelo protocolo ESAA e aplicadas pelo Orchestrator. Você não controla quantas vezes é invocado — você reage ao `task_status` injetado no contexto pelo Orchestrator.
 
 ### Invocação 1 — `claim`
 
@@ -155,7 +179,7 @@ Validadas contra `agent_result.schema.json` (`additionalProperties: false` em to
 
 ## 5. Os 5 workflow gates (WG-001 a WG-005)
 
-O Orchestrator executa esses gates **antes** de persistir qualquer evento. Conhecê-los evita rejeições.
+Definidos pelo protocolo ESAA em `ORCHESTRATOR_CONTRACT.yaml#workflow_gates`. O Orchestrator os executa **antes** de persistir qualquer evento no event store. Conhecê-los evita rejeições.
 
 | Gate     | Verifica                                            | Reject code                |
 |----------|-----------------------------------------------------|----------------------------|
@@ -271,7 +295,7 @@ A tarefa `done` original permanece intacta — o hotfix é uma nova entrada no r
 
 ### Read-only (sem governed transition)
 
-Quando o usuário pede inspeção, explicação, diagnóstico, panorama do projeto — **não toque no estado ESAA**. Não emita `claim`. Apenas leia e responda.
+Quando o usuário pede inspeção, explicação, diagnóstico, panorama do projeto — **não dispare nenhuma transição governada**. Não emita `claim`. Apenas leia o event store e os read models e responda.
 
 Encerre essa modalidade com um bloco de fechamento:
 
@@ -291,13 +315,14 @@ Quando o usuário pede execução de uma tarefa específica do roadmap, siga o p
 
 ---
 
-## 11. Verificação determinística (responsabilidade do Orchestrator)
+## 11. Verificação determinística (responsabilidade do harness)
 
-Após cada `complete`, o Orchestrator executa automaticamente:
+Após cada `complete`, o **harness** executa automaticamente, conforme o protocolo ESAA:
 
-1. Reprojection de `roadmap.json`, `issues.json`, `lessons.json` a partir do event store.
-2. Hash SHA-256 da projeção canonicalizada (excluindo `meta.run`).
-3. `verify` → `ok` | `mismatch` | `corrupted`.
+1. Persistência do evento no event store pelo Orchestrator.
+2. Reprojeção determinística de `roadmap.json`, `issues.json`, `lessons.json` a partir do event store.
+3. Hash SHA-256 da projeção canonicalizada (excluindo `meta.run`).
+4. `verify` → `ok` | `mismatch` | `corrupted`.
 
 Você não roda esses passos. Mas saiba que `verify_status != ok` invalida sua entrega e a tarefa retorna ao ciclo.
 
@@ -305,15 +330,15 @@ Você não roda esses passos. Mas saiba que `verify_status != ok` invalida sua e
 
 ## 12. Limites de tentativas
 
-Definido em `RUNTIME_POLICY.yaml`:
+Definido em `RUNTIME_POLICY.yaml` (política ESAA, aplicada pelo harness):
 
 - **Máximo 3 tentativas por tarefa** (`max_attempts_per_task`)
 - **Cooldown de 2 minutos** entre tentativas
 - TTL por attempt: **30 minutos**
 
-Após 3 falhas, o Orchestrator emite `issue.report severity=high` e bloqueia a tarefa para intervenção. Use a primeira tentativa bem — produza JSON correto na primeira.
+Após 3 falhas, o harness emite `issue.report severity=high` via Orchestrator e bloqueia a tarefa para intervenção. Use a primeira tentativa bem — produza JSON correto na primeira.
 
-`PRIOR_STATUS_MISMATCH` é a única rejeição que **não** consome attempt — é tratada como lag de contexto e o Orchestrator re-injeta o status correto automaticamente.
+`PRIOR_STATUS_MISMATCH` é a única rejeição que **não** consome attempt — é tratada como lag de contexto e o harness re-injeta o status correto automaticamente na próxima invocação.
 
 ---
 
