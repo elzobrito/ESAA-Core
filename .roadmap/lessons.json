@@ -4,11 +4,112 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "updated_at": "2026-05-23T21:53:13Z"
+    "updated_at": "2026-05-24T15:52:07Z"
   },
-  "lessons": [],
+  "lessons": [
+    {
+      "lesson_id": "LES-0001",
+      "status": "active",
+      "title": "Nunca colapsar claim + complete",
+      "mistake": "Agente emitiu complete sem claim previo; tarefa nao transita corretamente.",
+      "rule": "Cada invocacao emite exatamente uma action. claim e complete sao outputs separados.",
+      "scope": {
+        "task_kinds": [
+          "spec",
+          "impl",
+          "qa"
+        ]
+      },
+      "enforcement": {
+        "mode": "reject",
+        "applies_to": "workflow_gate"
+      },
+      "source_refs": [
+        {
+          "type": "gate",
+          "ref": "WG-001"
+        },
+        {
+          "type": "gate",
+          "ref": "WG-005"
+        }
+      ]
+    },
+    {
+      "lesson_id": "LES-0002",
+      "status": "active",
+      "title": "file_updates exige action=complete",
+      "mistake": "file_updates emitido com claim/review/issue.report; nao deveria existir.",
+      "rule": "Todo file_updates DEVE acompanhar action=complete; outros actions sao rejeitados.",
+      "scope": {
+        "task_kinds": [
+          "spec",
+          "impl",
+          "qa"
+        ]
+      },
+      "enforcement": {
+        "mode": "reject",
+        "applies_to": "output_contract"
+      },
+      "source_refs": [
+        {
+          "type": "gate",
+          "ref": "WG-002"
+        }
+      ]
+    },
+    {
+      "lesson_id": "LES-0003",
+      "status": "active",
+      "title": "prior_status obrigatorio e coerente",
+      "mistake": "prior_status omitido ou divergente do status real do roadmap.",
+      "rule": "prior_status e obrigatorio em todo output e deve refletir o status do roadmap.",
+      "scope": {
+        "task_kinds": [
+          "spec",
+          "impl",
+          "qa"
+        ]
+      },
+      "enforcement": {
+        "mode": "require_field",
+        "applies_to": "output_contract"
+      },
+      "source_refs": [
+        {
+          "type": "gate",
+          "ref": "WG-003"
+        }
+      ]
+    }
+  ],
   "indexes": {
-    "by_task_kind": {},
-    "by_enforcement_applies_to": {}
+    "by_task_kind": {
+      "impl": [
+        "LES-0001",
+        "LES-0002",
+        "LES-0003"
+      ],
+      "qa": [
+        "LES-0001",
+        "LES-0002",
+        "LES-0003"
+      ],
+      "spec": [
+        "LES-0001",
+        "LES-0002",
+        "LES-0003"
+      ]
+    },
+    "by_enforcement_applies_to": {
+      "output_contract": [
+        "LES-0002",
+        "LES-0003"
+      ],
+      "workflow_gate": [
+        "LES-0001"
+      ]
+    }
   }
 }

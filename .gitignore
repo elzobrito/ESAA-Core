@@ -30,6 +30,8 @@ Thumbs.db
 .claude/settings.local.json
 
 # ESAA transient backups/locks
+./roadmap/artifacts/file-effects/
+./roadmap/artifacts/
 .roadmap/backups/
 .roadmap.backup*/
 *.lock
