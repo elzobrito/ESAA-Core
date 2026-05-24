@@ -12,7 +12,6 @@ htmlcov/
 
 # Packaging/build
 build/
-dist/
 *.egg-info/
 .eggs/
 *.egg
