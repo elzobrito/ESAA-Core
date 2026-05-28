@@ -454,6 +454,7 @@ scenario
 vocabulary
 snapshot
 replay
+plugin-status
 ```
 
 The CLI is not a replacement for ESAA. It is a local harness/runtime surface

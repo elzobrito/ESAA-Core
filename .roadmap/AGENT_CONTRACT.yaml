@@ -173,6 +173,9 @@ boundaries:
       write:
         - "src/**"
         - "tests/**"
+        - "docs/operations/**"
+        - "readme.md"
+        - "CHANGELOG.md"
       forbidden_write:
         - ".roadmap/**"
 

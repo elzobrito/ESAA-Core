@@ -1,0 +1,11 @@
+{
+  "after_sha256": "8389c71d40f7a4cd8cae77a40450de65e3e4937681aabd604a1aac517f22ad21",
+  "artifact_id": "ART-8389c71d40f7a4cd8cae77a40450de65e3e4937681aabd604a1aac517f22ad21",
+  "artifact_sha256": "38d1b0abc0b559fb152d00ca673a296190a4c66af1966f69946975e81ed91e3d",
+  "before_sha256": "e9950aa7551906bec3fbbe9b4a8b264268d1cc314936ed80a9865a2ebb60cee4",
+  "bytes": 754,
+  "content": "# Changelog\n\n## Unreleased\n\n- Added: `esaa plugin-status` CLI command. Cross-references each\n  `.roadmap/roadmap*.json` plugin against the live projection and reports\n  per-plugin task counts plus optional task-level detail. Read-only; never\n  mutates state. See `docs/operations/plugin-status.md`.\n\n## 0.5.0b1 - Public Beta\n\n- Added packaged ESAA governance templates for public workspaces.\n- Added `esaa bootstrap` with `public` and `production` profiles.\n- Added public release metadata, MIT license, contribution docs, quickstart, examples, CI, and release workflow.\n- Kept ESAA protocol/schema version at `0.4.1` while preparing the Python package beta as `0.5.0b1`.\n- Documented production operation, external runners, and package smoke-test flow.\n",
+  "encoding": "utf-8",
+  "path": "CHANGELOG.md",
+  "ts": "2026-05-28T19:04:36Z"
+}

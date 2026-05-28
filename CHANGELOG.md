@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added: `esaa plugin-status` CLI command. Cross-references each
+  `.roadmap/roadmap*.json` plugin against the live projection and reports
+  per-plugin task counts plus optional task-level detail. Read-only; never
+  mutates state. See `docs/operations/plugin-status.md`.
+
 ## 0.5.0b1 - Public Beta
 
 - Added packaged ESAA governance templates for public workspaces.

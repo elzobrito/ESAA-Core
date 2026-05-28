@@ -29,6 +29,81 @@ def _read_file_updates(path_arg: str) -> list[dict[str, str]]:
     return payload
 
 
+def _plugin_status(root: Path, detail: bool = False, plugin_filter: str | None = None) -> dict:
+    """Cross-reference planned tasks (per-plugin) with projected state."""
+    roadmap_dir = root / ".roadmap"
+    if not roadmap_dir.is_dir():
+        raise ESAAError("ROADMAP_DIR_MISSING", f".roadmap not found under {root}")
+
+    projection_path = roadmap_dir / "roadmap.json"
+    projected_status: dict[str, str] = {}
+    if projection_path.is_file():
+        try:
+            proj = json.loads(projection_path.read_text(encoding="utf-8"))
+            for t in proj.get("tasks", []):
+                tid = t.get("task_id")
+                if tid:
+                    projected_status[tid] = t.get("status", "?")
+        except (ValueError, OSError) as exc:
+            raise ESAAError("PROJECTION_UNREADABLE", str(exc)) from exc
+
+    plugins: list[dict] = []
+    grand_totals: dict[str, int] = {}
+
+    for path in sorted(roadmap_dir.glob("roadmap*.json")):
+        if path.name == "roadmap.schema.json":
+            continue
+        if plugin_filter and path.name != plugin_filter:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            continue
+        tasks = data.get("tasks") or []
+        if not tasks:
+            continue
+
+        by_planned_status: dict[str, int] = {}
+        by_live_status: dict[str, int] = {}
+        in_projection = 0
+        items: list[dict] = []
+
+        for t in tasks:
+            tid = t.get("task_id", "?")
+            planned = t.get("status", "todo")
+            live = projected_status.get(tid)
+            by_planned_status[planned] = by_planned_status.get(planned, 0) + 1
+            effective = live if live is not None else planned
+            by_live_status[effective] = by_live_status.get(effective, 0) + 1
+            grand_totals[effective] = grand_totals.get(effective, 0) + 1
+            if live is not None:
+                in_projection += 1
+            if detail:
+                items.append({
+                    "task_id": tid,
+                    "title": t.get("title", ""),
+                    "kind": t.get("task_kind"),
+                    "planned_status": planned,
+                    "live_status": live,
+                })
+
+        plugins.append({
+            "plugin_file": str(path.relative_to(root)).replace("\\", "/"),
+            "tasks_declared": len(tasks),
+            "in_projection": in_projection,
+            "by_live_status": by_live_status,
+            "by_planned_status": by_planned_status,
+            **({"tasks": items} if detail else {}),
+        })
+
+    return {
+        "root": str(root),
+        "projection_present": projection_path.is_file(),
+        "plugins": plugins,
+        "grand_totals_by_live_status": grand_totals,
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="esaa", description="ESAA deterministic orchestrator core")
     parser.add_argument("--root", default=".", help="project root path")
@@ -152,6 +227,19 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("verify", help="verify projection consistency")
     sub.add_parser("eligible", help="list eligible tasks and parallel groups")
     sub.add_parser("metrics", help="emit structured runtime metrics")
+
+    cmd_plugin_status = sub.add_parser(
+        "plugin-status",
+        help="show planned-vs-projected status per roadmap plugin",
+    )
+    cmd_plugin_status.add_argument(
+        "--detail", action="store_true",
+        help="include per-task list (task_id, title, projected status)",
+    )
+    cmd_plugin_status.add_argument(
+        "--plugin", default=None,
+        help="filter to one plugin filename (e.g. roadmap.sso-client.json)",
+    )
 
     cmd_effects = sub.add_parser("effects", help="file effect recovery commands")
     effects_sub = cmd_effects.add_subparsers(dest="effects_command", required=True)
@@ -320,6 +408,8 @@ def main(argv: list[str] | None = None) -> int:
             result = service.eligible()
         elif args.command == "metrics":
             result = service.metrics()
+        elif args.command == "plugin-status":
+            result = _plugin_status(root, detail=args.detail, plugin_filter=args.plugin)
         elif args.command == "effects" and args.effects_command == "recover":
             result = service.recover_file_effects(dry_run=args.dry_run)
         elif args.command == "runner" and args.runner_command == "metrics":
