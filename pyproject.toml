@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "esaa-core"
-version = "0.5.0b2"
+version = "0.5.0b3"
 description = "ESAA deterministic orchestrator core"
 readme = "readme.md"
 requires-python = ">=3.11"
@@ -47,4 +47,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-esaa = ["templates/*"]
+esaa = ["templates/*", "workspace/*"]

@@ -6,5 +6,6 @@ include readme.md
 recursive-include docs *.md
 recursive-include examples *.md
 recursive-include src/esaa/templates *
+recursive-include src/esaa/workspace *
 global-exclude __pycache__/*
 global-exclude *.py[cod]

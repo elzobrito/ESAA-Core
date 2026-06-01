@@ -2,7 +2,7 @@ from __future__ import annotations
 
 SCHEMA_VERSION = "0.4.1"
 ESAA_VERSION = "0.4.x"
-PACKAGE_VERSION = "0.5.0b2"
+PACKAGE_VERSION = "0.5.0b3"
 
 ROADMAP_DIR = ".roadmap"
 EVENT_STORE_PATH = ".roadmap/activity.jsonl"

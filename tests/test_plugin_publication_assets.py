@@ -28,11 +28,11 @@ def test_plugin_authoring_docs_exist(repo_root: Path) -> None:
         assert "roadmap.template.json" in text
 
 
-def test_python_package_data_does_not_depend_on_bundled_plugins(repo_root: Path) -> None:
+def test_python_package_data_contains_templates_and_workspace_guides(repo_root: Path) -> None:
     pyproject = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
     package_data = pyproject["tool"]["setuptools"]["package-data"]["esaa"]
 
-    assert package_data == ["templates/*"]
+    assert package_data == ["templates/*", "workspace/*"]
 
 
 def test_bundled_plugin_lookup_falls_back_to_installed_package_data(tmp_path: Path, monkeypatch) -> None:

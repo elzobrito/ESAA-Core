@@ -84,13 +84,27 @@ class MockAgentAdapter(AgentAdapter):
 
 def _choose_output_file(task: dict[str, Any]) -> str:
     outputs = task.get("outputs", {}).get("files", [])
-    if outputs:
-        return outputs[0]
-    if task["task_kind"] == "spec":
+    task_kind = task["task_kind"]
+    for output in outputs:
+        if output.startswith("runtime://"):
+            continue
+        if _path_allowed_for_kind(output, task_kind):
+            return output
+    if task_kind == "spec":
         return f"docs/spec/{task['task_id']}.md"
-    if task["task_kind"] == "impl":
+    if task_kind == "impl":
         return f"src/{task['task_id'].lower()}.txt"
     return f"docs/qa/{task['task_id']}.md"
+
+
+def _path_allowed_for_kind(path: str, task_kind: str) -> bool:
+    if task_kind == "spec":
+        return path.startswith("docs/")
+    if task_kind == "impl":
+        return path.startswith(("src/", "tests/"))
+    if task_kind == "qa":
+        return path.startswith(("docs/qa/", "tests/"))
+    return path.startswith("src/hotfix/")
 
 
 def _build_file_content(task: dict[str, Any]) -> str:
@@ -100,4 +114,3 @@ def _build_file_content(task: dict[str, Any]) -> str:
         f"- generated_by: mock_adapter\n"
         f"- note: deterministic fixture output\n"
     )
-

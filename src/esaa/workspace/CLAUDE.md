@@ -5,7 +5,6 @@
 > `agent_result.schema.json v0.4.1`, `PARCER_PROFILE.agent-docs.yaml v0.4.1`
 > **Em caso de divergência, os artefatos canônicos em `.roadmap/` prevalecem sobre este documento.**
 > **O ESAA não usa MCP**
-> **Use a CLI ESAA: python -m esaa.**
 ---
 
 ## 0.1 CLI ESAA em workspaces publicados

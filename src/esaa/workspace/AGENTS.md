@@ -5,7 +5,6 @@
 > `agent_result.schema.json v0.4.1`, `PARCER_PROFILE.agent-docs.yaml v0.4.1`
 > **Em caso de divergência, os artefatos canônicos em `.roadmap/` prevalecem sobre este documento.**
 > **O ESAA não usa MCP.**
-> **Use a CLI ESAA: python -m esaa.**
 
 Este documento é o contrato operacional para agentes como Codex neste repositório.
 Ele deve ter a mesma cobertura normativa de `.claude/CLAUDE.md`, com adaptações
