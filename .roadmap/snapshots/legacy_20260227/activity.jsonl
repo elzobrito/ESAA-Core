@@ -1,1 +1,0 @@
-{"event_seq": 1, "ts": "2026-02-23T16:44:23Z", "actor": "orchestrator", "action": "run.start", "data": {"master_correlation_id": "CID-20260223-PRONTUARIO-LEDGER-RUN1", "baseline_id": "B-000"}}

@@ -1,0 +1,11 @@
+{
+  "after_sha256": "ea6a447c4931344f1d0538ec673c22e2da564682cdb12710ad36ec463d661542",
+  "artifact_id": "ART-ea6a447c4931344f1d0538ec673c22e2da564682cdb12710ad36ec463d661542",
+  "artifact_sha256": "ce44c727abbf2a9333504e3865f52399fa1ad98dd45534a931405ba8273fa527",
+  "before_sha256": "dd757a0cf79286fb7457f49f69319709e638fc080f1677dc9d1bb8bb0c02b159",
+  "bytes": 37,
+  "content": "repository hygiene retention fixture\n",
+  "encoding": "utf-8",
+  "path": "docs/operations/repository-hygiene.md",
+  "ts": "2026-05-31T19:42:27Z"
+}

@@ -29,6 +29,13 @@ roles:
       - verify.ok
       - verify.fail
       - runner.metrics  # FIX-1812 — external runner telemetry
+      - plugin.install
+      - plugin.remove
+      - plugin.update
+      - roadmap.activate
+      - roadmap.pause
+      - roadmap.resume
+      - roadmap.deactivate
 
 event_store:
   path: ".roadmap/activity.jsonl"

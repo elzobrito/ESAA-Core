@@ -25,6 +25,7 @@ def test_vocabulary_table_marks_historical_and_canonical_terms() -> None:
     assert by_term[("paper-v0.3", "phase.complete")]["maps_to"] == "complete"
     assert by_term[("clinic-asr", "backlog")]["status"] == "profile-specific"
     assert by_term[("core-v0.4.1", "claim")]["status"] == "canonical"
+    assert by_term[("core-v0.4.1", "roadmap.activate")]["kind"] == "reserved_orchestrator_action"
     assert by_term[("core-v0.4.1", "done")]["kind"] == "task_status"
 
 

@@ -6,89 +6,20 @@
     "master_correlation_id": null,
     "run": {
       "run_id": null,
-      "status": "success",
-      "last_event_seq": 30,
-      "projection_hash_sha256": "6101eba649ed924c5b9921ee462b3514ceb6efdec293b38b38899961d4a7dca5",
+      "status": "initialized",
+      "last_event_seq": 3,
+      "projection_hash_sha256": "411885afdc5e0e74e1eac70f8cef0094ef6842c1b5c11b34654bb1e3b0664d50",
       "verify_status": "ok"
     },
-    "updated_at": "2026-05-28T19:08:37Z"
+    "updated_at": "2026-05-24T15:52:07Z"
   },
   "project": {
     "name": "esaa-core",
     "audit_scope": ".roadmap/"
   },
-  "tasks": [
-    {
-      "task_id": "FEAT-1900",
-      "task_kind": "impl",
-      "title": "Add esaa plugin-status CLI command",
-      "description": "Adicionar comando read-only que cruza plugins .roadmap/roadmap*.json com a projecao roadmap.json. Inclui handler em cli.py, doc em docs/operations/, entrada de CHANGELOG e atualizacao do readme.",
-      "status": "done",
-      "depends_on": [],
-      "targets": [
-        "src/esaa/cli.py"
-      ],
-      "outputs": {
-        "files": [
-          "src/esaa/cli.py",
-          "docs/operations/plugin-status.md",
-          "readme.md",
-          "CHANGELOG.md"
-        ]
-      },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "agent-impl",
-      "started_at": "2026-05-28T19:02:11Z",
-      "verification": {
-        "checks": [
-          "Patch em src/esaa/cli.py: helper _plugin_status + parser + dispatch arm",
-          "Smoke pre-complete: plugin-status retorna JSON com 7 plugins agregados",
-          "Doc em docs/operations/plugin-status.md (10KB, 9 secoes)",
-          "readme.md e CHANGELOG.md atualizados (entrada Unreleased)"
-        ]
-      },
-      "completed_at": "2026-05-28T19:04:46Z"
-    },
-    {
-      "task_id": "FEAT-1901",
-      "task_kind": "qa",
-      "title": "Tests for esaa plugin-status CLI command",
-      "description": "Suite de testes cobrindo o helper _plugin_status: cross-reference plugin x projecao, filtro --plugin, modo --detail, e erro ROADMAP_DIR_MISSING.",
-      "status": "done",
-      "depends_on": [
-        "FEAT-1900"
-      ],
-      "targets": [
-        "src/esaa/cli.py"
-      ],
-      "outputs": {
-        "files": [
-          "tests/test_plugin_status.py"
-        ]
-      },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "agent-qa",
-      "started_at": "2026-05-28T19:04:58Z",
-      "verification": {
-        "checks": [
-          "7/7 testes passando em tests/test_plugin_status.py",
-          "Cobre: summary live-vs-planned, filtro --plugin, --detail, ROADMAP_DIR_MISSING, grand totals, schema file skipped, PROJECTION_UNREADABLE"
-        ]
-      },
-      "completed_at": "2026-05-28T19:08:37Z"
-    }
-  ],
+  "tasks": [],
   "indexes": {
-    "by_status": {
-      "done": 2
-    },
-    "by_kind": {
-      "impl": 1,
-      "qa": 1
-    }
+    "by_status": {},
+    "by_kind": {}
   }
 }

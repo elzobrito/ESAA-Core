@@ -5,7 +5,7 @@
 
 parcer_profile:
   id: "agent-qa.esaa.v0_4"
-  version: "0.4.0"
+  version: "0.4.1"
   locale: "pt-BR"
   timezone: "America/Sao_Paulo"
   applies_to_task_kind: "qa"

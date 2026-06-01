@@ -106,6 +106,20 @@ def test_schema_file_is_skipped(tmp_path: Path) -> None:
     assert not any(n.endswith("roadmap.schema.json") for n in names)
 
 
+def test_template_files_are_skipped(tmp_path: Path) -> None:
+    _make_workspace(tmp_path)
+    _write(tmp_path / ".roadmap" / "roadmap.sso-client.template.json", {
+        "tasks": [
+            {"task_id": "T-001", "status": "todo", "title": "Template", "task_kind": "spec"},
+        ],
+    })
+
+    result = _plugin_status(tmp_path)
+
+    names = [p["plugin_file"] for p in result["plugins"]]
+    assert not any(n.endswith(".template.json") for n in names)
+
+
 def test_unreadable_projection_raises_specific_code(tmp_path: Path) -> None:
     roadmap_dir = tmp_path / ".roadmap"
     roadmap_dir.mkdir()

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://esaa.local/schemas/esaa-plugin.schema.json",
+  "title": "ESAA Plugin Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "version",
+    "kind",
+    "esaa_core",
+    "entrypoints",
+    "task_id_namespace",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "esaa-plugin/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "kind": {
+      "const": "roadmap_plugin"
+    },
+    "esaa_core": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_version", "max_version"],
+      "properties": {
+        "min_version": { "type": "string", "minLength": 1 },
+        "max_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roadmap", "input_example", "input_schema"],
+      "properties": {
+        "roadmap": { "type": "string", "minLength": 1 },
+        "input_example": { "type": "string", "minLength": 1 },
+        "input_schema": { "type": "string", "minLength": 1 }
+      }
+    },
+    "task_id_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

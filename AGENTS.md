@@ -49,6 +49,9 @@ Definições de tarefas planejadas podem vir de arquivos de roadmap reconhecidos
 - `.roadmap/roadmap.json`
 - `.roadmap/roadmap.security.json`
 - `.roadmap/roadmap.*.json`
+- `.roadmap/plugins.lock.json`
+- `.roadmap/roadmaps.lock.json`
+- `.roadmap/plugin-inputs/*.json`
 
 Artefatos ESAA comuns podem incluir:
 
@@ -537,6 +540,13 @@ contexto, com re-injeção do status correto.
 - `verify.ok`
 - `verify.fail`
 - `runner.metrics`  <!-- FIX-1812 — telemetria de runners externos (Claude Code, Codex) -->
+- `plugin.install`
+- `plugin.remove`
+- `plugin.update`
+- `roadmap.activate`
+- `roadmap.pause`
+- `roadmap.resume`
+- `roadmap.deactivate`
 
 **Estados de tarefa:**
 

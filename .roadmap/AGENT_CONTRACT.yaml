@@ -35,6 +35,13 @@ vocabulary:
     - verify.ok
     - verify.fail
     - runner.metrics  # FIX-1812 — external runner telemetry (Claude Code, Codex, etc.)
+    - plugin.install
+    - plugin.remove
+    - plugin.update
+    - roadmap.activate
+    - roadmap.pause
+    - roadmap.resume
+    - roadmap.deactivate
 
 # ---------------------------------------------------------------------------
 # dispatch_model
@@ -173,9 +180,6 @@ boundaries:
       write:
         - "src/**"
         - "tests/**"
-        - "docs/operations/**"
-        - "readme.md"
-        - "CHANGELOG.md"
       forbidden_write:
         - ".roadmap/**"
 

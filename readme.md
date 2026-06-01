@@ -25,6 +25,7 @@ Install the beta package:
 
 ```bash
 python -m pip install esaa-core==0.5.0b1
+esaa --version
 ```
 
 Start a clean workspace:
@@ -133,6 +134,8 @@ handled through a hotfix task, not by reopening or rewriting history.
 
 ## Repository Layout
 
+Tracked source and governance files in the reference repository:
+
 ```text
 .roadmap/
   activity.jsonl                  append-only event store
@@ -150,14 +153,22 @@ handled through a hotfix task, not by reopening or rewriting history.
   issues.schema.json              issue projection schema
   lessons.schema.json             lessons projection schema
   PARCER_PROFILE.*.yaml           prompt/control profiles
-  roadmap.*.json                  roadmap plugins for domains or maturity tracks
-  snapshots/                      curated snapshots and compacted checkpoints
 
-docs/spec/                        specification outputs
-docs/qa/                          QA reports and verification evidence
 docs/operations/                  operator onboarding and runbooks
 src/esaa/                         esaa-core runtime implementation
 tests/                            protocol, CLI, and runtime tests
+```
+
+Runtime-created paths may not exist in a clean checkout. They are created by the
+CLI when the matching operation runs:
+
+```text
+.roadmap/plugins.lock.json        created by plugin install
+.roadmap/roadmaps.lock.json       created by roadmap activate
+.roadmap/plugin-inputs/           created when plugin inputs are copied or supplied
+.roadmap/snapshots/               created by snapshot or compaction commands
+docs/spec/                        created by governed spec task file_updates
+docs/qa/                          created by governed QA task file_updates
 ```
 
 The root `readme.md` is an explicit `spec` boundary exception because it is the
@@ -371,15 +382,34 @@ forensic analysis, and recovery after interrupted runs.
 
 ## Roadmaps And Plugins
 
-Planned work may come from the main roadmap or plugins:
+Planned work may come from the main roadmap or from installed plugin roadmap
+executions. Installing a plugin does not make its tasks executable. A plugin
+roadmap must be explicitly activated before `eligible` can see its tasks.
 
-- `.roadmap/roadmap.json`
-- `.roadmap/roadmap.security.json`
-- `.roadmap/roadmap.audit.json`
-- `.roadmap/roadmap.fix.json`
-- `.roadmap/roadmap.opt.json`
-- `.roadmap/roadmap.cmm5.json`
-- any recognized `.roadmap/roadmap.*.json`
+Plugin lifecycle state is separate from roadmap execution state:
+
+- `available`: bundled or external catalog plugin can be installed. A clean
+  source distribution may ship with no bundled plugins; local directory plugins
+  are installed by path.
+- `installed`: plugin is locked in `.roadmap/plugins.lock.json`
+- `active`: a plugin roadmap execution is locked in `.roadmap/roadmaps.lock.json`
+- `paused`: installed and configured, but hidden from `eligible`
+- `deactivated`: no longer used for new planned work
+
+Task ids emitted from plugin roadmaps are namespaced with dashes:
+
+```text
+<plugin-id>-<execution-id>-<local-task-id>
+```
+
+For example, internal plugin task `T-001` from plugin `security` becomes
+`security-default-T-001`. This avoids global task-id collisions while keeping
+the plugin's local task ids readable in plugin metadata.
+
+Loose `.roadmap/roadmap.*.json` files are retained only as temporary
+compatibility. Files ending in `.template.json` are never executable by
+themselves; templates must be installed as plugins and activated as roadmap
+executions.
 
 A roadmap entry without lifecycle events is planned work, not a mismatch. A real
 mismatch occurs when the event log and projection contradict each other, for
@@ -449,12 +479,13 @@ project
 verify
 eligible
 metrics
+plugin
+roadmap
 runner
 scenario
 vocabulary
 snapshot
 replay
-plugin-status
 ```
 
 The CLI is not a replacement for ESAA. It is a local harness/runtime surface
@@ -514,6 +545,55 @@ python -m esaa --root . process
 
 Use this when an external harness places agent outputs in the expected inbox or
 hands an explicit result file to the core.
+
+### Manage plugins and roadmap executions
+
+```cmd
+python -m esaa --root . plugin list --available
+python -m esaa --root . plugin list --available --bundled
+python -m esaa --root . plugin list --available --external
+python -m esaa --root . plugin new security
+python -m esaa --root . plugin validate ./security
+python -m esaa --root . plugin doctor ./security
+python -m esaa --root . plugin install ./security
+python -m esaa --root . plugin list
+python -m esaa --root . roadmap activate security --execution-id default
+python -m esaa --root . roadmap status --detail
+python -m esaa --root . eligible
+```
+
+Plugins are directory packages with `plugin.json` in the root. `plugin new`
+creates a valid starter package. `plugin validate` and `plugin install` accept a
+bundled/external plugin id when one is available, or an explicit local directory
+such as `./security`. The reference package does not require bundled plugins.
+
+`plugin install` records the package in `.roadmap/plugins.lock.json`. It does
+not affect `eligible`. `roadmap activate` records an execution in
+`.roadmap/roadmaps.lock.json`, copies the plugin input example to
+`.roadmap/plugin-inputs/` when needed, validates the local input against the
+plugin schema, and exposes namespaced planned tasks such as
+`security-default-T-001`.
+
+External catalog plugins are discovered under `%USERPROFILE%\.esaa\plugins`
+or the directory pointed to by `ESAA_PLUGINS_HOME`, using this layout:
+
+```text
+plugins/
+  security/
+    1.0.0/
+      plugin.json
+      roadmap.template.json
+```
+
+Pause, resume, and deactivate roadmap executions without uninstalling the
+plugin:
+
+```cmd
+python -m esaa --root . roadmap pause security --execution-id default
+python -m esaa --root . roadmap resume security --execution-id default
+python -m esaa --root . roadmap deactivate security --execution-id default
+python -m esaa --root . plugin remove security
+```
 
 ## External Runners And Telemetry
 
@@ -694,7 +774,7 @@ replay/audit. `file_effects.verify_artifact()` returns `ARTIFACT_MISSING`,
 `ARTIFACT_HASH_MISMATCH`, or `ARTIFACT_CONTENT_HASH_MISMATCH` on tampering.
 
 Recovery after interruption is automatic: `service.recover_file_effects()`
-(CLI: `esaa recover-file-effects`) re-applies effects from admitted events
+(CLI: `esaa effects recover`) re-applies effects from admitted events
 that did not commit. Staged files that never reached commit are cleaned by
 `cleanup_orphan_staging()`.
 
@@ -792,7 +872,7 @@ Current coverage includes:
 - strict agent result validation
 - state machine transitions
 - deterministic task commands
-- roadmap plugin eligibility
+- installable plugins and roadmap execution eligibility
 - external runner telemetry
 - hotfix lifecycle and production trace
 - parallel dispatch and write conflicts

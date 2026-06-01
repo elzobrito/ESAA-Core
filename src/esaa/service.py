@@ -38,6 +38,7 @@ from .file_effects import (
 )
 from .metrics import compute_metrics
 from .projector import materialize
+from .plugins import load_active_roadmap_tasks
 
 from .runner_metrics import normalize_runner_metrics
 
@@ -2176,11 +2177,14 @@ def _enrich_audit_description(task: dict[str, Any]) -> str:
 
 def load_plugin_seeds(root: Path) -> dict[str, Any] | None:
 
-    """R9 â€” Loader generico de plugins roadmap.*.json.
+    """R9 â€” Loader generico de plugins instalados e compat roadmap.*.json.
 
 
 
-    Descobre todos os arquivos `.roadmap/roadmap.*.json` (exceto `roadmap.json`),
+    Primeiro carrega roadmaps ativos declarados em `.roadmap/roadmaps.lock.json`.
+    Em seguida, por compatibilidade temporaria, descobre arquivos
+    `.roadmap/roadmap.*.json` (exceto `roadmap.json`, `roadmap.schema.json` e
+    `*.template.json`),
 
     valida superficialmente, projeta cada tarefa para o subset do schema 0.4.x
 
@@ -2188,11 +2192,17 @@ def load_plugin_seeds(root: Path) -> dict[str, Any] | None:
 
     """
 
+    installed_seed = load_active_roadmap_tasks(root)
+
     plugins = sorted((root / ".roadmap").glob("roadmap.*.json"))
 
-    plugins = [p for p in plugins if p.name != "roadmap.json"]
+    plugins = [
+        p for p in plugins
+        if p.name not in {"roadmap.json", "roadmap.schema.json"}
+        and not p.name.endswith(".template.json")
+    ]
 
-    if not plugins:
+    if not plugins and not installed_seed:
 
         return None
 
@@ -2205,6 +2215,24 @@ def load_plugin_seeds(root: Path) -> dict[str, Any] | None:
     seen: set[str] = set()
 
     tasks: list[dict[str, Any]] = []
+
+    if installed_seed:
+
+        project_name = installed_seed.get("project_name")
+
+        audit_scope = installed_seed.get("audit_scope")
+
+        for task in installed_seed.get("tasks", []):
+
+            tid = task.get("task_id")
+
+            if not tid or tid in seen:
+
+                continue
+
+            seen.add(tid)
+
+            tasks.append(dict(task))
 
 
 

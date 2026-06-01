@@ -60,6 +60,31 @@ def test_loader_ignores_roadmap_json(tmp_path):
     assert load_plugin_seeds(tmp_path) is None
 
 
+def test_loader_ignores_template_roadmap_files(tmp_path):
+    rm = tmp_path / ".roadmap"
+    rm.mkdir()
+    (rm / "roadmap.demo.template.json").write_text(json.dumps(_make_roadmap([_task("X-1")])), encoding="utf-8")
+
+    assert load_plugin_seeds(tmp_path) is None
+
+
+def test_loader_uses_active_installed_plugin_tasks(tmp_path: Path, repo_root: Path):
+    from esaa.plugins import activate_roadmap, install_plugin, scaffold_plugin
+
+    service = ESAAService(tmp_path)
+    service.init(force=True)
+
+    scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
+    install_plugin(tmp_path, "./sso-client", repo_root=repo_root)
+    activate_roadmap(tmp_path, "sso-client", execution_id="default", repo_root=repo_root)
+
+    seed = load_plugin_seeds(tmp_path)
+
+    assert seed is not None
+    ids = [task["task_id"] for task in seed["tasks"]]
+    assert "sso-client-default-T-001" in ids
+
+
 def test_eligible_includes_planned_plugin_tasks_without_task_create(tmp_path):
     service = ESAAService(tmp_path)
     service.init(force=True)

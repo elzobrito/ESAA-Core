@@ -7,7 +7,21 @@ from pathlib import Path
 
 from .adapters.http_llm import HttpLlmAdapter
 from .bootstrap import bootstrap_workspace
+from .constants import ESAA_VERSION, PACKAGE_VERSION, SCHEMA_VERSION
 from .errors import ESAAError
+from .plugins import (
+    activate_roadmap,
+    deactivate_roadmap,
+    diagnose_plugin,
+    install_plugin,
+    list_available_plugins,
+    list_installed_plugins,
+    list_roadmaps,
+    remove_plugin,
+    scaffold_plugin,
+    set_roadmap_status,
+    validate_plugin,
+)
 from .scenarios import run_hotfix_trace
 from .snapshot import compact_event_store, create_snapshot
 from .service import ESAAService
@@ -51,7 +65,7 @@ def _plugin_status(root: Path, detail: bool = False, plugin_filter: str | None =
     grand_totals: dict[str, int] = {}
 
     for path in sorted(roadmap_dir.glob("roadmap*.json")):
-        if path.name == "roadmap.schema.json":
+        if path.name == "roadmap.schema.json" or path.name.endswith(".template.json"):
             continue
         if plugin_filter and path.name != plugin_filter:
             continue
@@ -107,6 +121,11 @@ def _plugin_status(root: Path, detail: bool = False, plugin_filter: str | None =
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="esaa", description="ESAA deterministic orchestrator core")
     parser.add_argument("--root", default=".", help="project root path")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {PACKAGE_VERSION} (protocol {SCHEMA_VERSION}, esaa {ESAA_VERSION})",
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -227,6 +246,45 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("verify", help="verify projection consistency")
     sub.add_parser("eligible", help="list eligible tasks and parallel groups")
     sub.add_parser("metrics", help="emit structured runtime metrics")
+
+    cmd_plugin = sub.add_parser("plugin", help="installable plugin commands")
+    plugin_sub = cmd_plugin.add_subparsers(dest="plugin_command", required=True)
+    cmd_plugin_list = plugin_sub.add_parser("list", help="list installed or available plugins")
+    cmd_plugin_list.add_argument("--available", action="store_true")
+    cmd_plugin_list.add_argument("--bundled", action="store_true", help="when listing available plugins, show bundled only")
+    cmd_plugin_list.add_argument("--external", action="store_true", help="when listing available plugins, show external catalog only")
+    cmd_plugin_new = plugin_sub.add_parser("new", help="scaffold a plugin directory package")
+    cmd_plugin_new.add_argument("plugin_id")
+    cmd_plugin_new.add_argument("--directory", default=None)
+    cmd_plugin_validate = plugin_sub.add_parser("validate", help="validate an available plugin")
+    cmd_plugin_validate.add_argument("plugin_ref")
+    cmd_plugin_doctor = plugin_sub.add_parser("doctor", help="diagnose a plugin package")
+    cmd_plugin_doctor.add_argument("plugin_ref")
+    cmd_plugin_install = plugin_sub.add_parser("install", help="install a plugin into this workspace")
+    cmd_plugin_install.add_argument("plugin_ref")
+    cmd_plugin_remove = plugin_sub.add_parser("remove", help="remove an installed plugin from this workspace")
+    cmd_plugin_remove.add_argument("plugin_id")
+    cmd_plugin_status = plugin_sub.add_parser("status", help="show roadmap execution status for plugins")
+    cmd_plugin_status.add_argument("--detail", action="store_true")
+
+    cmd_roadmap = sub.add_parser("roadmap", help="plugin roadmap execution commands")
+    roadmap_sub = cmd_roadmap.add_subparsers(dest="roadmap_command", required=True)
+    cmd_roadmap_list = roadmap_sub.add_parser("list", help="list roadmap executions")
+    cmd_roadmap_list.add_argument("--detail", action="store_true")
+    cmd_roadmap_status = roadmap_sub.add_parser("status", help="show roadmap execution status")
+    cmd_roadmap_status.add_argument("--detail", action="store_true")
+    cmd_roadmap_activate = roadmap_sub.add_parser("activate", help="activate a plugin roadmap")
+    cmd_roadmap_activate.add_argument("plugin_id")
+    cmd_roadmap_activate.add_argument("--execution-id", default="default")
+    cmd_roadmap_activate.add_argument("--input", dest="input_path", default=None)
+    for name, help_text in (
+        ("pause", "pause a roadmap execution"),
+        ("resume", "resume a roadmap execution"),
+        ("deactivate", "deactivate a roadmap execution"),
+    ):
+        cmd = roadmap_sub.add_parser(name, help=help_text)
+        cmd.add_argument("plugin_id")
+        cmd.add_argument("--execution-id", default="default")
 
     cmd_plugin_status = sub.add_parser(
         "plugin-status",
@@ -408,6 +466,44 @@ def main(argv: list[str] | None = None) -> int:
             result = service.eligible()
         elif args.command == "metrics":
             result = service.metrics()
+        elif args.command == "plugin" and args.plugin_command == "list":
+            source_filter = None
+            if args.bundled and args.external:
+                raise ESAAError("INVALID_ARGUMENT", "--bundled and --external are mutually exclusive")
+            if args.bundled:
+                source_filter = "bundled"
+            if args.external:
+                source_filter = "external"
+            result = {
+                "plugins": list_available_plugins(root, source_filter=source_filter) if args.available else list_installed_plugins(root),
+            }
+        elif args.command == "plugin" and args.plugin_command == "new":
+            result = scaffold_plugin(root, args.plugin_id, directory=args.directory)
+        elif args.command == "plugin" and args.plugin_command == "validate":
+            result = validate_plugin(root, args.plugin_ref)
+        elif args.command == "plugin" and args.plugin_command == "doctor":
+            result = diagnose_plugin(root, args.plugin_ref)
+        elif args.command == "plugin" and args.plugin_command == "install":
+            result = install_plugin(root, args.plugin_ref)
+        elif args.command == "plugin" and args.plugin_command == "remove":
+            result = remove_plugin(root, args.plugin_id)
+        elif args.command == "plugin" and args.plugin_command == "status":
+            result = {"roadmaps": list_roadmaps(root, detail=args.detail)}
+        elif args.command == "roadmap" and args.roadmap_command in {"list", "status"}:
+            result = {"roadmaps": list_roadmaps(root, detail=args.detail)}
+        elif args.command == "roadmap" and args.roadmap_command == "activate":
+            result = activate_roadmap(
+                root,
+                args.plugin_id,
+                execution_id=args.execution_id,
+                input_path=args.input_path,
+            )
+        elif args.command == "roadmap" and args.roadmap_command == "pause":
+            result = set_roadmap_status(root, args.plugin_id, args.execution_id, "paused")
+        elif args.command == "roadmap" and args.roadmap_command == "resume":
+            result = set_roadmap_status(root, args.plugin_id, args.execution_id, "active")
+        elif args.command == "roadmap" and args.roadmap_command == "deactivate":
+            result = deactivate_roadmap(root, args.plugin_id, args.execution_id)
         elif args.command == "plugin-status":
             result = _plugin_status(root, detail=args.detail, plugin_filter=args.plugin)
         elif args.command == "effects" and args.effects_command == "recover":

@@ -37,6 +37,8 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
         for field in ("issue_id", "fixes", "scope_patch", "required_verification", "baseline_id"):
             if field in payload:
                 task[field] = deepcopy(payload[field])
+    if payload.get("plugin"):
+        task["plugin"] = deepcopy(payload["plugin"])
     return task
 
 
@@ -253,7 +255,19 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         # derivá-las do event store (e não de edição manual do read model).
         if isinstance(payload.get("lessons"), list):
             state["_lessons"] = deepcopy(payload["lessons"])
-    elif action in {"output.rejected", "orchestrator.file.write", "runner.metrics", "verify.start"}:
+    elif action in {
+        "output.rejected",
+        "orchestrator.file.write",
+        "runner.metrics",
+        "verify.start",
+        "plugin.install",
+        "plugin.remove",
+        "plugin.update",
+        "roadmap.activate",
+        "roadmap.pause",
+        "roadmap.resume",
+        "roadmap.deactivate",
+    }:
         pass
     else:
         raise ESAAError("UNKNOWN_ACTION", f"unknown action: {action}")

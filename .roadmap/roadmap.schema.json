@@ -226,6 +226,29 @@
             }
           }
         },
+        "plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "execution_id",
+            "local_task_id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "local_task_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
         "assigned_to": {
           "type": "string",
           "minLength": 1

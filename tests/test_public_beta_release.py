@@ -9,10 +9,13 @@ import tomllib
 from importlib import resources
 from pathlib import Path
 
+import pytest
 import yaml
 
+import esaa
 from esaa.bootstrap import GOVERNANCE_TEMPLATE_FILES, bootstrap_workspace
 from esaa.cli import main
+from esaa.constants import PACKAGE_VERSION
 from esaa.errors import ESAAError
 from esaa.service import ESAAService
 
@@ -101,12 +104,40 @@ def test_pyproject_public_metadata(repo_root: Path) -> None:
     data = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
 
-    assert project["version"] == "0.5.0b1"
-    assert project["license"]["text"] == "MIT"
+    assert project["version"] == PACKAGE_VERSION
+    assert project["license"] == "MIT"
     assert project["authors"] == [{"name": "ESAA Contributors"}]
     assert project["urls"]["Homepage"] == "https://github.com/elzobrito/ESAA---Event-Sourcing-Agent-Architecture"
     assert "build>=1.2.0" in project["optional-dependencies"]["dev"]
     assert "twine>=5.1.0" in project["optional-dependencies"]["dev"]
+
+
+def test_public_version_surface(capsys) -> None:
+    assert esaa.__version__ == PACKAGE_VERSION
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert f"esaa {PACKAGE_VERSION}" in out
+    assert "protocol 0.4.1" in out
+
+
+def test_governance_bundle_versions_are_aligned(repo_root: Path) -> None:
+    profiles = (
+        ".roadmap/PARCER_PROFILE.agent-docs.yaml",
+        ".roadmap/PARCER_PROFILE.agent-impl.yaml",
+        ".roadmap/PARCER_PROFILE.agent-qa.yaml",
+        ".roadmap/PARCER_PROFILE.agent-spec.yaml",
+        ".roadmap/PARCER_PROFILE.orchestrator-runtime.yaml",
+    )
+    for rel in profiles:
+        payload = yaml.safe_load((repo_root / rel).read_text(encoding="utf-8"))
+        assert payload["parcer_profile"]["version"] == "0.4.1", rel
+
+    storage = yaml.safe_load((repo_root / ".roadmap/STORAGE_POLICY.yaml").read_text(encoding="utf-8"))
+    assert storage["version"] == "0.4.1"
 
 
 def test_bootstrap_installed_console_smoke(tmp_path: Path, repo_root: Path) -> None:

@@ -1,12 +1,11 @@
 # Code of Conduct
 
-ESAA follows a simple contributor covenant:
+This project expects respectful, practical collaboration.
 
-- Be respectful and constructive.
-- Assume good intent while being precise about technical risk.
-- Prefer reproducible evidence over personal criticism.
-- Keep governance and audit discussions focused on system behavior.
+Be clear, patient, and constructive. Critique ideas and code, not people. When
+you find a problem, prefer evidence, reproduction steps, and a proposed path
+forward.
 
-Unacceptable behavior includes harassment, threats, discriminatory language, or
-deliberate disruption of project work. Maintainers may remove comments, close
-issues, or restrict participation to keep the project healthy.
+Harassment, personal attacks, and intentionally disruptive behavior are not
+acceptable in project spaces.
+
