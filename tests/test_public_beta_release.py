@@ -30,6 +30,8 @@ ESSENTIAL_GOVERNANCE_FILES = (
     "PARCER_PROFILE.orchestrator-runtime.yaml",
 )
 
+MINIMAL_AGENT_GUIDANCE = "O ESAA não usa MCP.\nUse a CLI ESAA: python -m esaa.\n"
+
 
 def _run_cli(root: Path, *args: str) -> dict:
     stdout = io.StringIO()
@@ -62,18 +64,20 @@ def test_bootstrap_creates_required_governance_files(tmp_path: Path) -> None:
 def test_bootstrap_creates_agent_guidance_files(tmp_path: Path) -> None:
     result = bootstrap_workspace(tmp_path, profile="public")
 
+    assert "README.md" in result["files_written"]
     assert "AGENTS.md" in result["files_written"]
     assert ".claude/CLAUDE.md" in result["files_written"]
+    assert (tmp_path / "README.md").is_file()
     assert (tmp_path / "AGENTS.md").is_file()
     assert (tmp_path / ".claude" / "CLAUDE.md").is_file()
     assert not (tmp_path / ".claude" / "settings.local.json").exists()
 
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     claude = (tmp_path / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
-    assert "python -m esaa" in agents
-    assert "esaa-core" in agents
-    assert "python -m esaa" in claude
-    assert "esaa-core" in claude
+    readme = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert agents == MINIMAL_AGENT_GUIDANCE
+    assert claude == MINIMAL_AGENT_GUIDANCE
+    assert "# ESAA" in readme
 
 
 def test_bootstrap_refuses_existing_files_without_force(tmp_path: Path) -> None:
@@ -144,8 +148,9 @@ def test_packaged_governance_templates_match_canonical_files(repo_root: Path) ->
 
 def test_packaged_agent_guides_match_canonical_files(repo_root: Path) -> None:
     workspace_root = repo_root / "src/esaa/workspace"
-    assert (workspace_root / "AGENTS.md").read_bytes() == (repo_root / "AGENTS.md").read_bytes()
-    assert (workspace_root / "CLAUDE.md").read_bytes() == (repo_root / ".claude" / "CLAUDE.md").read_bytes()
+    assert (workspace_root / "AGENTS.md").read_text(encoding="utf-8") == MINIMAL_AGENT_GUIDANCE
+    assert (workspace_root / "CLAUDE.md").read_text(encoding="utf-8") == MINIMAL_AGENT_GUIDANCE
+    assert (workspace_root / "README.md").read_bytes() == (repo_root / "readme.md").read_bytes()
 
 
 def test_pyproject_public_metadata(repo_root: Path) -> None:

@@ -26,6 +26,7 @@ GOVERNANCE_TEMPLATE_FILES = (
 )
 
 AGENT_GUIDE_TEMPLATE_FILES = (
+    ("README.md", "README.md"),
     ("AGENTS.md", "AGENTS.md"),
     ("CLAUDE.md", ".claude/CLAUDE.md"),
 )
@@ -57,9 +58,9 @@ def bootstrap_workspace(root: Path, profile: str = "public", force: bool = False
     """Copy packaged ESAA governance templates into a workspace.
 
     Bootstrap installs the public governance bundle: contracts, schemas,
-    runtime/storage policy, projection spec, PARCER profiles, and human/agent
-    guidance files. Event stores and materialized read models stay untouched so
-    a public package can safely prepare existing workspaces.
+    runtime/storage policy, projection spec, PARCER profiles, README, and
+    minimal agent guidance files. Event stores and materialized read models
+    stay untouched so a public package can safely prepare existing workspaces.
     """
     if profile not in PROFILES:
         raise ESAAError("BOOTSTRAP_PROFILE_INVALID", f"profile must be one of {sorted(PROFILES)}")
