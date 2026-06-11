@@ -9,23 +9,43 @@ the Event Sourcing pattern to agent workflows: the source of truth is an
 append-only event log, and the current project state is a deterministic
 projection of that log.
 
+In one line:
+
+```text
+Agent proposes -> Orchestrator validates -> Event store records -> Projection updates
+```
+
 This repository contains the ESAA reference contracts, roadmap artifacts, tests,
 and the local `esaa-core` runtime. The runtime is a Python CLI that applies the
 protocol directly over `.roadmap/`; it does not use MCP.
 
 Paper: [ESAA: Event Sourcing for Autonomous Agents in LLM-Based Software Engineering](https://arxiv.org/pdf/2602.23193)
 
-## Public Beta
+## At A Glance
 
-`esaa-core` is prepared for a public beta package as `0.5.0b4`. The protocol and
-schemas remain at `0.4.1`; the package version marks release readiness, not a
-protocol break.
+- Agents emit structured intentions; they do not write project state directly.
+- The Orchestrator is the single writer for the event store and file effects.
+- Every admitted transition is replayable from `.roadmap/activity.jsonl`.
+- Read models such as `roadmap.json`, `issues.json`, and `lessons.json` are
+  deterministic projections, not hand-edited truth.
+- The runtime can advance known state transitions without spending LLM tokens.
+- Patch-style `file_updates.edits` reduce repeated full-file payloads when only
+  small changes are needed.
 
-Install the beta package:
+## Quickstart
+
+Install the current beta package:
 
 ```bash
-python -m pip install esaa-core==0.5.0b4
-esaa --version
+python -m pip install --upgrade --pre esaa-core
+python -m esaa --version
+```
+
+For a pinned install:
+
+```bash
+python -m pip install esaa-core==0.5.0b8
+python -m esaa --version
 ```
 
 Start a clean workspace:
@@ -33,26 +53,66 @@ Start a clean workspace:
 ```bash
 mkdir esaa-demo
 cd esaa-demo
-esaa bootstrap --profile public
-esaa init
-esaa verify
-esaa eligible
+python -m esaa bootstrap --profile public
+python -m esaa init
+python -m esaa verify
+python -m esaa eligible
 ```
+
+Expected first signal: `verify` reports `verify_status: ok`. `eligible` reports
+currently executable tasks from the active roadmap state.
 
 `bootstrap` installs the full packaged governance bundle: contracts, schemas,
 runtime/storage policy, projection spec, PARCER profiles, `README.md`, and
-minimal agent guidance files (`AGENTS.md`, `.claude/CLAUDE.md`). It does not create or overwrite
-`.roadmap/activity.jsonl`, read models, artifacts, backups, or snapshots.
+minimal agent guidance files (`AGENTS.md`, `.claude/CLAUDE.md`). It does not
+create or overwrite `.roadmap/activity.jsonl`, read models, artifacts, backups,
+or snapshots.
 
 For production workspaces, use:
 
 ```bash
-esaa bootstrap --profile production
+python -m esaa bootstrap --profile production
 ```
 
 The production profile keeps independent QA review enabled and is intended to
 be used with pinned package versions, backups, snapshots, `verify`, and
 `runner.metrics`.
+
+If the installed `esaa` script is not on your PATH, use `python -m esaa`; it is
+the most portable invocation on Windows, Linux, and macOS.
+
+## Public Beta Status
+
+Current package: `esaa-core 0.5.0b8`.
+
+Current protocol/schema line: `0.4.1`. The package version marks beta runtime
+readiness; it is not a protocol break.
+
+Highlights in `0.5.0b8`:
+
+- `file_updates` can carry compact `edits` instead of full file content.
+- Duplicate effective file update paths are rejected with
+  `FILE_UPDATE_DUPLICATE_PATH`.
+- `boundary_grant` lets governed tasks receive explicit temporary write grants.
+- Dispatch context and operational docs were reduced to lower repeated token
+  load.
+- The former `service.py` monolith is now a facade over smaller runtime modules.
+- Edge cases around edit encoding, exact replacement, and schema compatibility
+  are covered by regression tests.
+
+## When To Use ESAA
+
+Use ESAA when you need governed agent execution:
+
+- autonomous or semi-autonomous coding agents working on roadmap tasks
+- audit trails for who proposed, validated, and admitted each transition
+- immutable task completion with hotfixes instead of history rewriting
+- deterministic replay of state from an append-only event log
+- multiple external runners such as Codex, Claude Code, or local scripts
+
+ESAA is probably too much if you only need a one-off script, a throwaway
+prototype, or an automation where direct file mutation without audit is
+acceptable.
 
 ## Why ESAA Exists
 
@@ -257,6 +317,44 @@ Trigger: `task_status == "in_progress"` and `assigned_to` matches the actor.
 workflow gates, boundaries, locks, and verification before applying any file
 write.
 
+Since `0.5.0b8`, a file update can also be sent as exact edits:
+
+```json
+{
+  "activity_event": {
+    "action": "complete",
+    "task_id": "<task id>",
+    "prior_status": "in_progress",
+    "verification": {
+      "checks": ["edit validated"]
+    }
+  },
+  "file_updates": [
+    {
+      "path": "src/esaa/service.py",
+      "base_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "edits": [
+        {
+          "old_string": "exact old text",
+          "new_string": "replacement text",
+          "replace_all": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+Edit semantics are fail-closed:
+
+- `base_sha256` must match the current bytes of the target file.
+- `old_string` is matched against the progressively edited UTF-8 text.
+- Newlines are exact; CRLF is not normalized to LF.
+- Non-UTF-8 targets are rejected.
+- Multiple matches require `replace_all: true`.
+- Rejections use structured codes such as `EDIT_BASE_MISMATCH`,
+  `EDIT_TARGET_NOT_FOUND`, `EDIT_AMBIGUOUS`, and `EDIT_INVALID`.
+
 ### Review
 
 When a task is in `review`, a QA-capable actor may approve it or request
@@ -330,6 +428,22 @@ When the state transition is known and does not require LLM reasoning,
 `esaa-core` can drive the state machine directly through CLI commands. This
 lets the harness control `claim`, `complete`, `review`, issue handling, hotfixes,
 metrics, projection, and verification without spending tokens.
+
+## Token Reduction Model
+
+ESAA does not make model inference cheaper by itself. It reduces avoidable token
+use around governed engineering work:
+
+- compact projections and contracts replace repeated full repository summaries
+- `dispatch-context` injects only the task-relevant operational state
+- deterministic CLI transitions handle known workflow moves without an LLM call
+- `file_updates.edits` can send small exact patches instead of full file bodies
+- a decomposed runtime makes future analysis less likely to load one large
+  service module for unrelated questions
+
+This is a technical reduction in repeated context and payload size, not a
+substitute for measuring provider-side input/output tokens when a real runner
+is used.
 
 ## Workflow Gates
 
@@ -419,14 +533,22 @@ example when the log proves a task is `done` but a read model still shows it as
 
 ## Local Runtime: esaa-core
 
-The public CLI is installed as:
+The public CLI is exposed as a Python module and as a console script.
+`python -m esaa` is the safest cross-platform form:
+
+```bash
+python -m esaa --help
+```
+
+If the script directory is on your PATH, this also works:
 
 ```bash
 esaa --help
 ```
 
-When developing from this repository instead of an installed wheel, set the
-local source path first:
+When developing from this repository instead of an installed wheel, always set
+the local source path first. Otherwise Python may import an older installed
+wheel instead of the checkout you are editing.
 
 ```powershell
 $env:PYTHONPATH='src'

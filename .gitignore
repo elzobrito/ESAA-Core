@@ -47,7 +47,3 @@ Thumbs.db
 
 # Optional ESAA inbox processed files
 .roadmap/inbox/
-examples/
-docs/
-tests/
-tests/test_*.py

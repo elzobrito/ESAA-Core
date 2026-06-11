@@ -1,0 +1,48 @@
+# QUA-06: gate de qualidade — lint + testes em matriz, mypy advisory.
+# Escopo de lint/format: arquivos ja em conformidade (adesao gradual, ver
+# docs/spec/G01-hygiene-tooling-ci.md). Novos arquivos devem nascer conformes.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff black
+      - name: ruff (escopo conformado)
+        run: ruff check src/esaa/file_effects.py src/esaa/service.py src/esaa/constants.py
+      - name: black --check (escopo conformado)
+        run: black --check src/esaa/file_effects.py src/esaa/service.py src/esaa/constants.py
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e .[dev]
+      - run: python -m pytest -q
+
+  typecheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true # QUA-01: advisory ate promocao a bloqueante
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[dev]
+      - run: mypy src/esaa

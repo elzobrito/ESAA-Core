@@ -1,0 +1,46 @@
+{
+  "system_name": "Nome do Sistema",
+  "system_slug": "sigla-do-sistema",
+  "system_path": "C:\\xampp\\htdocs\\observatorio-escolar",
+  "language_profile": "php",
+  "client_base_url": "https://sistema.cps.sp.gov.br/sistema",
+  "client_base_path": "",
+  "sso_callback_path": "/sso/callback",
+  "post_login_redirect": "/home",
+  "post_logout_redirect": "/",
+  "sso_client_id": "<client_id_do_sistema>",
+  "sso_client_secret": "<client_secret_do_sistema>",
+  "flow_modes": ["client_initiated"],
+  "sso_routes": {
+    "routing_file_hint": "oe/lib/Route.php",
+    "controller_hint": "oe/app/Controller/SsoController.php",
+    "routes": [
+      {
+        "name": "launch",
+        "method": "GET",
+        "path": "/sso/launch{:param}",
+        "handler": "SsoController#launch"
+      },
+      {
+        "name": "callback",
+        "method": "GET",
+        "path": "/sso/callback{:param}",
+        "handler": "SsoController#callback"
+      },
+      {
+        "name": "health",
+        "method": "GET",
+        "path": "/sso/health{:param}",
+        "handler": "SsoController#health"
+      }
+    ],
+    "optional_routes": [
+      {
+        "name": "error",
+        "method": "GET",
+        "path": "/sso/error{:param}",
+        "handler": "SsoController#error"
+      }
+    ]
+  }
+}
