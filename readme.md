@@ -1,5 +1,9 @@
 # ESAA - Event Sourcing for Autonomous Agents
 
+<p align="center">
+  <img src="docs/assets/esaa-logo.png" alt="ESAA state machine logo" width="960">
+</p>
+
 > Treat LLM agents as intention emitters under contract, not as unrestricted
 > writers of code, state, or project history.
 
