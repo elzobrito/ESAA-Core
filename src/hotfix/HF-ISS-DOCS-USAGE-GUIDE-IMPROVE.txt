@@ -1,0 +1,10 @@
+# Hotfix marker: ISS-DOCS-USAGE-GUIDE-IMPROVE
+
+This hotfix task was auto-created when ISS-DOCS-USAGE-GUIDE-IMPROVE was reported against the immutable done task T-DOCS-USAGE-GUIDE.
+
+Resolution:
+- Documentation corrections were applied by governed spec task T-DOCS-USAGE-GUIDE-IMPROVE.
+- Packaging parity for the README was restored by HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC.
+- The original done task remains immutable.
+
+No runtime source patch is required in this hotfix scope.

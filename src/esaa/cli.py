@@ -24,6 +24,7 @@ from .plugins import (
     validate_plugin,
 )
 from .provenance import ENV_RUNNER_ID
+from .runner_inputs import register_commands_input, show_commands_input, validate_commands_input
 from .scenarios import run_hotfix_trace
 from .service import ESAAService
 from .snapshot import compact_event_store, create_snapshot
@@ -281,6 +282,22 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("eligible", help="list eligible tasks and parallel groups")
     sub.add_parser("metrics", help="emit structured runtime metrics")
 
+    cmd_input = sub.add_parser("input", help="local runner input commands")
+    input_sub = cmd_input.add_subparsers(dest="input_command", required=True)
+    cmd_input_commands = input_sub.add_parser("commands", help="runner command capability input")
+    input_commands_sub = cmd_input_commands.add_subparsers(dest="commands_command", required=True)
+    cmd_input_commands_validate = input_commands_sub.add_parser(
+        "validate", help="validate a command capability YAML file"
+    )
+    cmd_input_commands_validate.add_argument("path")
+    cmd_input_commands_register = input_commands_sub.add_parser(
+        "register", help="register a command capability YAML file for this runner"
+    )
+    cmd_input_commands_register.add_argument("path")
+    cmd_input_commands_register.add_argument("--runner-id", default=None)
+    cmd_input_commands_show = input_commands_sub.add_parser("show", help="show registered commands input")
+    cmd_input_commands_show.add_argument("--runner-id", default=None)
+
     cmd_plugin = sub.add_parser("plugin", help="installable plugin commands")
     plugin_sub = cmd_plugin.add_subparsers(dest="plugin_command", required=True)
     cmd_plugin_list = plugin_sub.add_parser("list", help="list installed or available plugins")
@@ -517,6 +534,15 @@ def main(argv: list[str] | None = None) -> int:
             result = service.eligible()
         elif args.command == "metrics":
             result = service.metrics()
+        elif args.command == "input" and args.input_command == "commands":
+            if args.commands_command == "validate":
+                result = validate_commands_input(Path(args.path))
+            elif args.commands_command == "register":
+                result = register_commands_input(root, Path(args.path), runner_id=args.runner_id)
+            elif args.commands_command == "show":
+                result = show_commands_input(root, runner_id=args.runner_id)
+            else:
+                raise ESAAError("UNKNOWN_COMMAND", f"unknown input commands action: {args.commands_command}")
         elif args.command == "plugin" and args.plugin_command == "list":
             source_filter = None
             if args.bundled and args.external:

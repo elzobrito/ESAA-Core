@@ -7,6 +7,7 @@ from typing import Any
 from .errors import CorruptedStoreError, ESAAError
 from .events import build_hotfix_event, make_event
 from .projector import materialize
+from .runner_inputs import load_runtime_capabilities
 from .seeds import (
     BASELINE_LESSONS,
     build_dispatch_context,
@@ -255,6 +256,10 @@ class TaskAdminMixin:
         context["last_event_seq"] = roadmap["meta"]["run"]["last_event_seq"]
 
         context["source"] = sources.get(task_id, "event_store")
+
+        runtime_capabilities = load_runtime_capabilities(self.root)
+        if runtime_capabilities:
+            context["runtime_capabilities"] = runtime_capabilities
 
         return context
 

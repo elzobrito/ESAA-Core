@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0b9
+
+Public beta refresh for runner-local command capability input.
+
+Highlights:
+
+- Added `python -m esaa input commands validate/register/show` for local runner
+  command capability YAML files.
+- Injected registered command capabilities into `dispatch-context` as
+  `runtime_capabilities`.
+- Published package `esaa-core 0.5.0b9` on PyPI.
+
 ## 0.5.0b8
 
 Public beta refresh focused on lower token overhead and stricter file update

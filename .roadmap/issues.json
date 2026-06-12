@@ -4,10 +4,68 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 17,
-    "updated_at": "2026-06-11T15:46:53Z"
+    "last_event_seq": 147,
+    "updated_at": "2026-06-12T16:13:53Z"
   },
-  "issues": [],
+  "issues": [
+    {
+      "issue_id": "ISS-DOCS-USAGE-GUIDE-IMPROVE",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Guias de uso precisam de sintaxes completas e melhor descoberta",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A documentacao aprovada cobre o nucleo do ESAA, mas deixa comandos operacionais com reticencias, omite flags reais do CLI e nao esta linkada no README principal.",
+        "repro_steps": [
+          "Executar python -m esaa --help e comparar os 29 subcomandos com docs/guides/esaa-cli-reference.md.",
+          "Executar python -m esaa issue report --help, hotfix create --help, activity clear --help, runner metrics --help, effects recover --help e scenario hotfix --help; observar sintaxes omitidas nos guias.",
+          "Buscar no README principal por docs/guides/esaa-cli-reference.md e confirmar ausencia de link para os novos guias."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "HF-ISS-DOCS-USAGE-GUIDE-IMPROVE"
+      },
+      "links": {
+        "reported_by_task_id": "T-DOCS-USAGE-GUIDE",
+        "fixes_task_id": "T-DOCS-USAGE-GUIDE",
+        "hotfix_task_id": "HF-ISS-DOCS-USAGE-GUIDE-IMPROVE"
+      },
+      "timeline": {
+        "created_event_seq": 95,
+        "resolved_event_seq": 145
+      }
+    },
+    {
+      "issue_id": "ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC",
+      "status": "resolved",
+      "severity": "high",
+      "title": "README empacotado ficou divergente do README canonico",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A suite falha em test_packaged_agent_guides_match_canonical_files porque readme.md foi atualizado, mas src/esaa/workspace/README.md continua com o conteudo anterior.",
+        "repro_steps": [
+          "Executar python -m pytest tests/test_public_beta_release.py::test_packaged_agent_guides_match_canonical_files.",
+          "Comparar bytes de readme.md e src/esaa/workspace/README.md."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC"
+      },
+      "links": {
+        "reported_by_task_id": "T-DOCS-USAGE-GUIDE-IMPROVE",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC"
+      },
+      "timeline": {
+        "created_event_seq": 115,
+        "resolved_event_seq": 132
+      }
+    }
+  ],
   "indexes": {
     "open_by_baseline": {}
   }

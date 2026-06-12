@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 17,
-      "projection_hash_sha256": "305578652a2cb440eac38d587d0d94325960b2b49d3ab33e5386b18991a8f714",
+      "last_event_seq": 147,
+      "projection_hash_sha256": "60e24e227f63e1b42e4299420daf76871253925d601662f39071692c899475a8",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-11T15:46:53Z"
+    "updated_at": "2026-06-12T16:13:53Z"
   },
   "project": {
     "name": "esaa-core",
@@ -49,14 +49,319 @@
         ]
       },
       "completed_at": "2026-06-11T15:46:53Z"
+    },
+    {
+      "task_id": "T-INPUT-COMMANDS-B9",
+      "task_kind": "impl",
+      "title": "Adicionar input commands e preparar 0.5.0b9",
+      "description": "Portar o comando input commands para o checkout de producao, adicionar testes e elevar a versao do pacote para 0.5.0b9 para publicacao imutavel no PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "runtime-inputs",
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/runner_inputs.py",
+          "src/esaa/cli.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/reject_codes.py",
+          "src/esaa/constants.py",
+          "tests/test_runner_input_commands.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-11T21:36:40Z",
+      "verification": {
+        "checks": [
+          "PyPI confirmou esaa-core 0.5.0b8 ja publicado; release precisa usar nova versao 0.5.0b9",
+          "Conteudo dos novos arquivos foi portado do checkout ja validado e transformacoes em cli/task_admin/reject_codes/constants passaram por assertions antes do submit"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:55Z"
+    },
+    {
+      "task_id": "T-PUBLIC-B9-DOCS",
+      "task_kind": "spec",
+      "title": "Atualizar metadados publicos para 0.5.0b9",
+      "description": "Atualizar README, CHANGELOG e README empacotado para refletir a publicacao 0.5.0b9 com input commands antes do upload ao PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "readme.md",
+          "CHANGELOG.md",
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "src/esaa/workspace/README.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-11T21:40:08Z",
+      "verification": {
+        "checks": [
+          "README atualizado para pinned install e current package 0.5.0b9",
+          "CHANGELOG recebeu entrada 0.5.0b9 com input commands e runtime_capabilities"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:56Z"
+    },
+    {
+      "task_id": "T-WORKSPACE-README-B9",
+      "task_kind": "impl",
+      "title": "Alinhar README empacotado com 0.5.0b9",
+      "description": "Atualizar src/esaa/workspace/README.md para ficar byte a byte igual ao readme.md usado na metadata do pacote 0.5.0b9.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-11T21:42:04Z",
+      "verification": {
+        "checks": [
+          "Conteudo de src/esaa/workspace/README.md gerado diretamente de readme.md atualizado"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:57Z"
+    },
+    {
+      "task_id": "T-PYPI-DEPLOY-050B9",
+      "task_kind": "qa",
+      "title": "Publicar esaa-core 0.5.0b9 no PyPI",
+      "description": "Construir, validar e publicar esaa-core 0.5.0b9 no PyPI usando token local do .env de producao.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-06-11T21:44:31Z",
+      "verification": {
+        "checks": [
+          "python -m build --outdir %TEMP% gerou esaa_core-0.5.0b9-py3-none-any.whl e esaa_core-0.5.0b9.tar.gz",
+          "python -m twine check passou para wheel e sdist",
+          "Inspecao do wheel e sdist retornou forbidden_env_entries=0, confirmando que .env nao entrou nos artefatos",
+          "twine upload publicou em https://pypi.org/project/esaa-core/0.5.0b9/ usando token do .env como TWINE_PASSWORD de subprocesso",
+          "PyPI JSON confirmou latest=0.5.0b9 e has_0.5.0b9=True apos propagacao",
+          "venv temporario instalou esaa-core==0.5.0b9 do PyPI; python -m esaa --version retornou 0.5.0b9 e --help exibiu input"
+        ]
+      },
+      "completed_at": "2026-06-11T21:47:45Z"
+    },
+    {
+      "task_id": "T-INJECT-COMMANDS-YAML",
+      "task_kind": "spec",
+      "title": "Injetar YAML de comandos no prod",
+      "description": "Adicionar o perfil operacional runtime-capabilities.windows-wsl.yaml ao checkout de producao para registrar comandos disponiveis do runner Codex.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "runtime-inputs"
+      ],
+      "outputs": {
+        "files": [
+          "docs/operations/runtime-capabilities.windows-wsl.yaml"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-11T22:11:08Z",
+      "verification": {
+        "checks": [
+          "Arquivo fonte validado existe no checkout anterior e foi lido como UTF-8",
+          "Conteudo sera validado pelo comando input commands antes do registro do runner"
+        ]
+      },
+      "completed_at": "2026-06-11T22:12:03Z"
+    },
+    {
+      "task_id": "T-DOCS-USAGE-GUIDE",
+      "task_kind": "spec",
+      "title": "Documentar recursos do ESAA e guia de uso com Codex/Claude Code",
+      "description": "Produzir documentacao de uso do ESAA cobrindo: (1) referencia de cada subcomando do CLI esaa (bootstrap, init, run, submit, claim, complete, review, state, dispatch-context, reject, task, issue, hotfix, activity, process, project, verify, chain, eligible, metrics, input, plugin, roadmap, plugin-status, effects, runner, scenario, vocabulary, snapshot, replay) com proposito, sintaxe e exemplo; (2) guia pratico de como usar o ESAA num projeto novo (bootstrap/init ate o ciclo todo->in_progress->review->done); (3) guia de como operar Codex e Claude Code como runners externos (provenance --runner, dispatch-context, input commands/runtime_capabilities, runner metrics, envelope agent.result e two-step claim/complete); (4) motivacao: porque usar o ESAA e quais problemas cada recurso resolve (tabela recurso/para-que-serve/problema-que-resolve).",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cli-reference.md",
+          "docs/guides/esaa-getting-started.md",
+          "docs/guides/esaa-runners-codex-claude-code.md",
+          "docs/guides/esaa-why.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-12T15:34:55Z",
+      "verification": {
+        "checks": [
+          "docs/guides/esaa-cli-reference.md documenta os 29 subcomandos do esaa --help real (0.5.0b9) com proposito, sintaxe e exemplos, incluindo state, process, scenario, vocabulary e reject",
+          "docs/guides/esaa-getting-started.md cobre instalacao via pip, bootstrap/init e o ciclo completo todo->in_progress->review->done com exemplos executaveis",
+          "docs/guides/esaa-runners-codex-claude-code.md cobre provenance --runner, input commands/runtime_capabilities, dispatch-context, envelope agent.result, two-step claim/complete, gates WG-001..005 e runner metrics",
+          "docs/guides/esaa-why.md apresenta a tabela recurso/para-que-serve/problema-que-resolve cobrindo todos os recursos do core"
+        ]
+      },
+      "completed_at": "2026-06-12T15:40:04Z"
+    },
+    {
+      "task_id": "HF-ISS-DOCS-USAGE-GUIDE-IMPROVE",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-DOCS-USAGE-GUIDE-IMPROVE",
+      "description": "Apply a minimal hotfix to resolve issue ISS-DOCS-USAGE-GUIDE-IMPROVE without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-DOCS-USAGE-GUIDE-IMPROVE"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-DOCS-USAGE-GUIDE-IMPROVE.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-DOCS-USAGE-GUIDE-IMPROVE",
+      "fixes": "T-DOCS-USAGE-GUIDE",
+      "scope_patch": [
+        "src/hotfix/"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-hotfix",
+      "started_at": "2026-06-12T16:12:26Z",
+      "verification": {
+        "checks": [
+          "unit: marcador de hotfix criado dentro de src/hotfix/ conforme scope_patch",
+          "regression: T-DOCS-USAGE-GUIDE-IMPROVE e HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC estao done e preservam a task original imutavel"
+        ]
+      },
+      "completed_at": "2026-06-12T16:12:46Z"
+    },
+    {
+      "task_id": "T-DOCS-USAGE-GUIDE-IMPROVE",
+      "task_kind": "spec",
+      "title": "Melhorar guias de uso do ESAA",
+      "description": "Corrigir a issue ISS-DOCS-USAGE-GUIDE-IMPROVE expandindo sintaxes e exemplos reais dos comandos operacionais, padronizando runner em comandos que escrevem eventos, melhorando a legibilidade do guia de motivacao e linkando docs/guides no README principal.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation",
+        "ISS-DOCS-USAGE-GUIDE-IMPROVE"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cli-reference.md",
+          "docs/guides/esaa-getting-started.md",
+          "docs/guides/esaa-runners-codex-claude-code.md",
+          "docs/guides/esaa-why.md",
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "readme.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-12T15:59:06Z",
+      "verification": {
+        "checks": [
+          "edits com base_sha256 atual preparados para docs/guides e readme.md",
+          "sintaxes conferidas contra python -m esaa --help e subcommands --help",
+          "readme.md recebe links para os quatro guias de uso"
+        ]
+      },
+      "issue_id": "ISS-DOCS-USAGE-GUIDE-IMPROVE",
+      "fixes": "T-DOCS-USAGE-GUIDE",
+      "completed_at": "2026-06-12T16:08:28Z"
+    },
+    {
+      "task_id": "HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC",
+      "description": "Apply a minimal hotfix to resolve issue ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-DOCS-USAGE-GUIDE-PACKAGE-SYNC",
+      "fixes": "T-DOCS-USAGE-GUIDE-IMPROVE",
+      "scope_patch": [
+        "src/esaa/workspace/README.md"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-hotfix",
+      "started_at": "2026-06-12T16:11:30Z",
+      "verification": {
+        "checks": [
+          "unit: src/esaa/workspace/README.md recebe exatamente o conteudo de readme.md",
+          "regression: cobre falha de tests/test_public_beta_release.py::test_packaged_agent_guides_match_canonical_files"
+        ]
+      },
+      "completed_at": "2026-06-12T16:12:03Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 1
+      "done": 10
     },
     "by_kind": {
-      "spec": 1
+      "impl": 4,
+      "qa": 1,
+      "spec": 5
     }
   }
 }

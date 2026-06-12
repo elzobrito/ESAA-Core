@@ -1,0 +1,146 @@
+schema_version: "0.1"
+title: "Windows and WSL Runtime Capabilities"
+status: "local_environment_snapshot"
+observed_at: "2026-06-11"
+intended_consumers:
+  - "Codex"
+  - "Claude Code"
+  - "other ESAA external runners"
+authority:
+  level: "advisory"
+  notes:
+    - "This file describes the operator workstation observed by a runner."
+    - "It is not a global ESAA guarantee and must be refreshed when PATH, shell, WSL, or installed tools change."
+    - "For critical steps, verify the command in the intended command surface before relying on it."
+
+command_surfaces:
+  powershell:
+    available: true
+    primary: true
+    path_style: "windows"
+    verified_commands:
+      - "powershell"
+      - "pwsh"
+    recommended_for:
+      - "ESAA CLI orchestration on Windows"
+      - "Windows filesystem operations"
+      - "PowerShell cmdlets and structured object pipelines"
+
+  cmd:
+    available: true
+    path_style: "windows"
+    verified_commands:
+      - "cmd"
+    recommended_for:
+      - "legacy Windows command examples"
+
+  wsl_ubuntu:
+    available: true
+    distro: "Ubuntu"
+    wsl_version: 2
+    invocation: "bash -lc '<command>'"
+    path_style: "posix"
+    state_when_listed:
+      Ubuntu: "Stopped"
+      docker-desktop: "Stopped"
+    verified_kernel: "Linux elzobrito 6.18.33.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Fri Jun 5 01:12:21 UTC 2026 x86_64 GNU/Linux"
+    verified_tools:
+      grep: "/usr/bin/grep"
+      sed: "/usr/bin/sed"
+      awk: "/usr/bin/awk"
+      find: "/usr/bin/find"
+      ls: "/usr/bin/ls"
+      cat: "/usr/bin/cat"
+    recommended_for:
+      - "GNU/Linux command semantics"
+      - "sed/awk/find pipelines"
+      - "Linux shell examples copied from docs or CI"
+
+windows_path_tools:
+  shells:
+    - "bash"
+    - "wsl"
+    - "cmd"
+    - "powershell"
+    - "pwsh"
+  search_and_files:
+    - "rg"
+    - "fd"
+    - "fzf"
+    - "jq"
+    - "yq"
+    - "curl"
+    - "tar"
+    - "robocopy"
+  version_control_and_editors:
+    - "git"
+    - "gh"
+    - "code"
+  python:
+    - "py"
+    - "python"
+    - "pip"
+    - "pytest"
+    - "ruff"
+    - "black"
+    - "uv"
+    - "poetry"
+  node:
+    - "node"
+    - "npm"
+    - "npx"
+  php:
+    - "php"
+    - "composer"
+    - "phpunit"
+  containers:
+    - "docker"
+    - "docker-compose"
+    - "kubectl"
+  other_runtimes:
+    - "dotnet"
+    - "go"
+  ai_and_agent_tools:
+    - "codex"
+    - "claude"
+    - "gemini"
+    - "openai"
+    - "ollama"
+  data:
+    - "sqlite3"
+
+unix_style_tools_on_windows:
+  confirmed_in_powershell_path:
+    grep: "Coreutils for Windows"
+    find: "Coreutils for Windows"
+  powershell_aliases_not_gnu:
+    - "ls"
+    - "cat"
+  not_confirmed_in_powershell_path:
+    - "sed"
+    - "awk"
+  rule: "Use bash -lc when GNU semantics matter. Use Get-Command before assuming a Unix command name maps to GNU behavior in PowerShell."
+
+recommended_agent_rules:
+  - "Use rg for repository text search when available."
+  - "Use PowerShell-native commands for Windows filesystem operations unless a Linux pipeline is clearly simpler."
+  - "Use bash -lc for commands that require GNU grep/sed/awk/find/ls/cat semantics."
+  - "Do not assume an installed app from winget list is callable from PATH. Verify with Get-Command first."
+  - "Do not assume a PowerShell alias has the same behavior as the Unix command with the same name."
+  - "Check py --version or python --version before choosing the Python launcher; python.exe may be a WindowsApps shim."
+  - "For paths passed into WSL, translate Windows paths to /mnt/<drive>/... or run from an appropriate WSL path."
+  - "Treat administrative cmdlets such as Dism, Defender, Storage, Remove-*, and Set-* as privileged or dangerous unless the user explicitly requests them."
+
+verification_commands:
+  powershell_tools: "Get-Command pwsh,powershell,cmd,bash,wsl,git,rg,fd,fzf,jq,yq,curl,tar,robocopy,gh,code,py,python,pip,pytest,ruff,black,uv,poetry,node,npm,npx,php,composer,phpunit,docker,docker-compose,kubectl,dotnet,go,codex,claude,gemini,openai,ollama,sqlite3 -ErrorAction SilentlyContinue"
+  powershell_unix_names: "Get-Command grep,sed,awk,find,ls,cat -ErrorAction SilentlyContinue"
+  wsl_list: "wsl -l -v"
+  wsl_gnu_core: "bash -lc 'command -v grep sed awk find ls cat && uname -a'"
+
+refresh_policy:
+  refresh_when:
+    - "PATH changes"
+    - "WSL distro changes"
+    - "toolchain installation or upgrade"
+    - "runner changes machine or shell"
+  minimum_refresh_command: "Run the verification_commands above and update this snapshot."
