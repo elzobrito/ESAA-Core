@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 17,
-      "projection_hash_sha256": "305578652a2cb440eac38d587d0d94325960b2b49d3ab33e5386b18991a8f714",
+      "last_event_seq": 81,
+      "projection_hash_sha256": "634239181028b0d385db7a12370092d393d1e3458e10cac266c619be6649d64c",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-11T15:46:53Z"
+    "updated_at": "2026-06-11T22:12:03Z"
   },
   "project": {
     "name": "esaa-core",
@@ -49,14 +49,169 @@
         ]
       },
       "completed_at": "2026-06-11T15:46:53Z"
+    },
+    {
+      "task_id": "T-INPUT-COMMANDS-B9",
+      "task_kind": "impl",
+      "title": "Adicionar input commands e preparar 0.5.0b9",
+      "description": "Portar o comando input commands para o checkout de producao, adicionar testes e elevar a versao do pacote para 0.5.0b9 para publicacao imutavel no PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "runtime-inputs",
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/runner_inputs.py",
+          "src/esaa/cli.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/reject_codes.py",
+          "src/esaa/constants.py",
+          "tests/test_runner_input_commands.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-11T21:36:40Z",
+      "verification": {
+        "checks": [
+          "PyPI confirmou esaa-core 0.5.0b8 ja publicado; release precisa usar nova versao 0.5.0b9",
+          "Conteudo dos novos arquivos foi portado do checkout ja validado e transformacoes em cli/task_admin/reject_codes/constants passaram por assertions antes do submit"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:55Z"
+    },
+    {
+      "task_id": "T-PUBLIC-B9-DOCS",
+      "task_kind": "spec",
+      "title": "Atualizar metadados publicos para 0.5.0b9",
+      "description": "Atualizar README, CHANGELOG e README empacotado para refletir a publicacao 0.5.0b9 com input commands antes do upload ao PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "readme.md",
+          "CHANGELOG.md",
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "src/esaa/workspace/README.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-11T21:40:08Z",
+      "verification": {
+        "checks": [
+          "README atualizado para pinned install e current package 0.5.0b9",
+          "CHANGELOG recebeu entrada 0.5.0b9 com input commands e runtime_capabilities"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:56Z"
+    },
+    {
+      "task_id": "T-WORKSPACE-README-B9",
+      "task_kind": "impl",
+      "title": "Alinhar README empacotado com 0.5.0b9",
+      "description": "Atualizar src/esaa/workspace/README.md para ficar byte a byte igual ao readme.md usado na metadata do pacote 0.5.0b9.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-11T21:42:04Z",
+      "verification": {
+        "checks": [
+          "Conteudo de src/esaa/workspace/README.md gerado diretamente de readme.md atualizado"
+        ]
+      },
+      "completed_at": "2026-06-11T21:43:57Z"
+    },
+    {
+      "task_id": "T-PYPI-DEPLOY-050B9",
+      "task_kind": "qa",
+      "title": "Publicar esaa-core 0.5.0b9 no PyPI",
+      "description": "Construir, validar e publicar esaa-core 0.5.0b9 no PyPI usando token local do .env de producao.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "release"
+      ],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-06-11T21:44:31Z",
+      "verification": {
+        "checks": [
+          "python -m build --outdir %TEMP% gerou esaa_core-0.5.0b9-py3-none-any.whl e esaa_core-0.5.0b9.tar.gz",
+          "python -m twine check passou para wheel e sdist",
+          "Inspecao do wheel e sdist retornou forbidden_env_entries=0, confirmando que .env nao entrou nos artefatos",
+          "twine upload publicou em https://pypi.org/project/esaa-core/0.5.0b9/ usando token do .env como TWINE_PASSWORD de subprocesso",
+          "PyPI JSON confirmou latest=0.5.0b9 e has_0.5.0b9=True apos propagacao",
+          "venv temporario instalou esaa-core==0.5.0b9 do PyPI; python -m esaa --version retornou 0.5.0b9 e --help exibiu input"
+        ]
+      },
+      "completed_at": "2026-06-11T21:47:45Z"
+    },
+    {
+      "task_id": "T-INJECT-COMMANDS-YAML",
+      "task_kind": "spec",
+      "title": "Injetar YAML de comandos no prod",
+      "description": "Adicionar o perfil operacional runtime-capabilities.windows-wsl.yaml ao checkout de producao para registrar comandos disponiveis do runner Codex.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "runtime-inputs"
+      ],
+      "outputs": {
+        "files": [
+          "docs/operations/runtime-capabilities.windows-wsl.yaml"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-11T22:11:08Z",
+      "verification": {
+        "checks": [
+          "Arquivo fonte validado existe no checkout anterior e foi lido como UTF-8",
+          "Conteudo sera validado pelo comando input commands antes do registro do runner"
+        ]
+      },
+      "completed_at": "2026-06-11T22:12:03Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 1
+      "done": 6
     },
     "by_kind": {
-      "spec": 1
+      "impl": 2,
+      "qa": 1,
+      "spec": 3
     }
   }
 }

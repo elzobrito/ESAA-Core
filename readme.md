@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b8
+python -m pip install esaa-core==0.5.0b9
 python -m esaa --version
 ```
 
@@ -87,22 +87,21 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b8`.
+Current package: `esaa-core 0.5.0b9`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b8`:
+Highlights in `0.5.0b9`:
 
-- `file_updates` can carry compact `edits` instead of full file content.
-- Duplicate effective file update paths are rejected with
-  `FILE_UPDATE_DUPLICATE_PATH`.
-- `boundary_grant` lets governed tasks receive explicit temporary write grants.
-- Dispatch context and operational docs were reduced to lower repeated token
-  load.
-- The former `service.py` monolith is now a facade over smaller runtime modules.
-- Edge cases around edit encoding, exact replacement, and schema compatibility
-  are covered by regression tests.
+- `input commands validate/register/show` lets a runner register local command
+  capability YAML without making it canonical roadmap state.
+- Registered command capabilities are injected into `dispatch-context` as
+  `runtime_capabilities`, giving Codex, Claude Code, and other runners a compact
+  view of available shells, tools, WSL helpers, and operating rules.
+- The `0.5.0b8` file update hardening remains available: compact
+  `file_updates.edits`, duplicate effective path rejection, `boundary_grant`,
+  reduced dispatch payloads, and service decomposition.
 
 ## When To Use ESAA
 
