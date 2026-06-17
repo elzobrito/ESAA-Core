@@ -1,5 +1,7 @@
 # ESAA — Primeiros passos
 
+🌐 **Português** · [English](esaa-getting-started.en.md)
+
 Guia prático: do zero até o primeiro ciclo completo `todo → in_progress →
 review → done` num workspace governado pelo ESAA.
 

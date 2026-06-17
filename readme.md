@@ -87,18 +87,18 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Usage Guides
 
-> The guides below are currently written in Portuguese.
+> Guides are available in English and Portuguese — switch at the top of each page.
 
-- [Getting started](docs/guides/esaa-getting-started.md) - from bootstrap to the
+- [Getting started](docs/guides/esaa-getting-started.en.md) - from bootstrap to the
   first `todo -> in_progress -> review -> done` cycle.
-- [Practical scenarios (cookbook)](docs/guides/esaa-cenarios.md) - 20 end-to-end
+- [Practical scenarios (cookbook)](docs/guides/esaa-cenarios.en.md) - 20 end-to-end
   situations: each command inside a real use case (init, tasks, plugins,
   runners, hotfix, auditing, concurrency).
-- [CLI reference](docs/guides/esaa-cli-reference.md) - subcommands, syntax, and
+- [CLI reference](docs/guides/esaa-cli-reference.en.md) - subcommands, syntax, and
   operational examples of `esaa`.
-- [Codex and Claude Code as runners](docs/guides/esaa-runners-codex-claude-code.md) -
+- [Codex and Claude Code as runners](docs/guides/esaa-runners-codex-claude-code.en.md) -
   `--runner` provenance, `dispatch-context`, envelopes, and metrics.
-- [Why use ESAA](docs/guides/esaa-why.md) - problems solved by each protocol
+- [Why use ESAA](docs/guides/esaa-why.en.md) - problems solved by each protocol
   feature.
 
 ## Public Beta Status
