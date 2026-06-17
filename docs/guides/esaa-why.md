@@ -1,5 +1,7 @@
 # Por que usar o ESAA
 
+🌐 **Português** · [English](esaa-why.en.md)
+
 > **ESAA — Event Sourcing for Autonomous Agents.** Arquitetura de governança e
 > protocolo event-sourced para agentes autônomos (Codex, Claude Code, scripts,
 > humanos) trabalharem no mesmo projeto sem estado "mágico", sem histórico

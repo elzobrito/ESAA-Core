@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 147,
-      "projection_hash_sha256": "60e24e227f63e1b42e4299420daf76871253925d601662f39071692c899475a8",
+      "last_event_seq": 251,
+      "projection_hash_sha256": "9b8a1cf675dc624a579f5fd272d397309c5f1dc63a7f604c4735748749c8836b",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-12T16:13:53Z"
+    "updated_at": "2026-06-17T17:48:18Z"
   },
   "project": {
     "name": "esaa-core",
@@ -352,16 +352,242 @@
         ]
       },
       "completed_at": "2026-06-12T16:12:03Z"
+    },
+    {
+      "task_id": "T-I18N-THREATMODEL",
+      "task_kind": "spec",
+      "title": "EN translation: security/threat-model",
+      "description": "EN translation: security/threat-model",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/security/threat-model.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:32:53Z",
+      "verification": {
+        "checks": [
+          "EN translation created; PT keeps content + adds language switcher; both link to each other"
+        ]
+      },
+      "completed_at": "2026-06-17T17:33:36Z"
+    },
+    {
+      "task_id": "T-I18N-WHY",
+      "task_kind": "spec",
+      "title": "EN translation: esaa-why guide",
+      "description": "EN translation: esaa-why guide",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-why.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:34:22Z",
+      "verification": {
+        "checks": [
+          "EN version esaa-why.en.md created; PT keeps content + adds language switcher; cross-links point to .en.md siblings"
+        ]
+      },
+      "completed_at": "2026-06-17T17:35:26Z"
+    },
+    {
+      "task_id": "T-I18N-RUNNERS",
+      "task_kind": "spec",
+      "title": "EN translation: runners guide",
+      "description": "EN translation: runners guide",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-runners-codex-claude-code.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:37:06Z",
+      "verification": {
+        "checks": [
+          "EN runners guide created; PT keeps content + switcher; EN see-also points to .en.md; JSON envelopes and commands preserved verbatim"
+        ]
+      },
+      "completed_at": "2026-06-17T17:38:26Z"
+    },
+    {
+      "task_id": "T-I18N-CLIREF",
+      "task_kind": "spec",
+      "title": "EN translation: CLI reference",
+      "description": "EN translation: CLI reference",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cli-reference.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:38:46Z",
+      "verification": {
+        "checks": [
+          "EN cli-reference created; PT keeps content + switcher; EN see-also points to .en.md; all command syntax blocks preserved verbatim"
+        ]
+      },
+      "completed_at": "2026-06-17T17:40:26Z"
+    },
+    {
+      "task_id": "T-I18N-GETSTARTED",
+      "task_kind": "spec",
+      "title": "EN translation: getting started",
+      "description": "EN translation: getting started",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-getting-started.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:35:38Z",
+      "verification": {
+        "checks": [
+          "EN esaa-getting-started.en.md created; PT keeps content + switcher; EN cross-links point to .en.md siblings; code/commands preserved"
+        ]
+      },
+      "completed_at": "2026-06-17T17:36:49Z"
+    },
+    {
+      "task_id": "T-I18N-COOKBOOK",
+      "task_kind": "spec",
+      "title": "EN translation: scenarios cookbook",
+      "description": "EN translation: scenarios cookbook",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "documentation"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cenarios.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:42:06Z",
+      "verification": {
+        "checks": [
+          "EN esaa-cenarios.en.md created with all 20 scenarios; index/cross-ref anchors regenerated to English slugs; sibling links point to .en.md; ../plugins links kept; PT gets language switcher",
+          "code blocks (esaa commands, JSON, YAML) preserved verbatim"
+        ]
+      },
+      "completed_at": "2026-06-17T17:45:12Z"
+    },
+    {
+      "task_id": "T-I18N-README",
+      "task_kind": "spec",
+      "title": "Point README Usage Guides to .en.md + bilingual note",
+      "description": "Point README Usage Guides to .en.md + bilingual note",
+      "status": "done",
+      "depends_on": [
+        "T-I18N-THREATMODEL",
+        "T-I18N-WHY",
+        "T-I18N-RUNNERS",
+        "T-I18N-CLIREF",
+        "T-I18N-GETSTARTED",
+        "T-I18N-COOKBOOK"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "readme.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-06-17T17:45:39Z",
+      "verification": {
+        "checks": [
+          "README Usage Guides links repointed to .en.md (5 guides); bilingual note updated; boundary-grant readme.md honored"
+        ]
+      },
+      "completed_at": "2026-06-17T17:45:56Z"
+    },
+    {
+      "task_id": "T-I18N-QA",
+      "task_kind": "qa",
+      "title": "Verify bilingual links, anchors and code parity",
+      "description": "Verify bilingual links, anchors and code parity",
+      "status": "done",
+      "depends_on": [
+        "T-I18N-README"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/i18n-bilingual-guides.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-06-17T17:47:46Z",
+      "verification": {
+        "checks": [
+          "6 EN siblings exist; all relative links resolve; 22 cookbook in-page anchors match English heading slugs (0 broken)",
+          "code blocks identical except intended comment/placeholder localization; switchers present in all 12 files; README points to .en.md"
+        ]
+      },
+      "completed_at": "2026-06-17T17:48:18Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 10
+      "done": 18
     },
     "by_kind": {
       "impl": 4,
-      "qa": 1,
-      "spec": 5
+      "qa": 2,
+      "spec": 12
     }
   }
 }

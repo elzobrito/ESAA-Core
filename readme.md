@@ -87,17 +87,19 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Usage Guides
 
-- [Primeiros passos](docs/guides/esaa-getting-started.md) - do bootstrap ao
-  primeiro ciclo `todo -> in_progress -> review -> done`.
-- [Cenários práticos (cookbook)](docs/guides/esaa-cenarios.md) - 20 situações
-  ponta a ponta: cada comando dentro de um caso de uso real (init, tarefas,
-  plugins, runners, hotfix, auditoria, concorrência).
-- [Referência do CLI](docs/guides/esaa-cli-reference.md) - subcomandos,
-  sintaxes e exemplos operacionais do `esaa`.
-- [Codex e Claude Code como runners](docs/guides/esaa-runners-codex-claude-code.md) -
-  provenance `--runner`, `dispatch-context`, envelopes e métricas.
-- [Por que usar o ESAA](docs/guides/esaa-why.md) - problemas resolvidos por
-  cada recurso do protocolo.
+> Guides are available in English and Portuguese — switch at the top of each page.
+
+- [Getting started](docs/guides/esaa-getting-started.en.md) - from bootstrap to the
+  first `todo -> in_progress -> review -> done` cycle.
+- [Practical scenarios (cookbook)](docs/guides/esaa-cenarios.en.md) - 20 end-to-end
+  situations: each command inside a real use case (init, tasks, plugins,
+  runners, hotfix, auditing, concurrency).
+- [CLI reference](docs/guides/esaa-cli-reference.en.md) - subcommands, syntax, and
+  operational examples of `esaa`.
+- [Codex and Claude Code as runners](docs/guides/esaa-runners-codex-claude-code.en.md) -
+  `--runner` provenance, `dispatch-context`, envelopes, and metrics.
+- [Why use ESAA](docs/guides/esaa-why.en.md) - problems solved by each protocol
+  feature.
 
 ## Public Beta Status
 

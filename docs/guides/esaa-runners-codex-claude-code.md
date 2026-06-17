@@ -1,5 +1,7 @@
 # Operando Codex e Claude Code como runners do ESAA
 
+🌐 **Português** · [English](esaa-runners-codex-claude-code.en.md)
+
 O ESAA não usa MCP. Runners LLM (Codex, Claude Code, Antigravity, etc.)
 integram-se por **CLI local + arquivos**: leem o contexto que o Orchestrator
 expõe, produzem um envelope `agent.result` e o submetem ao gate. Este guia

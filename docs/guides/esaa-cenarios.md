@@ -1,5 +1,7 @@
 # ESAA — Cenários práticos (cookbook)
 
+🌐 **Português** · [English](esaa-cenarios.en.md)
+
 Este guia documenta os comandos do `esaa` (pacote `esaa-core`, linha 0.5.0b9)
 **dentro de situações reais**, não como uma lista de flags. Cada cenário tem um
 objetivo, os comandos na ordem em que você os usaria, a saída esperada e as
