@@ -89,6 +89,9 @@ the most portable invocation on Windows, Linux, and macOS.
 
 - [Primeiros passos](docs/guides/esaa-getting-started.md) - do bootstrap ao
   primeiro ciclo `todo -> in_progress -> review -> done`.
+- [Cenários práticos (cookbook)](docs/guides/esaa-cenarios.md) - 20 situações
+  ponta a ponta: cada comando dentro de um caso de uso real (init, tarefas,
+  plugins, runners, hotfix, auditoria, concorrência).
 - [Referência do CLI](docs/guides/esaa-cli-reference.md) - subcomandos,
   sintaxes e exemplos operacionais do `esaa`.
 - [Codex e Claude Code como runners](docs/guides/esaa-runners-codex-claude-code.md) -
