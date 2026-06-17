@@ -370,6 +370,7 @@ workspace temporário; com `--current`, opera no workspace atual.
 
 ## Veja também
 
+- [Cenários práticos (cookbook)](esaa-cenarios.md)
 - [Primeiros passos](esaa-getting-started.md)
 - [Operando Codex e Claude Code como runners](esaa-runners-codex-claude-code.md)
 - [Por que usar o ESAA](esaa-why.md)

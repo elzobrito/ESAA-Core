@@ -179,6 +179,7 @@ esaa metrics                           # métricas estruturadas do runtime
 
 ## Leia em seguida
 
+- [Cenários práticos (cookbook)](esaa-cenarios.md) — cada comando dentro de uma situação real
 - [Referência completa do CLI](esaa-cli-reference.md)
 - [Operando Codex e Claude Code como runners](esaa-runners-codex-claude-code.md)
 - [Por que usar o ESAA](esaa-why.md)
