@@ -145,6 +145,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_bootstrap = sub.add_parser("bootstrap", help="install packaged ESAA governance templates")
     cmd_bootstrap.add_argument("--profile", choices=["public", "production"], default="public")
     cmd_bootstrap.add_argument("--force", action="store_true")
+    bootstrap_guide_mode = cmd_bootstrap.add_mutually_exclusive_group()
+    bootstrap_guide_mode.add_argument("--preserve-guides", action="store_true")
+    bootstrap_guide_mode.add_argument("--merge-guides", action="store_true")
 
     cmd_init = sub.add_parser("init", help="initialize canonical clean-state")
     cmd_init.add_argument("--run-id", default="RUN-0001")
@@ -425,7 +428,13 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "bootstrap":
-            result = bootstrap_workspace(root, profile=args.profile, force=args.force)
+            result = bootstrap_workspace(
+                root,
+                profile=args.profile,
+                force=args.force,
+                preserve_guides=args.preserve_guides,
+                merge_guides=args.merge_guides,
+            )
         elif args.command == "init":
             result = service.init(
                 run_id=args.run_id,

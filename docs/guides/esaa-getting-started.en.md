@@ -9,7 +9,7 @@ done` cycle in an ESAA-governed workspace.
 
 ```powershell
 pip install esaa-core
-esaa --version   # e.g.: esaa 0.5.0b9 (protocol 0.4.1, esaa 0.4.x)
+esaa --version   # e.g.: esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
 ```
 
 The package installs the `esaa` command (equivalent to `python -m esaa`). There

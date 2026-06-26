@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0b10
+
+Public beta refresh for safer bootstrap behavior in existing workspaces.
+
+Highlights:
+
+- Added `bootstrap --preserve-guides` to install or refresh ESAA governance
+  without overwriting existing `AGENTS.md`, `.claude/CLAUDE.md`, or `README.md`.
+- Added `bootstrap --merge-guides` to compose packaged ESAA guidance with
+  project-local guide content using deterministic marker regions.
+- Added bootstrap merge reject codes for conflicting flags and malformed guide
+  marker regions.
+- Promoted packaged `AGENTS.md` and `CLAUDE.md` from minimal stubs to practical
+  operational ESAA contracts.
+
 ## 0.5.0b9
 
 Public beta refresh for runner-local command capability input.

@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b9
+python -m pip install esaa-core==0.5.0b10
 python -m esaa --version
 ```
 
@@ -87,32 +87,35 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Usage Guides
 
-- [Primeiros passos](docs/guides/esaa-getting-started.md) - do bootstrap ao
-  primeiro ciclo `todo -> in_progress -> review -> done`.
-- [Referência do CLI](docs/guides/esaa-cli-reference.md) - subcomandos,
-  sintaxes e exemplos operacionais do `esaa`.
-- [Codex e Claude Code como runners](docs/guides/esaa-runners-codex-claude-code.md) -
-  provenance `--runner`, `dispatch-context`, envelopes e métricas.
-- [Por que usar o ESAA](docs/guides/esaa-why.md) - problemas resolvidos por
-  cada recurso do protocolo.
+> Guides are available in English and Portuguese — switch at the top of each page.
+
+- [Getting started](docs/guides/esaa-getting-started.en.md) - from bootstrap to the
+  first `todo -> in_progress -> review -> done` cycle.
+- [Practical scenarios (cookbook)](docs/guides/esaa-cenarios.en.md) - 20 end-to-end
+  situations: each command inside a real use case (init, tasks, plugins,
+  runners, hotfix, auditing, concurrency).
+- [CLI reference](docs/guides/esaa-cli-reference.en.md) - subcommands, syntax, and
+  operational examples of `esaa`.
+- [Codex and Claude Code as runners](docs/guides/esaa-runners-codex-claude-code.en.md) -
+  `--runner` provenance, `dispatch-context`, envelopes, and metrics.
+- [Why use ESAA](docs/guides/esaa-why.en.md) - problems solved by each protocol
+  feature.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b9`.
+Current package: `esaa-core 0.5.0b10`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b9`:
+Highlights in `0.5.0b10`:
 
-- `input commands validate/register/show` lets a runner register local command
-  capability YAML without making it canonical roadmap state.
-- Registered command capabilities are injected into `dispatch-context` as
-  `runtime_capabilities`, giving Codex, Claude Code, and other runners a compact
-  view of available shells, tools, WSL helpers, and operating rules.
-- The `0.5.0b8` file update hardening remains available: compact
-  `file_updates.edits`, duplicate effective path rejection, `boundary_grant`,
-  reduced dispatch payloads, and service decomposition.
+- `bootstrap --preserve-guides` installs or refreshes ESAA governance without
+  overwriting existing project guide files.
+- `bootstrap --merge-guides` composes packaged ESAA guidance with local project
+  context using deterministic Markdown marker regions.
+- Packaged `AGENTS.md` and `CLAUDE.md` now carry a practical ESAA runner
+  contract instead of the previous minimal stub.
 
 ## When To Use ESAA
 

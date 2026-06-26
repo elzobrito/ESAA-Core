@@ -3,7 +3,7 @@
 🌐 [Português](esaa-cli-reference.md) · **English**
 
 Reference for every `esaa` subcommand (package `esaa-core`, line
-0.5.0b9). Syntaxes extracted from the CLI's real `--help`.
+0.5.0b10). Syntaxes extracted from the CLI's real `--help`.
 
 **Global flags** (before the subcommand):
 

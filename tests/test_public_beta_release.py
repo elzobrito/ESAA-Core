@@ -13,6 +13,14 @@ import pytest
 import yaml
 
 import esaa
+from esaa.bootstrap_guides import (
+    GUIDE_MARKER_CONTRACT_BEGIN,
+    GUIDE_MARKER_CONTRACT_END,
+    GUIDE_MARKER_PROJECT_BEGIN,
+    GUIDE_MARKER_PROJECT_END,
+    extract_regions,
+    validate_markers,
+)
 from esaa.bootstrap import AGENT_GUIDE_TEMPLATE_FILES, GOVERNANCE_TEMPLATE_FILES, bootstrap_workspace
 from esaa.cli import main
 from esaa.constants import PACKAGE_VERSION
@@ -29,8 +37,6 @@ ESSENTIAL_GOVERNANCE_FILES = (
     "PARCER_PROFILE.agent-qa.yaml",
     "PARCER_PROFILE.orchestrator-runtime.yaml",
 )
-
-MINIMAL_AGENT_GUIDANCE = "O ESAA não usa MCP.\nUse a CLI ESAA: python -m esaa.\n"
 
 
 def _run_cli(root: Path, *args: str) -> dict:
@@ -75,8 +81,10 @@ def test_bootstrap_creates_agent_guidance_files(tmp_path: Path) -> None:
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     claude = (tmp_path / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert agents == MINIMAL_AGENT_GUIDANCE
-    assert claude == MINIMAL_AGENT_GUIDANCE
+    assert "Contrato operacional ESAA" in agents
+    assert "Contrato operacional ESAA" in claude
+    assert "O ESAA não usa MCP" in agents
+    assert "O ESAA não usa MCP" in claude
     assert "# ESAA" in readme
 
 
@@ -118,6 +126,117 @@ def test_bootstrap_force_only_overwrites_allowlisted_governance_files(tmp_path: 
     assert policy["review_authorization"] == "qa_role"
 
 
+def test_bootstrap_preserve_guides_ignores_existing_guides_without_force(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text("local agent rules\n", encoding="utf-8")
+
+    result = bootstrap_workspace(tmp_path, profile="public", preserve_guides=True)
+
+    assert result["guide_mode"] == "preserve"
+    assert "AGENTS.md" in result["files_preserved"]
+    assert "AGENTS.md" not in result["files_written"]
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "local agent rules\n"
+    assert (tmp_path / ".roadmap" / "AGENT_CONTRACT.yaml").is_file()
+    assert (tmp_path / ".claude" / "CLAUDE.md").is_file()
+
+
+def test_bootstrap_preserve_guides_force_refreshes_governance_only(tmp_path: Path) -> None:
+    bootstrap_workspace(tmp_path, profile="public")
+    (tmp_path / "AGENTS.md").write_text("keep me\n", encoding="utf-8")
+    (tmp_path / ".roadmap" / "AGENT_CONTRACT.yaml").write_text("broken: true\n", encoding="utf-8")
+
+    result = bootstrap_workspace(tmp_path, profile="production", force=True, preserve_guides=True)
+
+    assert result["guide_mode"] == "preserve"
+    assert "AGENTS.md" in result["files_preserved"]
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "keep me\n"
+    assert "allowed_agent_actions" in (tmp_path / ".roadmap" / "AGENT_CONTRACT.yaml").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path) -> None:
+    original = "# App\n\nLocal context.\n"
+    (tmp_path / "AGENTS.md").write_text(original, encoding="utf-8")
+
+    result = bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
+
+    merged = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert result["guide_mode"] == "merge"
+    assert "AGENTS.md" in result["files_merged"]
+    assert GUIDE_MARKER_CONTRACT_BEGIN in merged
+    assert GUIDE_MARKER_CONTRACT_END in merged
+    assert GUIDE_MARKER_PROJECT_BEGIN in merged
+    assert GUIDE_MARKER_PROJECT_END in merged
+    contract, project = extract_regions(merged)
+    assert "Contrato operacional ESAA" in contract
+    assert project == "\n" + original
+
+
+def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp_path: Path) -> None:
+    bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
+    first = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    _contract, project_before = extract_regions(first)
+    changed = first.replace("Contrato operacional ESAA", "Contrato operacional ESAA atualizado", 1)
+    (tmp_path / "AGENTS.md").write_text(changed, encoding="utf-8")
+
+    bootstrap_workspace(tmp_path, profile="public", force=True, merge_guides=True)
+
+    after = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    contract_after, project_after = extract_regions(after)
+    assert "Contrato operacional ESAA atualizado" not in contract_after
+    assert "Contrato operacional ESAA" in contract_after
+    assert project_after == project_before
+
+
+def test_bootstrap_merge_readme_uses_short_contract(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("# Product\n\nOwn docs.\n", encoding="utf-8")
+
+    bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
+
+    contract, project = extract_regions((tmp_path / "README.md").read_text(encoding="utf-8"))
+    assert "Este projeto usa ESAA" in contract
+    assert "Event Sourcing for Autonomous Agents" not in contract
+    assert project == "\n# Product\n\nOwn docs.\n"
+
+
+def test_bootstrap_merge_guides_notes_root_claude_ignored(tmp_path: Path) -> None:
+    (tmp_path / "CLAUDE.md").write_text("root claude\n", encoding="utf-8")
+
+    result = bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
+
+    assert result["notes"]["root_claude_ignored"] is True
+    assert (tmp_path / "CLAUDE.md").read_text(encoding="utf-8") == "root claude\n"
+    assert (tmp_path / ".claude" / "CLAUDE.md").is_file()
+
+
+def test_bootstrap_guide_flags_conflict(tmp_path: Path) -> None:
+    with pytest_raises_esaa("BOOTSTRAP_FLAGS_CONFLICT"):
+        bootstrap_workspace(tmp_path, preserve_guides=True, merge_guides=True)
+
+
+def test_bootstrap_merge_rejects_duplicate_markers() -> None:
+    text = f"{GUIDE_MARKER_CONTRACT_BEGIN}\n{GUIDE_MARKER_CONTRACT_BEGIN}\n"
+
+    with pytest_raises_esaa("BOOTSTRAP_MERGE_AMBIGUOUS"):
+        validate_markers(text)
+
+
+def test_bootstrap_merge_rejects_partial_markers() -> None:
+    text = f"{GUIDE_MARKER_CONTRACT_BEGIN}\nbody\n{GUIDE_MARKER_CONTRACT_END}\n"
+
+    with pytest_raises_esaa("BOOTSTRAP_MERGE_INVALID"):
+        validate_markers(text)
+
+
+def test_bootstrap_merge_invalid_guide_fails_before_governance_write(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text(f"{GUIDE_MARKER_CONTRACT_BEGIN}\n", encoding="utf-8")
+
+    with pytest_raises_esaa("BOOTSTRAP_MERGE_INVALID"):
+        bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
+
+    assert not (tmp_path / ".roadmap" / "AGENT_CONTRACT.yaml").exists()
+
+
 def test_bootstrap_cli_then_init_verify_and_eligible(tmp_path: Path) -> None:
     bootstrap_result = _run_cli(tmp_path, "bootstrap", "--profile", "public")
     assert bootstrap_result["status"] == "bootstrapped"
@@ -148,8 +267,8 @@ def test_packaged_governance_templates_match_canonical_files(repo_root: Path) ->
 
 def test_packaged_agent_guides_match_canonical_files(repo_root: Path) -> None:
     workspace_root = repo_root / "src/esaa/workspace"
-    assert (workspace_root / "AGENTS.md").read_text(encoding="utf-8") == MINIMAL_AGENT_GUIDANCE
-    assert (workspace_root / "CLAUDE.md").read_text(encoding="utf-8") == MINIMAL_AGENT_GUIDANCE
+    assert "Contrato operacional ESAA" in (workspace_root / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Contrato operacional ESAA" in (workspace_root / "CLAUDE.md").read_text(encoding="utf-8")
     assert (workspace_root / "README.md").read_bytes() == (repo_root / "readme.md").read_bytes()
 
 

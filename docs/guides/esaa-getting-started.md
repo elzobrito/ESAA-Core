@@ -9,7 +9,7 @@ review → done` num workspace governado pelo ESAA.
 
 ```powershell
 pip install esaa-core
-esaa --version   # ex.: esaa 0.5.0b9 (protocol 0.4.1, esaa 0.4.x)
+esaa --version   # ex.: esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
 ```
 
 O pacote instala o comando `esaa` (equivalente a `python -m esaa`). Não há

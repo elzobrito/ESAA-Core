@@ -2,7 +2,7 @@
 
 🌐 **Português** · [English](esaa-cenarios.en.md)
 
-Este guia documenta os comandos do `esaa` (pacote `esaa-core`, linha 0.5.0b9)
+Este guia documenta os comandos do `esaa` (pacote `esaa-core`, linha 0.5.0b10)
 **dentro de situações reais**, não como uma lista de flags. Cada cenário tem um
 objetivo, os comandos na ordem em que você os usaria, a saída esperada e as
 armadilhas. Para a sintaxe exaustiva de cada subcomando, veja a
@@ -67,7 +67,7 @@ projeto num workspace governado, com o event store e as projeções limpos.
 ```powershell
 pip install esaa-core
 esaa --version
-# esaa 0.5.0b9 (protocol 0.4.1, esaa 0.4.x)
+# esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
 
 # Identidade do runner para toda a sessão (evita repetir --runner)
 $env:ESAA_RUNNER_ID = "claude-code"

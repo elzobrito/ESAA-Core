@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b9
+python -m pip install esaa-core==0.5.0b10
 python -m esaa --version
 ```
 
@@ -103,21 +103,19 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b9`.
+Current package: `esaa-core 0.5.0b10`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b9`:
+Highlights in `0.5.0b10`:
 
-- `input commands validate/register/show` lets a runner register local command
-  capability YAML without making it canonical roadmap state.
-- Registered command capabilities are injected into `dispatch-context` as
-  `runtime_capabilities`, giving Codex, Claude Code, and other runners a compact
-  view of available shells, tools, WSL helpers, and operating rules.
-- The `0.5.0b8` file update hardening remains available: compact
-  `file_updates.edits`, duplicate effective path rejection, `boundary_grant`,
-  reduced dispatch payloads, and service decomposition.
+- `bootstrap --preserve-guides` installs or refreshes ESAA governance without
+  overwriting existing project guide files.
+- `bootstrap --merge-guides` composes packaged ESAA guidance with local project
+  context using deterministic Markdown marker regions.
+- Packaged `AGENTS.md` and `CLAUDE.md` now carry a practical ESAA runner
+  contract instead of the previous minimal stub.
 
 ## When To Use ESAA
 

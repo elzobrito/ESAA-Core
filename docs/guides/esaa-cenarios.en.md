@@ -2,7 +2,7 @@
 
 🌐 [Português](esaa-cenarios.md) · **English**
 
-This guide documents the `esaa` commands (package `esaa-core`, line 0.5.0b9)
+This guide documents the `esaa` commands (package `esaa-core`, line 0.5.0b10)
 **inside real situations**, not as a list of flags. Each scenario has a goal, the
 commands in the order you'd use them, the expected output, and the pitfalls. For
 the exhaustive syntax of each subcommand, see the
@@ -67,7 +67,7 @@ into a governed workspace, with a clean event store and projections.
 ```powershell
 pip install esaa-core
 esaa --version
-# esaa 0.5.0b9 (protocol 0.4.1, esaa 0.4.x)
+# esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
 
 # Runner identity for the whole session (avoids repeating --runner)
 $env:ESAA_RUNNER_ID = "claude-code"
