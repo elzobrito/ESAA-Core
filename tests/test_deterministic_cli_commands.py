@@ -83,16 +83,35 @@ def test_cli_claim_complete_review_drive_state_machine_without_adapter(contract_
     ]
 
 
-def test_cli_review_can_notify_on_terminal_completion(contract_bundle: Path, monkeypatch) -> None:
+def test_cli_can_speak_transition_messages(contract_bundle: Path, monkeypatch) -> None:
     ESAAService(contract_bundle).init(force=True)
-    _run_cli(contract_bundle, "claim", "T-1000", "--actor", "agent-spec")
+
+    calls = []
+
+    def fake_transition(status: str):
+        calls.append(status)
+        messages = {"in_progress": "Task in progress", "review": "Task review", "done": "Task done"}
+        return {"status": "played", "backend": "test", "message": messages[status]}
+
+    monkeypatch.setattr("esaa.task_admin.play_transition_message", fake_transition)
+
+    claim = _run_cli(
+        contract_bundle,
+        "claim",
+        "T-1000",
+        "--actor",
+        "agent-spec",
+        "--notify-transition",
+    )
+    assert claim["task"]["status"] == "in_progress"
+    assert claim["transition_notification"]["message"] == "Task in progress"
 
     updates = contract_bundle / "updates.json"
     updates.write_text(
         json.dumps([{"path": "docs/spec/T-1000.md", "content": "# Deterministic\n"}]),
         encoding="utf-8",
     )
-    _run_cli(
+    complete = _run_cli(
         contract_bundle,
         "complete",
         "T-1000",
@@ -102,15 +121,10 @@ def test_cli_review_can_notify_on_terminal_completion(contract_bundle: Path, mon
         "deterministic-output",
         "--file-updates",
         str(updates),
+        "--notify-transition",
     )
-
-    calls = []
-
-    def fake_alarm():
-        calls.append("played")
-        return {"status": "played", "repetitions": 2, "backends": ["test", "test"]}
-
-    monkeypatch.setattr("esaa.task_admin.play_completion_alarm", fake_alarm)
+    assert complete["task"]["status"] == "review"
+    assert complete["transition_notification"]["message"] == "Task review"
 
     review = _run_cli(
         contract_bundle,
@@ -123,8 +137,8 @@ def test_cli_review_can_notify_on_terminal_completion(contract_bundle: Path, mon
         "--notify-completion",
     )
     assert review["task"]["status"] == "done"
-    assert review["completion_notification"]["status"] == "played"
-    assert calls == ["played"]
+    assert review["completion_notification"]["message"] == "Task done"
+    assert calls == ["in_progress", "review", "done"]
 
 
 def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_commands(contract_bundle: Path) -> None:

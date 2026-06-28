@@ -6,7 +6,11 @@ from typing import Any
 
 from .errors import CorruptedStoreError, ESAAError
 from .events import build_hotfix_event, make_event
-from .notifications import completion_alarm_enabled_from_env, play_completion_alarm
+from .notifications import (
+    completion_alarm_enabled_from_env,
+    play_transition_message,
+    transition_messages_enabled_from_env,
+)
 from .projector import materialize
 from .runner_inputs import load_runtime_capabilities
 from .seeds import (
@@ -15,7 +19,7 @@ from .seeds import (
     find_planned_plugin_task,
     tasks_with_planned_plugins,
 )
-from .state_machine import allowed_actions_for, expected_action_for, is_terminal_completion
+from .state_machine import allowed_actions_for, expected_action_for
 from .store import (
     append_events,
     ensure_event_store,
@@ -265,7 +269,12 @@ class TaskAdminMixin:
         return context
 
     def claim_task(
-        self, task_id: str, actor: str, notes: str | None = None, dry_run: bool = False
+        self,
+        task_id: str,
+        actor: str,
+        notes: str | None = None,
+        notify_transition: bool | None = None,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
 
         admission = None if dry_run else self._admit_planned_task_if_needed(task_id)
@@ -294,6 +303,12 @@ class TaskAdminMixin:
 
             result["events_appended_total"] = result["events_appended"] + admission["events_appended"]
 
+        should_notify = notify_transition
+        if should_notify is None:
+            should_notify = transition_messages_enabled_from_env()
+        if should_notify and not dry_run and result.get("task", {}).get("status") == "in_progress":
+            result["transition_notification"] = play_transition_message("in_progress")
+
         return result
 
     def complete_task(
@@ -305,6 +320,7 @@ class TaskAdminMixin:
         file_updates: list[dict[str, str]] | None = None,
         issue_id: str | None = None,
         fixes: str | None = None,
+        notify_transition: bool | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
 
@@ -340,7 +356,13 @@ class TaskAdminMixin:
 
             output["file_updates"] = file_updates
 
-        return self._submit_command(output, actor=actor, task_id=task_id, dry_run=dry_run)
+        result = self._submit_command(output, actor=actor, task_id=task_id, dry_run=dry_run)
+        should_notify = notify_transition
+        if should_notify is None:
+            should_notify = transition_messages_enabled_from_env()
+        if should_notify and not dry_run and result.get("task", {}).get("status") == "review":
+            result["transition_notification"] = play_transition_message("review")
+        return result
 
     def review_task(
         self,
@@ -349,6 +371,7 @@ class TaskAdminMixin:
         decision: str,
         tasks: list[str] | None = None,
         notify_completion: bool | None = None,
+        notify_transition: bool | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
 
@@ -364,16 +387,25 @@ class TaskAdminMixin:
         result = self._submit_command(
             {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
         )
-        should_notify = notify_completion
-        if should_notify is None:
-            should_notify = completion_alarm_enabled_from_env()
+        should_notify_transition = notify_transition
+        if should_notify_transition is None:
+            should_notify_transition = transition_messages_enabled_from_env()
+
+        should_notify_completion = notify_completion
+        if should_notify_completion is None:
+            should_notify_completion = completion_alarm_enabled_from_env()
+
+        final_status = result.get("task", {}).get("status")
         if (
-            should_notify
-            and not dry_run
-            and is_terminal_completion(previous_status, "review", decision)
-            and result.get("task", {}).get("status") == "done"
+            not dry_run
+            and previous_status == "review"
+            and final_status in {"in_progress", "done"}
+            and (should_notify_transition or (should_notify_completion and final_status == "done"))
         ):
-            result["completion_notification"] = play_completion_alarm()
+            notification = play_transition_message(final_status)
+            result["transition_notification"] = notification
+            if final_status == "done" and should_notify_completion:
+                result["completion_notification"] = notification
         return result
 
     def report_issue(

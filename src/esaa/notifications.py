@@ -5,31 +5,51 @@ import subprocess
 import sys
 from typing import Any
 
-TOTAL_REPETITIONS = 2
+TRANSITION_MESSAGES = {
+    "in_progress": "Task in progress",
+    "review": "Task review",
+    "done": "Task done",
+}
 
 
-def _sound_commands(platform: str) -> list[list[str]]:
+def _truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _speech_commands(platform: str, message: str) -> list[list[str]]:
     if platform == "darwin":
-        return [["afplay", "/System/Library/Sounds/Glass.aiff"]]
+        return [["say", message]]
     if platform == "win32":
+        escaped = message.replace("'", "''")
         return [
             [
                 "powershell",
-                "-c",
-                "[System.Media.SystemSounds]::Exclamation.Play()",
+                "-NoProfile",
+                "-Command",
+                (
+                    "Add-Type -AssemblyName System.Speech; "
+                    "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                    f"$synth.Speak('{escaped}')"
+                ),
             ]
         ]
     if platform.startswith("linux"):
         return [
-            ["paplay", "/usr/share/sounds/freedesktop/stereo/complete.oga"],
-            ["aplay", "/usr/share/sounds/alsa/Front_Center.wav"],
+            ["spd-say", "--wait", message],
+            ["espeak-ng", message],
+            ["espeak", message],
         ]
     return []
 
 
-def trigger_sound(timeout: float = 2.0) -> dict[str, Any]:
-    """Tenta tocar um som curto e retorna diagnostico sem quebrar o fluxo."""
-    for command in _sound_commands(sys.platform):
+def speak_message(message: str, timeout: float = 8.0) -> dict[str, Any]:
+    """Speak a short notification message; never raise into the ESAA flow."""
+    for command in _speech_commands(sys.platform, message):
         try:
             subprocess.run(
                 command,
@@ -38,33 +58,36 @@ def trigger_sound(timeout: float = 2.0) -> dict[str, Any]:
                 stderr=subprocess.DEVNULL,
                 timeout=timeout,
             )
-            return {"ok": True, "backend": command[0]}
+            return {"ok": True, "backend": command[0], "message": message}
         except (FileNotFoundError, subprocess.SubprocessError, OSError):
             continue
 
     try:
         sys.stdout.write("\a")
         sys.stdout.flush()
-        return {"ok": True, "backend": "terminal-bell"}
+        return {"ok": True, "backend": "terminal-bell", "message": message}
     except OSError as exc:
-        return {"ok": False, "backend": "terminal-bell", "error": str(exc)}
+        return {"ok": False, "backend": "terminal-bell", "message": message, "error": str(exc)}
 
 
-def play_completion_alarm(repetitions: int = TOTAL_REPETITIONS) -> dict[str, Any]:
-    """Notifica conclusao de tarefa com dois bipes por padrao."""
-    total = max(1, int(repetitions))
-    results = [trigger_sound() for _ in range(total)]
+def play_transition_message(status: str) -> dict[str, Any]:
+    message = TRANSITION_MESSAGES.get(status, f"Task {status.replace('_', ' ')}")
+    result = speak_message(message)
     return {
-        "status": "played" if any(result["ok"] for result in results) else "failed",
-        "repetitions": total,
-        "backends": [result["backend"] for result in results],
+        "status": "played" if result["ok"] else "failed",
+        "backend": result["backend"],
+        "message": message,
     }
+
+
+def play_completion_alarm() -> dict[str, Any]:
+    """Backward-compatible wrapper for completion notification callers."""
+    return play_transition_message("done")
 
 
 def completion_alarm_enabled_from_env() -> bool:
-    return os.environ.get("ESAA_NOTIFY_ON_DONE", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    return _truthy_env("ESAA_NOTIFY_ON_DONE")
+
+
+def transition_messages_enabled_from_env() -> bool:
+    return _truthy_env("ESAA_NOTIFY_TRANSITIONS")

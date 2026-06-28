@@ -181,6 +181,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_claim.add_argument("task_id")
     cmd_claim.add_argument("--actor", required=True)
     cmd_claim.add_argument("--notes", default=None)
+    cmd_claim.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
     cmd_claim.add_argument("--dry-run", action="store_true")
 
     cmd_complete = sub.add_parser("complete", help="append a deterministic complete transition")
@@ -191,6 +192,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_complete.add_argument("--file-updates", default=None, help="JSON array file, or '-' for stdin")
     cmd_complete.add_argument("--issue-id", default=None)
     cmd_complete.add_argument("--fixes", default=None)
+    cmd_complete.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
     cmd_complete.add_argument("--dry-run", action="store_true")
 
     cmd_review = sub.add_parser("review", help="append a deterministic review transition")
@@ -201,8 +203,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_review.add_argument(
         "--notify-completion",
         action="store_true",
-        help="play a local completion alarm when review approve moves the task to done",
+        help="speak 'Task done' when review approve moves the task to done",
     )
+    cmd_review.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
     cmd_review.add_argument("--dry-run", action="store_true")
 
     cmd_state = sub.add_parser("state", help="show deterministic task state and expected action")
@@ -459,6 +462,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.task_id,
                 actor=args.actor,
                 notes=args.notes,
+                notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
             )
         elif args.command == "complete":
@@ -471,6 +475,7 @@ def main(argv: list[str] | None = None) -> int:
                 file_updates=file_updates,
                 issue_id=args.issue_id,
                 fixes=args.fixes,
+                notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
             )
         elif args.command == "review":
@@ -480,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
                 decision=args.decision,
                 tasks=args.tasks,
                 notify_completion=args.notify_completion,
+                notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
             )
         elif args.command == "state":

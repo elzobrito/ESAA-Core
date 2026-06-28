@@ -4,10 +4,104 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 290,
-    "updated_at": "2026-06-28T14:01:41Z"
+    "last_event_seq": 394,
+    "updated_at": "2026-06-28T15:31:37Z"
   },
   "issues": [
+    {
+      "issue_id": "ISS-AUDIO-SPEECH-MESSAGES",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Audio notification must speak task transition messages",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "The Linux fallback uses ALSA Front_Center.wav, so the audible output is 'Front, Center' instead of task transition messages.",
+        "repro_steps": [
+          "Run review --notify-completion on a task and observe completion_notification backend aplay.",
+          "The audible message is the ALSA sample, not 'Task done'."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUDIO-SPEECH-MESSAGES",
+        "review_task_id": "HF-ISS-AUDIO-SPEECH-MESSAGES",
+        "checks": [
+          "unit: focused pytest suite passed in temporary hotfix copy (22 tests)",
+          "regression: Front_Center/paplay audio fallbacks removed; transition message test covers Task in progress/review/done"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "COD-ALARM-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-AUDIO-SPEECH-MESSAGES"
+      },
+      "timeline": {
+        "created_event_seq": 353,
+        "resolved_event_seq": 367
+      }
+    },
+    {
+      "issue_id": "ISS-COD-ALARM-HOTFIX-SCOPE",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Hotfix scope must cover state-machine separation fix",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "The previous automatic hotfix scope only allows src/hotfix/ and cannot remove notification semantics from src/esaa/state_machine.py.",
+        "repro_steps": [
+          "Inspect HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION scope_patch and observe it only includes src/hotfix/.",
+          "The required correction touches src/esaa/state_machine.py, src/esaa/task_admin.py, and tests."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE",
+        "review_task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE",
+        "checks": [
+          "unit: focused pytest suite passed in temporary hotfix copy (22 tests)",
+          "regression: rg confirms is_terminal_completion is absent from src/esaa and tests"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "COD-ALARM-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE"
+      },
+      "timeline": {
+        "created_event_seq": 308,
+        "resolved_event_seq": 322
+      }
+    },
+    {
+      "issue_id": "ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Completion alarm leaked into state machine semantics",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "The completion notification was modeled through state_machine.is_terminal_completion, coupling an audio side effect to the canonical task state machine.",
+        "repro_steps": [
+          "Inspect src/esaa/state_machine.py and find is_terminal_completion.",
+          "Inspect src/esaa/task_admin.py and find notification dispatch depending on the state_machine helper."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE"
+      },
+      "links": {
+        "reported_by_task_id": "COD-ALARM-001",
+        "fixes_task_id": "COD-ALARM-001",
+        "hotfix_task_id": "HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION"
+      },
+      "timeline": {
+        "created_event_seq": 304,
+        "resolved_event_seq": 325
+      }
+    },
     {
       "issue_id": "ISS-DOCS-USAGE-GUIDE-IMPROVE",
       "status": "resolved",

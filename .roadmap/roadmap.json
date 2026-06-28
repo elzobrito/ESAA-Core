@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 290,
-      "projection_hash_sha256": "868dc93b3429703f7581e8cc0259904b521a8389b3092b08effeaff08b26c8a5",
+      "last_event_seq": 394,
+      "projection_hash_sha256": "0522d907cea72938c8536e2b7f0a267f84ccd5fdb759d5a063cc9a7b1e577358",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-28T14:01:41Z"
+    "updated_at": "2026-06-28T15:31:37Z"
   },
   "project": {
     "name": "esaa-core",
@@ -664,15 +664,276 @@
         ]
       },
       "completed_at": "2026-06-28T14:01:41Z"
+    },
+    {
+      "task_id": "REL-0.5.0B11-README",
+      "task_kind": "impl",
+      "title": "Update readme for esaa-core 0.5.0b11",
+      "description": "Update readme.md with the 0.5.0b11 release version and terminal completion notification usage.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T14:13:26Z",
+      "verification": {
+        "checks": [
+          "readme content references esaa-core 0.5.0b11",
+          "readme documents --notify-completion and ESAA_NOTIFY_ON_DONE=1"
+        ]
+      },
+      "completed_at": "2026-06-28T14:14:05Z"
+    },
+    {
+      "task_id": "HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
+      "description": "Apply a minimal hotfix to resolve issue ISS-COD-ALARM-STATE-MACHINE-SEPARATION without regressing immutable done tasks.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [
+        "ISS-COD-ALARM-STATE-MACHINE-SEPARATION"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
+      "fixes": "COD-ALARM-001",
+      "scope_patch": [
+        "src/hotfix/"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000"
+    },
+    {
+      "task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-COD-ALARM-HOTFIX-SCOPE",
+      "description": "Apply a minimal hotfix to resolve issue ISS-COD-ALARM-HOTFIX-SCOPE without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-COD-ALARM-HOTFIX-SCOPE"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-COD-ALARM-HOTFIX-SCOPE.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-COD-ALARM-HOTFIX-SCOPE",
+      "fixes": "COD-ALARM-001",
+      "scope_patch": [
+        "src/esaa/state_machine.py",
+        "src/esaa/task_admin.py",
+        "tests/test_state_machine_and_dispatch.py",
+        "tests/test_deterministic_cli_commands.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-hotfix",
+      "started_at": "2026-06-28T14:18:50Z",
+      "verification": {
+        "checks": [
+          "unit: focused pytest suite passed in temporary hotfix copy (22 tests)",
+          "regression: rg confirms is_terminal_completion is absent from src/esaa and tests"
+        ]
+      },
+      "completed_at": "2026-06-28T14:19:51Z"
+    },
+    {
+      "task_id": "REL-0.5.0B12-BUILD",
+      "task_kind": "impl",
+      "title": "Prepare esaa-core 0.5.0b12 build",
+      "description": "Bump ESAA-Core to 0.5.0b12, update release notes/readme, validate, and build local distribution artifacts.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md",
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T14:21:54Z",
+      "verification": {
+        "checks": [
+          "temporary copy imports PACKAGE_VERSION 0.5.0b12",
+          "focused release/state-machine/CLI tests passed: 43 tests",
+          "temporary build and twine check passed for esaa_core-0.5.0b12 artifacts"
+        ]
+      },
+      "completed_at": "2026-06-28T14:23:30Z"
+    },
+    {
+      "task_id": "TEST-AUDIO-NOTIFY-001",
+      "task_kind": "qa",
+      "title": "Test completion notification sound",
+      "description": "Disposable task to test the opt-in completion notification alarm with review --notify-completion.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/TEST-AUDIO-NOTIFY-001.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-06-28T15:21:50Z",
+      "verification": {
+        "checks": [
+          "ready to test completion notification"
+        ]
+      },
+      "completed_at": "2026-06-28T15:22:08Z"
+    },
+    {
+      "task_id": "HF-ISS-AUDIO-SPEECH-MESSAGES",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-AUDIO-SPEECH-MESSAGES",
+      "description": "Apply a minimal hotfix to resolve issue ISS-AUDIO-SPEECH-MESSAGES without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-AUDIO-SPEECH-MESSAGES"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-AUDIO-SPEECH-MESSAGES.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUDIO-SPEECH-MESSAGES",
+      "fixes": "COD-ALARM-001",
+      "scope_patch": [
+        "src/esaa/notifications.py",
+        "src/esaa/task_admin.py",
+        "src/esaa/cli.py",
+        "tests/test_deterministic_cli_commands.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-hotfix",
+      "started_at": "2026-06-28T15:24:35Z",
+      "verification": {
+        "checks": [
+          "unit: focused pytest suite passed in temporary hotfix copy (22 tests)",
+          "regression: Front_Center/paplay audio fallbacks removed; transition message test covers Task in progress/review/done"
+        ]
+      },
+      "completed_at": "2026-06-28T15:26:58Z"
+    },
+    {
+      "task_id": "TEST-SPEECH-NOTIFY-001",
+      "task_kind": "qa",
+      "title": "Test spoken transition messages",
+      "description": "Disposable task to hear Task in progress, Task review, and Task done transition messages.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/TEST-SPEECH-NOTIFY-001.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-06-28T15:27:27Z",
+      "verification": {
+        "checks": [
+          "spoken transition message test"
+        ]
+      },
+      "completed_at": "2026-06-28T15:27:47Z"
+    },
+    {
+      "task_id": "REL-0.5.0B13-PUBLISH",
+      "task_kind": "impl",
+      "title": "Release esaa-core 0.5.0b13",
+      "description": "Bump ESAA-Core to 0.5.0b13, update release notes/readme, build distributions, and publish to PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md",
+          "readme.md",
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T15:30:20Z",
+      "verification": {
+        "checks": [
+          "temporary copy imports PACKAGE_VERSION 0.5.0b13",
+          "focused release/state-machine/CLI/hotfix tests passed: 49 tests",
+          "temporary build and twine check passed for esaa_core-0.5.0b13 artifacts"
+        ]
+      },
+      "completed_at": "2026-06-28T15:31:37Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 21
+      "done": 28,
+      "todo": 1
     },
     "by_kind": {
-      "impl": 7,
-      "qa": 2,
+      "impl": 13,
+      "qa": 4,
       "spec": 12
     }
   }

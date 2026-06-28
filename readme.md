@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b10
+python -m pip install esaa-core==0.5.0b13
 python -m esaa --version
 ```
 
@@ -103,19 +103,19 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b10`.
+Current package: `esaa-core 0.5.0b13`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b10`:
+Highlights in `0.5.0b13`:
 
-- `bootstrap --preserve-guides` installs or refreshes ESAA governance without
-  overwriting existing project guide files.
-- `bootstrap --merge-guides` composes packaged ESAA guidance with local project
-  context using deterministic Markdown marker regions.
-- Packaged `AGENTS.md` and `CLAUDE.md` now carry a practical ESAA runner
-  contract instead of the previous minimal stub.
+- Spoken transition notifications now say `Task in progress`, `Task review`, and `Task done`.
+- Use `--notify-transition` on `claim`, `complete`, or `review` to speak the resulting state.
+- Use `python -m esaa review <task-id> --actor agent-qa --decision approve --notify-completion`
+  as a compatibility shortcut for the final `Task done` message.
+- The canonical state machine remains strictly `todo -> in_progress -> review -> done`;
+  notifications are opt-in CLI/service side effects.
 
 ## When To Use ESAA
 

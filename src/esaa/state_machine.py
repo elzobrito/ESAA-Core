@@ -73,11 +73,6 @@ def next_status(current: str, action: str, decision: Optional[str] = None) -> Op
     return None
 
 
-def is_terminal_completion(current: str, action: str, decision: Optional[str] = None) -> bool:
-    """Indica se a transicao conclui a tarefa em estado terminal."""
-    return next_status(current, action, decision) == "done"
-
-
 def classify_transition(current: str, action: str) -> tuple[bool, Optional[str]]:
     """Valida uma transicao e devolve (ok, reject_code).
 

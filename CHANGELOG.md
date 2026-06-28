@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0b13
+
+Public beta refresh for spoken transition notifications.
+
+Highlights:
+
+- Replaced Linux sample-audio fallback with spoken messages via available speech backends.
+- Added `--notify-transition` for `claim`, `complete`, and `review` to speak the resulting transition.
+- Kept `--notify-completion` as a compatibility shortcut for speaking `Task done`.
+- Published package `esaa-core 0.5.0b13` on PyPI.
+
+## 0.5.0b12
+
+Public beta build refresh for state-machine separation cleanup.
+
+Highlights:
+
+- Removed completion-notification semantics from the canonical state machine.
+- Kept the optional completion alarm as an opt-in service/CLI side effect after `review approve -> done`.
+- Updated README release guidance for `0.5.0b12`.
+- Prepared local package build artifacts for `esaa-core 0.5.0b12`.
+
 ## 0.5.0b11
 
 Public beta refresh for terminal completion notifications.
