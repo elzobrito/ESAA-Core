@@ -22,6 +22,7 @@ from esaa.state_machine import (
     REJECT_MISSING_CLAIM,
     classify_transition,
     expected_action_for,
+    is_terminal_completion,
     next_status,
 )
 
@@ -52,6 +53,12 @@ def test_next_status_transitions():
     assert next_status("review", "review", "approve") == "done"
     assert next_status("review", "review", "request_changes") == "in_progress"
     assert next_status("todo", "complete") is None  # pulou claim
+
+
+def test_terminal_completion_transition():
+    assert is_terminal_completion("review", "review", "approve") is True
+    assert is_terminal_completion("in_progress", "complete") is False
+    assert is_terminal_completion("review", "review", "request_changes") is False
 
 
 def test_classify_transition_reject_codes():

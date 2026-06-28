@@ -198,6 +198,11 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_review.add_argument("--actor", required=True)
     cmd_review.add_argument("--decision", choices=["approve", "request_changes"], required=True)
     cmd_review.add_argument("--task", action="append", dest="tasks", default=None)
+    cmd_review.add_argument(
+        "--notify-completion",
+        action="store_true",
+        help="play a local completion alarm when review approve moves the task to done",
+    )
     cmd_review.add_argument("--dry-run", action="store_true")
 
     cmd_state = sub.add_parser("state", help="show deterministic task state and expected action")
@@ -474,6 +479,7 @@ def main(argv: list[str] | None = None) -> int:
                 actor=args.actor,
                 decision=args.decision,
                 tasks=args.tasks,
+                notify_completion=args.notify_completion,
                 dry_run=args.dry_run,
             )
         elif args.command == "state":

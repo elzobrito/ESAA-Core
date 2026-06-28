@@ -83,6 +83,50 @@ def test_cli_claim_complete_review_drive_state_machine_without_adapter(contract_
     ]
 
 
+def test_cli_review_can_notify_on_terminal_completion(contract_bundle: Path, monkeypatch) -> None:
+    ESAAService(contract_bundle).init(force=True)
+    _run_cli(contract_bundle, "claim", "T-1000", "--actor", "agent-spec")
+
+    updates = contract_bundle / "updates.json"
+    updates.write_text(
+        json.dumps([{"path": "docs/spec/T-1000.md", "content": "# Deterministic\n"}]),
+        encoding="utf-8",
+    )
+    _run_cli(
+        contract_bundle,
+        "complete",
+        "T-1000",
+        "--actor",
+        "agent-spec",
+        "--check",
+        "deterministic-output",
+        "--file-updates",
+        str(updates),
+    )
+
+    calls = []
+
+    def fake_alarm():
+        calls.append("played")
+        return {"status": "played", "repetitions": 2, "backends": ["test", "test"]}
+
+    monkeypatch.setattr("esaa.task_admin.play_completion_alarm", fake_alarm)
+
+    review = _run_cli(
+        contract_bundle,
+        "review",
+        "T-1000",
+        "--actor",
+        "agent-spec",
+        "--decision",
+        "approve",
+        "--notify-completion",
+    )
+    assert review["task"]["status"] == "done"
+    assert review["completion_notification"]["status"] == "played"
+    assert calls == ["played"]
+
+
 def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_commands(contract_bundle: Path) -> None:
     ESAAService(contract_bundle).init(force=True)
 

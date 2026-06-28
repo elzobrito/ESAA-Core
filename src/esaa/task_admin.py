@@ -6,6 +6,7 @@ from typing import Any
 
 from .errors import CorruptedStoreError, ESAAError
 from .events import build_hotfix_event, make_event
+from .notifications import completion_alarm_enabled_from_env, play_completion_alarm
 from .projector import materialize
 from .runner_inputs import load_runtime_capabilities
 from .seeds import (
@@ -14,7 +15,7 @@ from .seeds import (
     find_planned_plugin_task,
     tasks_with_planned_plugins,
 )
-from .state_machine import allowed_actions_for, expected_action_for
+from .state_machine import allowed_actions_for, expected_action_for, is_terminal_completion
 from .store import (
     append_events,
     ensure_event_store,
@@ -347,9 +348,11 @@ class TaskAdminMixin:
         actor: str,
         decision: str,
         tasks: list[str] | None = None,
+        notify_completion: bool | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
 
+        previous_status = self.task_state(task_id)["task"]["status"]
         activity_event = {
             "action": "review",
             "task_id": task_id,
@@ -358,9 +361,20 @@ class TaskAdminMixin:
             "tasks": tasks or [task_id],
         }
 
-        return self._submit_command(
+        result = self._submit_command(
             {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
         )
+        should_notify = notify_completion
+        if should_notify is None:
+            should_notify = completion_alarm_enabled_from_env()
+        if (
+            should_notify
+            and not dry_run
+            and is_terminal_completion(previous_status, "review", decision)
+            and result.get("task", {}).get("status") == "done"
+        ):
+            result["completion_notification"] = play_completion_alarm()
+        return result
 
     def report_issue(
         self,

@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 251,
-      "projection_hash_sha256": "9b8a1cf675dc624a579f5fd272d397309c5f1dc63a7f604c4735748749c8836b",
+      "last_event_seq": 290,
+      "projection_hash_sha256": "868dc93b3429703f7581e8cc0259904b521a8389b3092b08effeaff08b26c8a5",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-17T17:48:18Z"
+    "updated_at": "2026-06-28T14:01:41Z"
   },
   "project": {
     "name": "esaa-core",
@@ -578,14 +578,100 @@
         ]
       },
       "completed_at": "2026-06-17T17:48:18Z"
+    },
+    {
+      "task_id": "COD-ALARM-001",
+      "task_kind": "impl",
+      "title": "Add completion alarm for terminal task transition",
+      "description": "Add optional local sound notification when review approve moves a task to done.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/state_machine.py",
+          "src/esaa/notifications.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/cli.py",
+          "tests/test_state_machine_and_dispatch.py",
+          "tests/test_deterministic_cli_commands.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T13:52:59Z",
+      "verification": {
+        "checks": [
+          "pytest focused suite passed: 26 tests",
+          "compileall passed for src/esaa"
+        ]
+      },
+      "completed_at": "2026-06-28T13:53:47Z"
+    },
+    {
+      "task_id": "REL-0.5.0B11",
+      "task_kind": "impl",
+      "title": "Release esaa-core 0.5.0b11",
+      "description": "Bump ESAA-Core package version to 0.5.0b11, update changelog, build distributions, and publish to PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T13:59:39Z",
+      "verification": {
+        "checks": [
+          "temporary release copy imports PACKAGE_VERSION 0.5.0b11",
+          "pytest release-focused suite passed: 27 tests"
+        ]
+      },
+      "completed_at": "2026-06-28T14:01:41Z"
+    },
+    {
+      "task_id": "REL-0.5.0B11-CHANGELOG",
+      "task_kind": "impl",
+      "title": "Update changelog for esaa-core 0.5.0b11",
+      "description": "Add the 0.5.0b11 release notes to CHANGELOG.md.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-06-28T14:01:26Z",
+      "verification": {
+        "checks": [
+          "0.5.0b11 changelog entry prepared and boundary grant validated"
+        ]
+      },
+      "completed_at": "2026-06-28T14:01:41Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 18
+      "done": 21
     },
     "by_kind": {
-      "impl": 4,
+      "impl": 7,
       "qa": 2,
       "spec": 12
     }

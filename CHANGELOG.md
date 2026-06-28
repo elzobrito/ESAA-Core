@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0b11
+
+Public beta refresh for terminal completion notifications.
+
+Highlights:
+
+- Added optional local completion alarm support for `review approve -> done`.
+- Added `review --notify-completion` and `ESAA_NOTIFY_ON_DONE=1` opt-in controls.
+- Added regression coverage for terminal completion detection and CLI notification triggering.
+- Published package `esaa-core 0.5.0b11` on PyPI.
+
 ## 0.5.0b10
 
 Public beta refresh for safer bootstrap behavior in existing workspaces.
