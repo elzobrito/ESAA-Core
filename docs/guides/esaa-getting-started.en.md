@@ -67,8 +67,25 @@ esaa task create T-LOGIN-QA --kind qa `
   --output docs/qa/login.md
 ```
 
+Optional G07 fields describe operational intent and acceptance contract without
+changing the `kind` boundary:
+
+```powershell
+esaa task create T-GOV-SPEC --kind spec `
+  --task-type governance `
+  --title "Specify typed review contract" `
+  --output docs/spec/review-contract.md `
+  --acceptance-criterion "The spec defines required_review_mode" `
+  --acceptance-criterion "The spec defines validation before append" `
+  --required-review-mode governance `
+  --supersedes T-OLD-SPEC
+```
+
 - `--kind` defines the write **boundaries**: `spec` → `docs/**`;
   `impl` → `src/**`, `tests/**`; `qa` → `docs/qa/**`, `tests/**` (`src/**` forbidden).
+- `--task-type` describes intent (`feature`, `hotfix`, `audit`, `release`,
+  `memory`, `governance`, `maintenance`); `--kind` still decides actor and
+  boundary.
 - `--boundary-grant <fnmatch>` grants an extra write pattern for that task only
   (operator authority, T-2070).
 - `--dry-run` simulates the event and shows the resulting hash without persisting —
@@ -119,6 +136,9 @@ Critical points:
 - `review` requires an actor with the **QA role** (`review_authorization=qa_role`);
   whoever completes cannot self-approve. `--decision request_changes` returns the
   task to `in_progress`.
+- If the task defines `required_review_mode`, `review` must provide a matching
+  `--review-mode`; missing, invalid, or mismatched modes fail before append to
+  `activity.jsonl`.
 - Whoever completes must be whoever claimed (`assigned_to == actor`), otherwise
   `LOCK_VIOLATION`.
 

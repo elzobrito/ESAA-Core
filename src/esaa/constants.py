@@ -2,7 +2,7 @@ from __future__ import annotations
 
 SCHEMA_VERSION = "0.4.1"
 ESAA_VERSION = "0.4.x"
-PACKAGE_VERSION = "0.5.0b13"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
+PACKAGE_VERSION = "0.5.0b14"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
 
 ROADMAP_DIR = ".roadmap"
 EVENT_STORE_PATH = ".roadmap/activity.jsonl"

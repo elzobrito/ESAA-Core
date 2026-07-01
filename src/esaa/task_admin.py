@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from .errors import CorruptedStoreError, ESAAError
+from .activity_admin import apply_activity_clear, plan_activity_clear
+from .errors import ESAAError
 from .events import build_hotfix_event, make_event
 from .notifications import (
     completion_alarm_enabled_from_env,
@@ -14,26 +13,19 @@ from .notifications import (
 from .projector import materialize
 from .runner_inputs import load_runtime_capabilities
 from .seeds import (
-    BASELINE_LESSONS,
     build_dispatch_context,
     find_planned_plugin_task,
     tasks_with_planned_plugins,
 )
 from .state_machine import allowed_actions_for, expected_action_for
 from .store import (
-    append_events,
-    ensure_event_store,
     load_agent_contract,
     load_agent_result_schema,
     next_event_seq,
     parse_event_store,
     require_task,
-    save_issues,
-    save_lessons,
-    save_roadmap,
 )
-from .utils import ensure_parent
-from .validator import validate_boundary_grant
+from .task_creation import build_task_create_payload
 
 
 class TaskAdminMixin:
@@ -47,24 +39,12 @@ class TaskAdminMixin:
         depends_on: list[str] | None = None,
         targets: list[str] | None = None,
         boundary_grant: list[str] | None = None,
+        task_type: str | None = None,
+        acceptance_criteria: list[str] | None = None,
+        required_review_mode: str | None = None,
+        supersedes: list[str] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
-        task_id = task_id.strip()
-        title = title.strip()
-        description = description.strip() if description is not None else None
-        outputs = [item.strip() for item in (outputs or [])]
-        depends_on = [item.strip() for item in (depends_on or [])]
-        targets = [item.strip() for item in (targets or [])]
-        boundary_grant = validate_boundary_grant(boundary_grant) if boundary_grant else None
-        if task_kind not in {"spec", "impl", "qa"}:
-            raise ESAAError("SCHEMA_INVALID", f"invalid task_kind: {task_kind}")
-
-        if not task_id:
-            raise ESAAError("SCHEMA_INVALID", "task_id is required")
-
-        if not title:
-            raise ESAAError("SCHEMA_INVALID", "title is required")
-
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
         tasks, _ = tasks_with_planned_plugins(self.root, roadmap["tasks"])
@@ -72,17 +52,21 @@ class TaskAdminMixin:
         if any(task["task_id"] == task_id for task in tasks):
             raise ESAAError("DUPLICATE_TASK", f"task already exists: {task_id}")
 
-        payload = {
-            "task_id": task_id,
-            "task_kind": task_kind,
-            "title": title,
-            "description": description or title,
-            "depends_on": depends_on,
-            "targets": targets,
-            "outputs": {"files": outputs},
-        }
-        if boundary_grant:
-            payload["boundary_grant"] = boundary_grant
+        payload = build_task_create_payload(
+            task_id=task_id,
+            task_kind=task_kind,
+            title=title,
+            description=description,
+            outputs=outputs,
+            depends_on=depends_on,
+            targets=targets,
+            boundary_grant=boundary_grant,
+            task_type=task_type,
+            acceptance_criteria=acceptance_criteria,
+            required_review_mode=required_review_mode,
+            supersedes=supersedes,
+            existing_task_ids={task["task_id"] for task in tasks},
+        )
 
         event = make_event(
             next_event_seq(events), actor="orchestrator", action="task.create", payload=payload
@@ -104,103 +88,14 @@ class TaskAdminMixin:
         dry_run: bool = False,
         backup_dir: str = ".roadmap/backups",
     ) -> dict[str, Any]:
-
-        if not force:
-
-            raise ESAAError("CLEAR_REQUIRES_FORCE", "activity clear requires --force")
-
-        path = ensure_event_store(self.root)
-
-        raw = path.read_text(encoding="utf-8")
-
-        raw_lines = [line for line in raw.splitlines() if line.strip()]
-
-        parse_error: dict[str, str] | None = None
-
-        try:
-
-            events_removed = len(parse_event_store(self.root))
-
-        except CorruptedStoreError as exc:
-
-            events_removed = len(raw_lines)
-
-            parse_error = {"error_code": exc.code, "error_message": exc.message}
-
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-
-        backup_base = Path(backup_dir)
-
-        backup_name = f"activity-{stamp}.jsonl"
-
-        if backup_base.is_absolute():
-
-            backup_path = backup_base / backup_name
-
-            backup_report = str(backup_path)
-
-        else:
-
-            backup_path = self.root / backup_base / backup_name
-
-            backup_report = str(backup_base / backup_name).replace("\\", "/")
-
-        result: dict[str, Any] = {
-            "status": "dry_run" if dry_run else "cleared",
-            "event_store": ".roadmap/activity.jsonl",
-            "events_removed": events_removed,
-            "bytes_removed": len(raw.encode("utf-8")),
-            "backup_path": backup_report,
-        }
-
-        if parse_error:
-
-            result["parse_error_before_clear"] = parse_error
-
+        result = plan_activity_clear(self.root, force=force, dry_run=dry_run, backup_dir=backup_dir)
         if dry_run:
-
+            result.pop("_backup_path", None)
+            result.pop("_raw", None)
             return result
 
-        ensure_parent(backup_path)
-
-        backup_path.write_text(raw, encoding="utf-8")
-
-        seed_events = [
-            make_event(
-                1,
-                actor="orchestrator",
-                action="orchestrator.view.mutate",
-                payload={
-                    "target": "lessons",
-                    "change": "baseline_reseed",
-                    "lessons": BASELINE_LESSONS,
-                },
-            ),
-            make_event(2, actor="orchestrator", action="verify.start", payload={"strict": True}),
-        ]
-        preview_roadmap, _, _ = materialize(seed_events)
-        seed_events.append(
-            make_event(
-                3,
-                actor="orchestrator",
-                action="verify.ok",
-                payload={"projection_hash_sha256": preview_roadmap["meta"]["run"]["projection_hash_sha256"]},
-            )
-        )
-
-        path.write_text("", encoding="utf-8")
-        append_events(self.root, seed_events)
-
-        roadmap, issues, lessons = materialize(seed_events)
-
-        save_roadmap(self.root, roadmap)
-
-        save_issues(self.root, issues)
-
-        save_lessons(self.root, lessons)
-
+        apply_activity_clear(self.root, result)
         verify = self.verify()
-
         result.update(
             {
                 "last_event_seq": verify["last_event_seq"],
@@ -286,7 +181,6 @@ class TaskAdminMixin:
         }
 
         if notes:
-
             activity_event["notes"] = notes
 
         result = self._submit_command(
@@ -294,7 +188,6 @@ class TaskAdminMixin:
         )
 
         if admission:
-
             result["admission"] = {
                 "action": "task.create",
                 "task_id": task_id,
@@ -325,7 +218,6 @@ class TaskAdminMixin:
     ) -> dict[str, Any]:
 
         if not checks:
-
             raise ESAAError("INVALID_ARGUMENT", "complete requires at least one --check")
 
         task = self.task_state(task_id)["task"]
@@ -343,17 +235,14 @@ class TaskAdminMixin:
         resolved_fixes = fixes or task.get("fixes")
 
         if resolved_issue_id:
-
             activity_event["issue_id"] = resolved_issue_id
 
         if resolved_fixes:
-
             activity_event["fixes"] = resolved_fixes
 
         output: dict[str, Any] = {"activity_event": activity_event}
 
         if file_updates is not None:
-
             output["file_updates"] = file_updates
 
         result = self._submit_command(output, actor=actor, task_id=task_id, dry_run=dry_run)
@@ -370,6 +259,7 @@ class TaskAdminMixin:
         actor: str,
         decision: str,
         tasks: list[str] | None = None,
+        review_mode: str | None = None,
         notify_completion: bool | None = None,
         notify_transition: bool | None = None,
         dry_run: bool = False,
@@ -383,6 +273,8 @@ class TaskAdminMixin:
             "decision": decision,
             "tasks": tasks or [task_id],
         }
+        if review_mode:
+            activity_event["review_mode"] = review_mode
 
         result = self._submit_command(
             {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
@@ -422,7 +314,6 @@ class TaskAdminMixin:
     ) -> dict[str, Any]:
 
         if not repro_steps:
-
             raise ESAAError("INVALID_ARGUMENT", "issue report requires at least one --repro-step")
 
         task = self.task_state(task_id)["task"]
@@ -440,7 +331,6 @@ class TaskAdminMixin:
         }
 
         if fixes:
-
             activity_event["fixes"] = fixes
 
         return self._submit_command(
@@ -491,7 +381,6 @@ class TaskAdminMixin:
         )
 
         if event is None:
-
             raise ESAAError("HOTFIX_ALREADY_EXISTS", f"hotfix already exists for issue {issue_id}")
 
         return self._commit_orchestrator_events([event], dry_run=dry_run)
@@ -506,7 +395,6 @@ class TaskAdminMixin:
         resolution: dict[str, Any] = {"status": "resolved_by_command"}
 
         if hotfix_task_id:
-
             resolution["hotfix_task_id"] = hotfix_task_id
 
         event = make_event(
@@ -525,13 +413,11 @@ class TaskAdminMixin:
         roadmap, _, _ = materialize(events)
 
         if any(task["task_id"] == task_id for task in roadmap["tasks"]):
-
             return None
 
         planned = find_planned_plugin_task(self.root, task_id)
 
         if planned is None:
-
             return None
 
         event = make_event(

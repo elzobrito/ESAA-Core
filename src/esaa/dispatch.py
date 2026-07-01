@@ -10,6 +10,7 @@ tokens e reduzindo area de erro estrutural.
 
 from __future__ import annotations
 
+import fnmatch
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Any
@@ -20,7 +21,7 @@ from .state_machine import allowed_actions_for, expected_action_for
 _FIELDS_BY_ACTION = {
     "claim": {"action", "task_id", "prior_status"},
     "complete": {"action", "task_id", "prior_status", "notes", "verification"},
-    "review": {"action", "task_id", "prior_status", "decision", "tasks"},
+    "review": {"action", "task_id", "prior_status", "decision", "tasks", "review_mode"},
     "issue.report": {
         "action",
         "task_id",
@@ -95,17 +96,66 @@ def dep_interfaces(roadmap: dict[str, Any], task: dict[str, Any]) -> list[dict[s
     return out
 
 
+def _scope_dimension_matches(scope: dict[str, Any], name: str, values: set[str] | None) -> bool:
+    expected = {str(item) for item in scope.get(name, [])}
+    if not expected:
+        return True
+    return bool(values and expected.intersection(values))
+
+
+def _scope_paths_match(scope: dict[str, Any], paths: set[str]) -> bool:
+    patterns = [str(pattern).replace("\\", "/") for pattern in scope.get("paths", [])]
+    if not patterns:
+        return True
+    return any(fnmatch.fnmatch(path, pattern) for path in paths for pattern in patterns)
+
+
+def _lesson_matches_scope(
+    lesson: dict[str, Any],
+    task: dict[str, Any],
+    *,
+    actor: str | None = None,
+    runner: str | None = None,
+) -> bool:
+    scope = lesson.get("scope", {}) or {}
+    task_paths = set(task.get("targets", []))
+    task_paths.update(task.get("outputs", {}).get("files", []))
+    review_modes = {task["required_review_mode"]} if task.get("required_review_mode") else set()
+    return (
+        _scope_dimension_matches(scope, "task_kinds", {task["task_kind"]})
+        and _scope_dimension_matches(
+            scope, "task_types", {task["task_type"]} if task.get("task_type") else set()
+        )
+        and _scope_dimension_matches(scope, "review_modes", review_modes)
+        and _scope_paths_match(scope, task_paths)
+        and _scope_dimension_matches(scope, "actors", {actor} if actor else set())
+        and _scope_dimension_matches(scope, "runners", {runner} if runner else set())
+    )
+
+
 def filter_lessons(
-    lessons: list[dict[str, Any]], task_kind: str, expected_action: str
+    lessons: list[dict[str, Any]],
+    task: dict[str, Any] | str | None = None,
+    expected_action: str = "none",
+    *,
+    task_kind: str | None = None,
+    actor: str | None = None,
+    runner: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Lessons aplicaveis por task_kind + applies_to relevante a acao esperada (RF06)."""
+    """Lessons aplicaveis: OR dentro da dimensao, AND entre dimensoes (G07)."""
+    if task is None:
+        if task_kind is None:
+            raise TypeError("filter_lessons requires task or task_kind")
+        task_data = {"task_kind": task_kind}
+    else:
+        task_data = {"task_kind": task} if isinstance(task, str) else task
     relevance = _LESSON_RELEVANCE.get(expected_action, set())
     out = []
     for lesson in lessons:
-        if lesson.get("status") != "active":
+        status = lesson.get("status")
+        if status not in {"active", "experimental"}:
             continue
-        kinds = set(lesson.get("scope", {}).get("task_kinds", []))
-        if task_kind not in kinds:
+        if not _lesson_matches_scope(lesson, task_data, actor=actor, runner=runner):
             continue
         applies = lesson.get("enforcement", {}).get("applies_to")
         if applies and relevance and applies not in relevance:
@@ -113,6 +163,7 @@ def filter_lessons(
         out.append(
             {
                 "lesson_id": lesson["lesson_id"],
+                "status": status,
                 "rule": lesson.get("rule"),
                 "enforcement": lesson.get("enforcement", {}),
             }
@@ -183,6 +234,11 @@ def build_minimal_context(
         "required_verification",
         "baseline_id",
         "boundary_grant",
+        "task_type",
+        "acceptance_criteria",
+        "required_review_mode",
+        "supersedes",
+        "superseded_by",
     ):
         if optional in task:
             task_ctx[optional] = task[optional]
@@ -204,7 +260,7 @@ def build_minimal_context(
         }
 
     if lessons is not None:
-        ctx["lessons"] = filter_lessons(lessons, task["task_kind"], expected)
+        ctx["lessons"] = filter_lessons(lessons, task, expected)
 
     if expected == "complete":
         ctx["dep_interfaces"] = dep_interfaces(roadmap, task)

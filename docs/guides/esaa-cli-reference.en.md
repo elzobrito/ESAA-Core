@@ -110,11 +110,27 @@ operation: run `verify` before and after.
 ```text
 esaa task create TASK_ID --kind {spec,impl,qa} --title TITLE
   [--description D] [--output PATH]... [--depends-on TASK]...
-  [--target T]... [--boundary-grant FNMATCH] [--dry-run]
+  [--target T]... [--task-type TYPE]
+  [--acceptance-criterion TEXT]...
+  [--required-review-mode MODE]
+  [--supersedes TASK]...
+  [--boundary-grant FNMATCH] [--dry-run]
 ```
 
 Appends an Orchestrator `task.create`. `--boundary-grant` grants an extra write
 pattern for that task only (operator authority, T-2070).
+
+Optional G07 fields:
+
+- `--task-type`: operational intent (`feature`, `hotfix`, `audit`, `release`,
+  `memory`, `governance`, `maintenance`). `--kind` continues to control actor
+  and boundary.
+- `--acceptance-criterion`: ordered acceptance criterion; may be repeated.
+- `--required-review-mode`: requires typed review (`functional`, `security`,
+  `regression`, `docs`, `governance`, `release`).
+- `--supersedes`: declares that the new task replaces an existing task.
+  `superseded_by` is derived by the projector, read-only, and does not change
+  the superseded task status.
 
 ### `eligible` — what can run now
 
@@ -171,12 +187,14 @@ required (min. 1; hotfix requires 2). Whoever completes must be whoever claimed.
 
 ```text
 esaa review TASK_ID --actor ACTOR --decision {approve,request_changes}
-  [--task TASKS] [--dry-run]
+  [--review-mode MODE] [--task TASKS] [--dry-run]
 ```
 
 Requires an actor with the QA role (`review_authorization=qa_role`). `approve`
 makes the task `done` (terminal and immutable); `request_changes` returns it to
-`in_progress`.
+`in_progress`. If a task has `required_review_mode`, every review must provide a
+matching `--review-mode`, including `request_changes`. Reviews with missing,
+invalid, or mismatched modes fail before append to `activity.jsonl`.
 
 ### `submit` — apply an agent.result envelope
 
@@ -228,6 +246,31 @@ esaa --runner codex issue report T-1000 --actor agent-qa `
 `issue.report` is the blocked agent's fail-closed output — it requires
 `evidence.symptom` + `evidence.repro_steps`. The only action that accepts
 `prior_status="done"` (reporting a bug on an immutable task).
+
+### G07 lessons
+
+Lessons accept `status` values `active`, `experimental`, `superseded`, or
+`archived`. `active` and `experimental` may appear in `dispatch-context`;
+`superseded` and `archived` remain auditable but are excluded from the active
+context.
+
+Filtering uses OR within the same dimension and AND across different
+dimensions. The dimensions are `task_kinds`, `task_types`, `review_modes`,
+`paths`, `actors`, and `runners`. The new contract represents `enforcement` as
+an object:
+
+```json
+{
+  "enforcement": {
+    "mode": "require_review_mode",
+    "value": "governance"
+  }
+}
+```
+
+Legacy shapes with `applies_to` remain accepted and are normalized internally
+when needed. `require_boundary_grant` never expands permissions; it only
+requires an explicit grant that already exists.
 
 ### `hotfix create`
 

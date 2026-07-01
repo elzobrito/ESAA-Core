@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 394,
-      "projection_hash_sha256": "0522d907cea72938c8536e2b7f0a267f84ccd5fdb759d5a063cc9a7b1e577358",
+      "last_event_seq": 533,
+      "projection_hash_sha256": "a9035a1ccb889333ff9e91960727840660017f9f6607cc967f22acfd367f8114",
       "verify_status": "ok"
     },
-    "updated_at": "2026-06-28T15:31:37Z"
+    "updated_at": "2026-07-01T18:42:53Z"
   },
   "project": {
     "name": "esaa-core",
@@ -699,7 +699,7 @@
       "task_kind": "impl",
       "title": "Hotfix for ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
       "description": "Apply a minimal hotfix to resolve issue ISS-COD-ALARM-STATE-MACHINE-SEPARATION without regressing immutable done tasks.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [
         "ISS-COD-ALARM-STATE-MACHINE-SEPARATION"
@@ -722,7 +722,16 @@
         "unit",
         "regression"
       ],
-      "baseline_id": "B-000"
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T18:42:21Z",
+      "verification": {
+        "checks": [
+          "unit: state machine isolation verified (grep + import inspection)",
+          "regression: esaa verify ok; notifications separated in dedicated module"
+        ]
+      },
+      "completed_at": "2026-07-01T18:42:53Z"
     },
     {
       "task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE",
@@ -924,17 +933,340 @@
         ]
       },
       "completed_at": "2026-06-28T15:31:37Z"
+    },
+    {
+      "task_id": "T-G07-TASK-LESSONS-REVIEW-SPEC",
+      "task_kind": "spec",
+      "title": "Specify task lessons and typed review model",
+      "description": "Criar docs/spec/G07-task-lessons-review-model.md como especificacao canonica, backward-compatible, para evoluir task model, lessons e review tipado. A spec deve definir task_type, acceptance_criteria, required_review_mode, supersedes e superseded_by; Projection Rules; Validation Timing; Lessons Contract; Canonical Examples; Non-Goals. A entrega e documental: nao implementar core nesta task.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/spec/G07-task-lessons-review-model.md"
+      ],
+      "outputs": {
+        "files": [
+          "docs/spec/G07-task-lessons-review-model.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-07-01T17:03:50Z",
+      "verification": {
+        "checks": [
+          "Dispatch-context example represents required_verification as an object with checks rather than a bare array",
+          "Canonical Examples section states examples use current ESAA-Core names task_id, task_kind, task.create and action review",
+          "Backward Compatibility states legacy lessons shapes are accepted and normalized internally without manual migration",
+          "Spec still contains Projection Rules, Validation Timing, Lessons Contract, Canonical Examples and Non-Goals"
+        ]
+      },
+      "completed_at": "2026-07-01T17:15:46Z"
+    },
+    {
+      "task_id": "T-G07-IMPL-001-SCHEMAS",
+      "task_kind": "impl",
+      "title": "Implement G07 schema contracts",
+      "description": "Implementar a camada de schema da G07 conforme docs/spec/G07-task-lessons-review-model.md. Atualizar schemas/templates para aceitar campos opcionais backward-compatible de task e review: task_type, acceptance_criteria, required_review_mode, supersedes e review_mode. Nao implementar ainda regras completas de projector/CLI alem do necessario para os schemas e testes de schema. Validar que roadmaps/eventos antigos continuam aceitos e que enums invalidas falham no schema apropriado.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-TASK-LESSONS-REVIEW-SPEC"
+      ],
+      "targets": [
+        "src/esaa/templates/roadmap.schema.json",
+        "src/esaa/templates/agent_result.schema.json",
+        "tests/test_g07_schema_contracts.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/templates/roadmap.schema.json",
+          "src/esaa/templates/agent_result.schema.json",
+          "tests/test_g07_schema_contracts.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T17:31:58Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=/tmp/esaa-g07-impl-001/src python -m pytest -q /tmp/esaa-g07-impl-001/tests/test_g07_schema_contracts.py -> 5 passed",
+          "roadmap.schema.json accepts legacy tasks without G07 fields and optional G07 task fields with valid enums",
+          "agent_result.schema.json accepts review_mode for review events and rejects invalid review_mode enum"
+        ]
+      },
+      "completed_at": "2026-07-01T17:34:42Z"
+    },
+    {
+      "task_id": "T-G07-IMPL-002-TASK-MODEL",
+      "task_kind": "impl",
+      "title": "Implement G07 task model projection and task create CLI",
+      "description": "Implementar os campos opcionais de task da G07 no fluxo task.create e no projector. task create deve aceitar --task-type, --acceptance-criterion repetivel, --required-review-mode e --supersedes repetivel. O projector deve preservar campos autorados e derivar superseded_by como lista projection-only em ordem de eventos. Validacoes: supersedes exige task existente no momento do task.create, rejeita self-reference e duplicados antes de append; supersedes nao altera status da task referenciada; campos ausentes nao viram null incompatibil. Manter compatibilidade com eventos antigos.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-IMPL-001-SCHEMAS"
+      ],
+      "targets": [
+        "src/esaa/task_admin.py",
+        "src/esaa/cli.py",
+        "src/esaa/projector.py",
+        "src/esaa/validator.py",
+        "tests/test_g07_task_model.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/cli.py",
+          "src/esaa/projector.py",
+          "src/esaa/validator.py",
+          "tests/test_g07_task_model.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T17:36:54Z",
+      "verification": {
+        "checks": [
+          "Temporary full-copy validation: PYTHONPATH=src python -m pytest -q tests/test_g07_task_model.py tests/test_g07_schema_contracts.py -> 9 passed",
+          "Regression validation: PYTHONPATH=src python -m pytest -q tests/test_deterministic_cli_commands.py tests/test_projection_workflow.py tests/test_state_machine_and_dispatch.py tests/test_g07_task_model.py tests/test_g07_schema_contracts.py -> 28 passed",
+          "supersedes validation rejects missing targets, self-reference and duplicates before append without changing event count",
+          "projector derives superseded_by as an ordered list and preserves superseded task status"
+        ]
+      },
+      "completed_at": "2026-07-01T17:40:04Z"
+    },
+    {
+      "task_id": "T-G07-IMPL-003-REVIEW-MODE",
+      "task_kind": "impl",
+      "title": "Implement G07 typed review mode validation",
+      "description": "Implementar review tipado conforme G07. O CLI review deve aceitar --review-mode opcional. Se a task possuir required_review_mode, todo review approve ou request_changes deve informar review_mode igual; ausencia, divergencia ou enum invalida deve falhar antes de append e nao gerar evento. Se a task nao exigir modo, review_mode valido pode ser informado e deve ser preservado no evento para replay/auditoria. Atualizar validator/projector conforme necessario mantendo compatibilidade com reviews antigos sem review_mode.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-IMPL-002-TASK-MODEL"
+      ],
+      "targets": [
+        "src/esaa/task_admin.py",
+        "src/esaa/cli.py",
+        "src/esaa/validator.py",
+        "src/esaa/projector.py",
+        "src/esaa/reject_codes.py",
+        "tests/test_g07_review_mode.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/cli.py",
+          "src/esaa/validator.py",
+          "src/esaa/projector.py",
+          "src/esaa/reject_codes.py",
+          "tests/test_g07_review_mode.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T17:40:25Z",
+      "verification": {
+        "checks": [
+          "Temporary validation: PYTHONPATH=src python -m pytest -q tests/test_g07_review_mode.py tests/test_g07_task_model.py tests/test_g07_schema_contracts.py tests/test_review_role_policy.py tests/test_event_hash_chain.py tests/test_reject_codes_inventory.py -> 34 passed",
+          "review without required review_mode and review with mismatched mode fail before append with canonical codes",
+          "request_changes and approve both require matching review_mode when required_review_mode is set",
+          "valid optional review_mode on tasks without required_review_mode is preserved in admitted review payload"
+        ]
+      },
+      "completed_at": "2026-07-01T17:43:36Z"
+    },
+    {
+      "task_id": "T-G07-IMPL-004-LESSONS-DISPATCH",
+      "task_kind": "impl",
+      "title": "Implement G07 lessons contract and dispatch context",
+      "description": "Implementar o contrato de lessons e dispatch-context da G07. Atualizar lessons.schema para status active, experimental, superseded e archived; scope com task_kinds, task_types, review_modes, paths, actors e runners; enforcement como objeto extensivel com mode/value e compatibilidade com shape legado. Implementar filtro: OR dentro da mesma dimensao e AND entre dimensoes. active entra no contexto e pode bloquear; experimental entra sem bloquear por padrao; superseded/archived nao entram no contexto normal. dispatch-context deve expor campos G07 para spec/impl/qa, incluindo superseded_by como dado de leitura. require_boundary_grant deve ser documentado/representado sem conceder permissao automaticamente.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-IMPL-003-REVIEW-MODE"
+      ],
+      "targets": [
+        "src/esaa/templates/lessons.schema.json",
+        "src/esaa/dispatch.py",
+        "src/esaa/projector.py",
+        "src/esaa/seeds.py",
+        "tests/test_g07_lessons_dispatch.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/templates/lessons.schema.json",
+          "src/esaa/dispatch.py",
+          "src/esaa/projector.py",
+          "src/esaa/seeds.py",
+          "tests/test_g07_lessons_dispatch.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T17:44:00Z",
+      "verification": {
+        "checks": [
+          "Temporary focused validation: PYTHONPATH=src python -m pytest -q tests/test_g07_lessons_dispatch.py tests/test_dispatch_context_cache_order.py tests/test_baseline_lessons_seed.py tests/test_activity_clear_lessons_reseed.py -> 13 passed",
+          "Temporary combined G07 validation: PYTHONPATH=src python -m pytest -q tests/test_g07_lessons_dispatch.py tests/test_g07_review_mode.py tests/test_g07_task_model.py tests/test_g07_schema_contracts.py tests/test_dispatch_context_cache_order.py tests/test_baseline_lessons_seed.py tests/test_activity_clear_lessons_reseed.py -> 26 passed",
+          "filter_lessons includes active and experimental lessons, excludes superseded/archived, and applies OR within dimensions plus AND across dimensions",
+          "dispatch-context exposes task_type, acceptance_criteria, required_review_mode, supersedes and superseded_by as read context"
+        ]
+      },
+      "completed_at": "2026-07-01T17:47:00Z"
+    },
+    {
+      "task_id": "T-G07-SPEC-002-DOCS",
+      "task_kind": "spec",
+      "title": "Document G07 task model and typed review usage",
+      "description": "Atualizar documentacao de usuario apos a implementacao G07. Documentar uso de task create com task_type, acceptance_criteria, required_review_mode e supersedes; uso de review --review-mode; comportamento de superseded_by projection-only; lessons status/scope/enforcement; compatibilidade com roadmaps e lessons legadas. Nao alterar core nesta task.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-IMPL-004-LESSONS-DISPATCH"
+      ],
+      "targets": [
+        "docs/guides/esaa-cli-reference.md",
+        "docs/guides/esaa-cli-reference.en.md",
+        "docs/guides/esaa-getting-started.md",
+        "docs/guides/esaa-getting-started.en.md"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cli-reference.md",
+          "docs/guides/esaa-cli-reference.en.md",
+          "docs/guides/esaa-getting-started.md",
+          "docs/guides/esaa-getting-started.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-07-01T17:47:22Z",
+      "verification": {
+        "checks": [
+          "CLI reference documents task create G07 flags, review --review-mode validation, and lessons enforcement shape.",
+          "Getting started guides show optional G07 fields and typed review behavior in Portuguese and English."
+        ]
+      },
+      "completed_at": "2026-07-01T17:50:58Z"
+    },
+    {
+      "task_id": "T-G07-QA-001-END-TO-END",
+      "task_kind": "qa",
+      "title": "QA G07 task model lessons and typed review implementation",
+      "description": "Validar a implementacao completa da G07 contra docs/spec/G07-task-lessons-review-model.md. Cobrir compatibilidade com eventos/roadmaps antigos, campos opcionais sem null incompativel, task create com campos novos, supersedes/superseded_by, review_mode em approve e request_changes, nao append em entradas invalidas, dispatch-context com campos G07, lessons active/experimental/superseded/archived e filtro OR por dimensao/AND entre dimensoes. Rodar PYTHONPATH=src pytest -q e esaa --root . verify.",
+      "status": "done",
+      "depends_on": [
+        "T-G07-SPEC-002-DOCS"
+      ],
+      "targets": [
+        "docs/qa/G07-task-lessons-review-model.md",
+        "tests/test_g07_end_to_end.py"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/G07-task-lessons-review-model.md",
+          "tests/test_g07_end_to_end.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-07-01T17:51:11Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src python -m pytest -q /tmp/esaa-g07-qa/tests/test_g07_end_to_end.py -> 2 passed in 0.64s",
+          "PYTHONPATH=src python -m pytest -q tests/test_g07_schema_contracts.py tests/test_g07_task_model.py tests/test_g07_review_mode.py tests/test_g07_lessons_dispatch.py /tmp/esaa-g07-qa/tests/test_g07_end_to_end.py -> 19 passed in 1.74s"
+        ]
+      },
+      "completed_at": "2026-07-01T17:53:47Z"
+    },
+    {
+      "task_id": "HF-ISS-G07-FULL-PYTEST",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-G07-FULL-PYTEST",
+      "description": "Apply a minimal hotfix to resolve issue ISS-G07-FULL-PYTEST without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-G07-FULL-PYTEST"
+      ],
+      "outputs": {
+        "files": [
+          "src/hotfix/HF-ISS-G07-FULL-PYTEST.txt"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-G07-FULL-PYTEST",
+      "fixes": "T-G07-QA-001-END-TO-END",
+      "scope_patch": [
+        "src/hotfix/"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T18:00:35Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src python -m pytest -q -> 381 passed in 24.82s",
+          "esaa --root . verify -> ok"
+        ]
+      },
+      "completed_at": "2026-07-01T18:00:54Z"
+    },
+    {
+      "task_id": "T-G07-HOTFIX-001-FULL-PYTEST",
+      "task_kind": "impl",
+      "title": "Fix G07 full pytest regressions",
+      "description": "Corrigir regressions detectados por PYTHONPATH=src python -m pytest -q apos G07: restaurar compatibilidade da assinatura filter_lessons(task_kind=...), reduzir src/esaa/task_admin.py para <=500 linhas sem alterar comportamento, rodar pytest completo e esaa verify.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/dispatch.py",
+          "tests/test_g07_end_to_end.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-01T17:55:50Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=/tmp/esaa-g07-hotfix/src:src python -m pytest -q tests/test_state_machine_and_dispatch.py::test_filter_lessons_respects_task_kind_and_applies_to /tmp/esaa-g07-hotfix/tests/test_g07_end_to_end.py -> passed; service line-count check requires applying file_updates because it reads repo files directly.",
+          "wc -l /tmp/esaa-g07-hotfix/src/esaa/task_admin.py -> 432 lines, under 500."
+        ]
+      },
+      "issue_id": "ISS-G07-FULL-PYTEST",
+      "fixes": "T-G07-QA-001-END-TO-END",
+      "completed_at": "2026-07-01T18:00:16Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 28,
-      "todo": 1
+      "done": 38
     },
     "by_kind": {
-      "impl": 13,
-      "qa": 4,
-      "spec": 12
+      "impl": 19,
+      "qa": 5,
+      "spec": 14
     }
   }
 }

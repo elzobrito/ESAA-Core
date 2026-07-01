@@ -14,6 +14,7 @@ from .state_machine import (
     classify_transition,
 )
 from .utils import sha256_hex, utc_now_iso
+from .validator import validate_g07_review_mode, validate_g07_task_create_payload
 
 
 def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
@@ -39,6 +40,9 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
                 task[field] = deepcopy(payload[field])
     if payload.get("boundary_grant"):
         task["boundary_grant"] = deepcopy(payload["boundary_grant"])
+    for field in ("task_type", "acceptance_criteria", "required_review_mode", "supersedes"):
+        if field in payload:
+            task[field] = deepcopy(payload[field])
     if payload.get("plugin"):
         task["plugin"] = deepcopy(payload["plugin"])
     return task
@@ -93,6 +97,19 @@ def _task_by_id(state: dict[str, Any], task_id: str) -> dict[str, Any]:
     raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
 
 
+def _existing_task_ids(state: dict[str, Any]) -> set[str]:
+    return {task["task_id"] for task in state["tasks"]}
+
+
+def _derive_superseded_by(state: dict[str, Any], task: dict[str, Any]) -> None:
+    task_id = task["task_id"]
+    for superseded_task_id in task.get("supersedes", []):
+        superseded_task = _task_by_id(state, superseded_task_id)
+        superseded_by = superseded_task.setdefault("superseded_by", [])
+        if task_id not in superseded_by:
+            superseded_by.append(task_id)
+
+
 def _ensure_owner(task: dict[str, Any], actor: str) -> None:
     owner = task.get("assigned_to")
     if owner != actor:
@@ -134,6 +151,7 @@ def _apply_review(state: dict[str, Any], event: dict[str, Any]) -> None:
     task = _task_by_id(state, event["payload"]["task_id"])
     decision = event["payload"].get("decision")
     _check_transition(task, "review")
+    validate_g07_review_mode(task, event["payload"])
     # FIX-1807: review autoriza-se por owner (legado) ou por role qa/orchestrator.
     # O service injeta '_reviewer_role' no payload apos resolver runtime_policy.
     reviewer_role = event.get("reviewer_role") or event["payload"].get("_reviewer_role")
@@ -234,7 +252,10 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     elif action == "run.end":
         state["meta"]["run"]["status"] = payload.get("status", "success")
     elif action == "task.create":
-        state["tasks"].append(_new_task(payload))
+        validate_g07_task_create_payload(payload, _existing_task_ids(state))
+        task = _new_task(payload)
+        state["tasks"].append(task)
+        _derive_superseded_by(state, task)
     elif action == "claim":
         _apply_claim(state, event)
     elif action == "complete":
@@ -327,7 +348,7 @@ def materialize(
     for lesson in lessons:
         for kind in lesson["scope"].get("task_kinds", []):
             by_task_kind.setdefault(kind, []).append(lesson["lesson_id"])
-        applies_to = lesson["enforcement"]["applies_to"]
+        applies_to = lesson["enforcement"].get("applies_to") or lesson["enforcement"].get("mode", "unknown")
         by_enforcement.setdefault(applies_to, []).append(lesson["lesson_id"])
 
     lessons_view = {

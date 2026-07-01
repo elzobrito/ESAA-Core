@@ -199,6 +199,12 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_review.add_argument("task_id")
     cmd_review.add_argument("--actor", required=True)
     cmd_review.add_argument("--decision", choices=["approve", "request_changes"], required=True)
+    cmd_review.add_argument(
+        "--review-mode",
+        choices=["functional", "security", "regression", "docs", "governance", "release"],
+        default=None,
+        help="G07 optional typed review mode",
+    )
     cmd_review.add_argument("--task", action="append", dest="tasks", default=None)
     cmd_review.add_argument(
         "--notify-completion",
@@ -231,6 +237,32 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_task_create.add_argument("--output", action="append", dest="outputs", default=None)
     cmd_task_create.add_argument("--depends-on", action="append", dest="depends_on", default=None)
     cmd_task_create.add_argument("--target", action="append", dest="targets", default=None)
+    cmd_task_create.add_argument(
+        "--task-type",
+        choices=["feature", "hotfix", "audit", "release", "memory", "governance", "maintenance"],
+        default=None,
+        help="G07 optional operational intent for the task",
+    )
+    cmd_task_create.add_argument(
+        "--acceptance-criterion",
+        action="append",
+        dest="acceptance_criteria",
+        default=None,
+        help="G07 ordered acceptance criterion; repeat to add multiple AC items",
+    )
+    cmd_task_create.add_argument(
+        "--required-review-mode",
+        choices=["functional", "security", "regression", "docs", "governance", "release"],
+        default=None,
+        help="G07 optional single required review mode",
+    )
+    cmd_task_create.add_argument(
+        "--supersedes",
+        action="append",
+        dest="supersedes",
+        default=None,
+        help="G07 existing task id superseded by this task; repeat for multiple ids",
+    )
     cmd_task_create.add_argument(
         "--boundary-grant",
         action="append",
@@ -484,6 +516,7 @@ def main(argv: list[str] | None = None) -> int:
                 actor=args.actor,
                 decision=args.decision,
                 tasks=args.tasks,
+                review_mode=args.review_mode,
                 notify_completion=args.notify_completion,
                 notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
@@ -510,6 +543,10 @@ def main(argv: list[str] | None = None) -> int:
                 depends_on=args.depends_on,
                 targets=args.targets,
                 boundary_grant=args.boundary_grant,
+                task_type=args.task_type,
+                acceptance_criteria=args.acceptance_criteria,
+                required_review_mode=args.required_review_mode,
+                supersedes=args.supersedes,
                 dry_run=args.dry_run,
             )
         elif args.command == "issue" and args.issue_command == "report":

@@ -167,6 +167,19 @@
             "qa"
           ]
         },
+        "task_type": {
+          "$comment": "G07: optional operational intent. task_kind remains the actor/boundary control.",
+          "type": "string",
+          "enum": [
+            "feature",
+            "hotfix",
+            "audit",
+            "release",
+            "memory",
+            "governance",
+            "maintenance"
+          ]
+        },
         "title": {
           "type": "string",
           "minLength": 1
@@ -263,6 +276,44 @@
         },
         "verification": {
           "type": "object"
+        },
+        "acceptance_criteria": {
+          "$comment": "G07: ordered human-verifiable acceptance criteria; stable references use AC[0], AC[1], ...",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_review_mode": {
+          "$comment": "G07: optional single required review mode for v1.",
+          "type": "string",
+          "enum": [
+            "functional",
+            "security",
+            "regression",
+            "docs",
+            "governance",
+            "release"
+          ]
+        },
+        "supersedes": {
+          "$comment": "G07: authored task ids superseded by this task. Existence and self-reference are validated by the orchestrator.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "superseded_by": {
+          "$comment": "G07: projection-only task ids, accumulated in activity log order.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         },
         "is_hotfix": {
           "type": "boolean"

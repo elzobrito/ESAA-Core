@@ -8,6 +8,7 @@ from jsonschema import ValidationError, validate
 
 from .errors import ESAAError
 from .external_effects import task_accepts_external_path
+from .reject_codes import REVIEW_MODE_MISMATCH, REVIEW_MODE_REQUIRED
 from .state_machine import REJECT_PRIOR_MISMATCH, allowed_actions_for
 from .utils import normalize_rel_path
 
@@ -21,11 +22,73 @@ def _short_validation_error(exc: ValidationError) -> str:
 
 # R8: minimo de verification.checks por task_kind (alinhado a AGENT_CONTRACT.verification_gate).
 MIN_CHECKS_BY_KIND = {"spec": 1, "impl": 1, "qa": 1, "hotfix": 2}
+G07_TASK_TYPES = {"feature", "hotfix", "audit", "release", "memory", "governance", "maintenance"}
+G07_REVIEW_MODES = {"functional", "security", "regression", "docs", "governance", "release"}
 DEFAULT_RESOURCE_LIMITS = {
     "max_file_updates": 32,
     "max_bytes_per_update": 2 * 1024 * 1024,
     "max_bytes_total": 8 * 1024 * 1024,
 }
+
+
+def _non_empty_strings(values: Any, field: str) -> list[str]:
+    if not isinstance(values, list):
+        raise ESAAError("SCHEMA_INVALID", f"{field} must be a list")
+    out: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            raise ESAAError("SCHEMA_INVALID", f"{field} items must be non-empty strings")
+        out.append(value.strip())
+    return out
+
+
+def validate_g07_task_create_payload(payload: dict[str, Any], existing_task_ids: set[str]) -> None:
+    task_id = str(payload.get("task_id", "")).strip()
+
+    task_type = payload.get("task_type")
+    if task_type is not None and task_type not in G07_TASK_TYPES:
+        raise ESAAError("SCHEMA_INVALID", f"invalid task_type: {task_type}")
+
+    acceptance_criteria = payload.get("acceptance_criteria")
+    if acceptance_criteria is not None:
+        _non_empty_strings(acceptance_criteria, "acceptance_criteria")
+
+    required_review_mode = payload.get("required_review_mode")
+    if required_review_mode is not None and required_review_mode not in G07_REVIEW_MODES:
+        raise ESAAError("SCHEMA_INVALID", f"invalid required_review_mode: {required_review_mode}")
+
+    supersedes = payload.get("supersedes")
+    if supersedes is None:
+        return
+
+    supersedes_values = _non_empty_strings(supersedes, "supersedes")
+    if len(set(supersedes_values)) != len(supersedes_values):
+        raise ESAAError("SCHEMA_INVALID", "supersedes must not contain duplicate task ids")
+    if task_id in supersedes_values:
+        raise ESAAError("SCHEMA_INVALID", "supersedes must not reference the task itself")
+    missing = sorted(set(supersedes_values) - existing_task_ids)
+    if missing:
+        raise ESAAError("TASK_NOT_FOUND", f"supersedes references unknown task ids: {missing}")
+
+
+def validate_g07_review_mode(task: dict[str, Any], event: dict[str, Any]) -> None:
+    review_mode = event.get("review_mode")
+    if review_mode is not None and review_mode not in G07_REVIEW_MODES:
+        raise ESAAError("SCHEMA_INVALID", f"invalid review_mode: {review_mode}")
+
+    required_review_mode = task.get("required_review_mode")
+    if not required_review_mode:
+        return
+    if review_mode is None:
+        raise ESAAError(
+            REVIEW_MODE_REQUIRED,
+            f"task {task['task_id']} requires review_mode={required_review_mode}",
+        )
+    if review_mode != required_review_mode:
+        raise ESAAError(
+            REVIEW_MODE_MISMATCH,
+            f"task {task['task_id']} requires review_mode={required_review_mode}, got {review_mode}",
+        )
 
 
 def _positive_int(value: Any, default: int, minimum: int = 1) -> int:
@@ -213,6 +276,7 @@ def validate_agent_output(
         decision = event.get("decision")
         if decision not in {"approve", "request_changes"}:
             raise ESAAError("SCHEMA_INVALID", f"invalid review decision: {decision}")
+        validate_g07_review_mode(task, event)
 
     updates = list(output.get("file_updates", []))
     _validate_boundaries(updates, contract, task)

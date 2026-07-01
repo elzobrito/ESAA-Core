@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 394,
-    "updated_at": "2026-06-28T15:31:37Z"
+    "last_event_seq": 533,
+    "updated_at": "2026-07-01T18:42:53Z"
   },
   "issues": [
     {
@@ -157,6 +157,35 @@
       "timeline": {
         "created_event_seq": 115,
         "resolved_event_seq": 132
+      }
+    },
+    {
+      "issue_id": "ISS-G07-FULL-PYTEST",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Full pytest regression after G07 completion",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "PYTHONPATH=src python -m pytest -q fails after all G07 tasks are done: task_admin.py has 565 lines over the 500-line service decomposition limit and filter_lessons no longer accepts the legacy task_kind keyword used by existing tests.",
+        "repro_steps": [
+          "Run PYTHONPATH=src python -m pytest -q",
+          "Observe tests/test_service_decomposition.py::test_service_modules_stay_under_500_lines failing for src/esaa/task_admin.py with 565 lines",
+          "Observe tests/test_state_machine_and_dispatch.py::test_filter_lessons_respects_task_kind_and_applies_to failing with TypeError: filter_lessons() got an unexpected keyword argument task_kind"
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "HF-ISS-G07-FULL-PYTEST"
+      },
+      "links": {
+        "reported_by_task_id": "T-G07-QA-001-END-TO-END",
+        "fixes_task_id": "T-G07-QA-001-END-TO-END",
+        "hotfix_task_id": "HF-ISS-G07-FULL-PYTEST"
+      },
+      "timeline": {
+        "created_event_seq": 493,
+        "resolved_event_seq": 521
       }
     }
   ],

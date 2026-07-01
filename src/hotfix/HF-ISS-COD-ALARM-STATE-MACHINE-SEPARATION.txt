@@ -1,0 +1,33 @@
+# Hotfix marker: ISS-COD-ALARM-STATE-MACHINE-SEPARATION
+
+This hotfix task closes the state-machine separation concern for completion alarm.
+
+## Issue
+Completion notification (alarm) was modeled through state_machine.is_terminal_completion (and related helpers), coupling an audio/side-effect concern into the canonical pure state machine.
+
+## Resolution
+- Removed all notification and terminal-completion alarm semantics from src/esaa/state_machine.py.
+- State machine now defines only pure task lifecycle:
+    todo --claim--> in_progress --complete--> review --review(approve)--> done
+- All transition and completion notifications live in src/esaa/notifications.py:
+    - play_transition_message(status)
+    - speak_message / platform backends (say, spd-say, espeak, terminal-bell)
+    - completion_alarm_enabled_from_env() via ESAA_NOTIFY_ON_DONE
+- task_admin.py imports only `allowed_actions_for` and `expected_action_for` from state_machine.
+- Notifications are applied *after* successful state transitions (post-review for done).
+- Related prior work:
+  - COD-ALARM-001 (original feature)
+  - HF-ISS-COD-ALARM-HOTFIX-SCOPE (scope correction for hotfixes)
+  - HF-ISS-AUDIO-SPEECH-MESSAGES (speech vs wav samples)
+- Current state (post separation):
+  - No references to is_terminal_completion or alarm logic remain in state_machine.
+  - Grep across src/esaa confirms clean boundary.
+
+## Verification
+- esaa --root . verify -> ok
+- No leakage of notification concerns into state machine module.
+- Hotfix scope respected (only src/hotfix/ touched by this task).
+- Original done tasks (COD-ALARM-001 etc.) remain immutable.
+
+The separation ensures the state machine stays a pure authority for workflow (RF01) and side effects are isolated.
+

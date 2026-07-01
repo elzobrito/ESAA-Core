@@ -63,6 +63,8 @@
             "type": "string",
             "enum": [
               "active",
+              "experimental",
+              "superseded",
               "archived"
             ]
           },
@@ -85,9 +87,6 @@
           "scope": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "task_kinds"
-            ],
             "properties": {
               "task_kinds": {
                 "type": "array",
@@ -99,6 +98,56 @@
                     "qa"
                   ]
                 }
+              },
+              "task_types": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "feature",
+                    "hotfix",
+                    "audit",
+                    "release",
+                    "memory",
+                    "governance",
+                    "maintenance"
+                  ]
+                }
+              },
+              "review_modes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "functional",
+                    "security",
+                    "regression",
+                    "docs",
+                    "governance",
+                    "release"
+                  ]
+                }
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "actors": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "runners": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           },
@@ -106,8 +155,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "mode",
-              "applies_to"
+              "mode"
             ],
             "properties": {
               "mode": {
@@ -116,10 +164,15 @@
                   "reject",
                   "warn",
                   "require_field",
-                  "require_step"
+                  "require_step",
+                  "require_check",
+                  "require_note",
+                  "require_review_mode",
+                  "require_boundary_grant"
                 ]
               },
               "applies_to": {
+                "$comment": "Legacy relevance dimension retained for backward compatibility.",
                 "type": "string",
                 "enum": [
                   "output_contract",
@@ -127,6 +180,16 @@
                   "template",
                   "workflow_gate",
                   "verification_gate"
+                ]
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "array",
+                  "object",
+                  "number",
+                  "boolean",
+                  "null"
                 ]
               }
             }

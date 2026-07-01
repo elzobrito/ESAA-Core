@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b13
+python -m pip install esaa-core==0.5.0b14
 python -m esaa --version
 ```
 
@@ -103,12 +103,12 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b13`.
+Current package: `esaa-core 0.5.0b14`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b13`:
+Highlights in `0.5.0b14`:
 
 - Spoken transition notifications now say `Task in progress`, `Task review`, and `Task done`.
 - Use `--notify-transition` on `claim`, `complete`, or `review` to speak the resulting state.

@@ -47,6 +47,11 @@
           "type": "string",
           "enum": ["approve", "request_changes"]
         },
+        "review_mode": {
+          "$comment": "G07: optional typed review mode. Required-mode semantics are enforced by the orchestrator, not by this envelope schema alone.",
+          "type": "string",
+          "enum": ["functional", "security", "regression", "docs", "governance", "release"]
+        },
         "tasks": {
           "type": "array",
           "items": {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0b14
+
+Version bump and packaging refresh (0.5.0b14).
+
+- Updated single-source `PACKAGE_VERSION` to 0.5.0b14.
+- Refreshed install examples and current package references in documentation.
+- Built new `esaa_core-0.5.0b14` sdist + wheel.
+
 ## 0.5.0b13
 
 Public beta refresh for spoken transition notifications.

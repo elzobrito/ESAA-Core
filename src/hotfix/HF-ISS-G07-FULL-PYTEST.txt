@@ -1,0 +1,7 @@
+ISS-G07-FULL-PYTEST resolved by T-G07-HOTFIX-001-FULL-PYTEST.
+
+Evidence:
+- PYTHONPATH=src python -m pytest -q -> 381 passed in 24.82s
+- esaa --root . verify -> ok
+- src/esaa/task_admin.py -> 430 lines, below the 500-line service decomposition limit
+- filter_lessons accepts the legacy task_kind keyword and the G07 task object contract
