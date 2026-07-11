@@ -11,6 +11,7 @@ from .notifications import (
     transition_messages_enabled_from_env,
 )
 from .projector import materialize
+from .project_profile import project_profile_view
 from .runner_inputs import load_runtime_capabilities
 from .seeds import (
     build_dispatch_context,
@@ -82,6 +83,60 @@ class TaskAdminMixin:
 
         return result
 
+    def amend_task(
+        self,
+        task_id: str,
+        description: str | None = None,
+        title: str | None = None,
+        acceptance_criteria: list[str] | None = None,
+        task_kind: str | None = None,
+        task_type: str | None = None,
+        depends_on: list[str] | None = None,
+        outputs: list[str] | None = None,
+        required_review_mode: str | None = None,
+        required_verification: list[str] | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        events = parse_event_store(self.root)
+        roadmap, _, _ = materialize(events)
+        task = require_task(roadmap, task_id)
+        if task["status"] != "todo":
+            raise ESAAError("INVALID_TRANSITION", f"task.amend only allowed for todo tasks: {task_id}")
+
+        payload: dict[str, Any] = {"task_id": task_id}
+        if description is not None:
+            payload["description"] = description.strip()
+        if title is not None:
+            payload["title"] = title.strip()
+        if acceptance_criteria is not None:
+            payload["acceptance_criteria"] = [item.strip() for item in acceptance_criteria if item.strip()]
+        if task_kind is not None:
+            payload["task_kind"] = task_kind.strip()
+        if task_type is not None:
+            payload["task_type"] = task_type.strip()
+        if depends_on is not None:
+            payload["depends_on"] = [item.strip() for item in depends_on if item.strip()]
+        if outputs is not None:
+            payload["outputs"] = {"files": [item.strip() for item in outputs if item.strip()]}
+        if required_review_mode is not None:
+            payload["required_review_mode"] = required_review_mode.strip()
+        if required_verification is not None:
+            payload["required_verification"] = [
+                item.strip() for item in required_verification if item.strip()
+            ]
+        if len(payload) == 1:
+            raise ESAAError("INVALID_ARGUMENT", "task.amend requires at least one field to update")
+
+        event = make_event(
+            next_event_seq(events), actor="orchestrator", action="task.amend", payload=payload
+        )
+        preview_roadmap, _, _ = materialize(events + [event])
+        self._validate_roadmap_projection_schema(preview_roadmap)
+        result = self._commit_orchestrator_events([event], dry_run=dry_run)
+        result["schema_validated"] = ".roadmap/roadmap.schema.json"
+        result["task_id"] = task_id
+        return result
+
     def clear_activity(
         self,
         force: bool = False,
@@ -133,6 +188,7 @@ class TaskAdminMixin:
         events = parse_event_store(self.root)
 
         roadmap, issues, lessons = materialize(events)
+        project_profile = project_profile_view(events)
 
         tasks, sources = tasks_with_planned_plugins(self.root, roadmap["tasks"])
 
@@ -151,6 +207,7 @@ class TaskAdminMixin:
             schema=schema,
             lessons=lessons.get("lessons", []),
             issues=issues.get("issues", []),
+            project_profile=project_profile,
         )
 
         context["last_event_seq"] = roadmap["meta"]["run"]["last_event_seq"]

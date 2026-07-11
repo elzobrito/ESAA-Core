@@ -13,7 +13,7 @@ from esaa.store import parse_event_store
 
 def test_snapshot_dry_run_does_not_write_files(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     result = create_snapshot(contract_bundle, before=3, dry_run=True)
 
@@ -23,7 +23,7 @@ def test_snapshot_dry_run_does_not_write_files(contract_bundle: Path) -> None:
 
 def test_compaction_writes_snapshot_archive_tail_and_manifest(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     service.run(steps=2)
     before_hash = service.verify()["projection_hash_sha256"]
 
@@ -42,7 +42,7 @@ def test_compaction_writes_snapshot_archive_tail_and_manifest(contract_bundle: P
 
 def test_compaction_refuses_mismatched_projection(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     roadmap_path = contract_bundle / ".roadmap" / "roadmap.json"
     roadmap = json.loads(roadmap_path.read_text(encoding="utf-8"))
     roadmap["meta"]["run"]["verify_status"] = "mismatch"

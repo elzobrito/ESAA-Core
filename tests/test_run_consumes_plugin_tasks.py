@@ -62,7 +62,7 @@ def test_init_seeds_plugin_tasks(tmp_path: Path) -> None:
     _make_roadmap_plugin(rm / "roadmap.beta.json", "PLG-2", "spec")
 
     svc = ESAAService(tmp_path)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     roadmap = json.loads((rm / "roadmap.json").read_text(encoding="utf-8"))
     ids = {t["task_id"] for t in roadmap["tasks"]}
@@ -82,7 +82,7 @@ def test_eligible_lists_plugin_tasks(tmp_path: Path) -> None:
     _make_roadmap_plugin(rm / "roadmap.demo.json", "ELIG-1", "spec")
 
     svc = ESAAService(tmp_path)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     elig = svc.eligible()
     ids = {t["task_id"] for t in elig["eligible"]}
     assert "ELIG-1" in ids

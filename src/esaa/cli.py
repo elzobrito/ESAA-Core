@@ -47,6 +47,14 @@ def _read_file_updates(path_arg: str) -> list[dict[str, str]]:
     return payload
 
 
+def _interactive_onboard_answers(root: Path) -> dict[str, Any]:
+    display_name = input("Como os agentes devem te chamar? ").strip()
+    return {
+        "operator_name": display_name,
+        "workflow_preferences": {"guided_onboarding": True},
+    }
+
+
 def _plugin_status(root: Path, detail: bool = False, plugin_filter: str | None = None) -> dict:
     """Cross-reference planned tasks (per-plugin) with projected state."""
     roadmap_dir = root / ".roadmap"
@@ -149,10 +157,15 @@ def _build_parser() -> argparse.ArgumentParser:
     bootstrap_guide_mode.add_argument("--preserve-guides", action="store_true")
     bootstrap_guide_mode.add_argument("--merge-guides", action="store_true")
 
-    cmd_init = sub.add_parser("init", help="initialize canonical clean-state")
+    cmd_init = sub.add_parser("init", help="initialize canonical clean-state (empty tasks by default)")
     cmd_init.add_argument("--run-id", default="RUN-0001")
     cmd_init.add_argument("--master-correlation-id", default="CID-ESAA-INIT")
     cmd_init.add_argument("--force", action="store_true")
+    cmd_init.add_argument(
+        "--with-demo-tasks",
+        action="store_true",
+        help="seed demo tasks T-1000/T-1010/T-1020 (ignored when a plugin roadmap supplies tasks)",
+    )
 
     cmd_run = sub.add_parser("run", help="execute orchestration steps (mock adapter)")
     cmd_run.add_argument("--steps", type=int, default=1)
@@ -227,6 +240,14 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_reject.add_argument("--message", required=True)
     cmd_reject.add_argument("--dry-run", action="store_true")
 
+    cmd_onboard = sub.add_parser("onboard", help="guided project onboarding and profile creation")
+    cmd_onboard.add_argument("--answers", default=None, help="JSON answers file for non-interactive onboarding")
+    cmd_onboard.add_argument("--dry-run", action="store_true", help="preview profile/tasks without appending events")
+
+    cmd_profile = sub.add_parser("profile", help="project profile commands")
+    profile_sub = cmd_profile.add_subparsers(dest="profile_command", required=True)
+    profile_sub.add_parser("show", help="show projected project profile")
+
     cmd_task = sub.add_parser("task", help="deterministic task commands")
     task_sub = cmd_task.add_subparsers(dest="task_command", required=True)
     cmd_task_create = task_sub.add_parser("create", help="append an orchestrator task.create event")
@@ -271,6 +292,40 @@ def _build_parser() -> argparse.ArgumentParser:
         help="extra fnmatch write pattern granted to this task only (operator authority; T-2070)",
     )
     cmd_task_create.add_argument("--dry-run", action="store_true")
+    cmd_task_amend = task_sub.add_parser("amend", help="amend metadata of a todo task")
+    cmd_task_amend.add_argument("task_id")
+    cmd_task_amend.add_argument("--description", default=None)
+    cmd_task_amend.add_argument("--title", default=None)
+    cmd_task_amend.add_argument("--kind", dest="task_kind", choices=["spec", "impl", "qa"], default=None)
+    cmd_task_amend.add_argument(
+        "--task-type",
+        dest="task_type",
+        choices=["feature", "hotfix", "audit", "release", "memory", "governance", "maintenance"],
+        default=None,
+    )
+    cmd_task_amend.add_argument("--depends-on", action="append", dest="depends_on", default=None)
+    cmd_task_amend.add_argument("--output", action="append", dest="outputs", default=None)
+    cmd_task_amend.add_argument(
+        "--acceptance-criterion",
+        action="append",
+        dest="acceptance_criteria",
+        default=None,
+        help="replace acceptance criteria; repeat to add multiple AC items",
+    )
+    cmd_task_amend.add_argument(
+        "--required-review-mode",
+        dest="required_review_mode",
+        choices=["functional", "security", "regression", "docs", "governance", "release"],
+        default=None,
+    )
+    cmd_task_amend.add_argument(
+        "--required-verification",
+        action="append",
+        dest="required_verification",
+        default=None,
+        help="replace required verification items; repeat to add multiple",
+    )
+    cmd_task_amend.add_argument("--dry-run", action="store_true")
 
     cmd_issue = sub.add_parser("issue", help="deterministic issue commands")
     issue_sub = cmd_issue.add_subparsers(dest="issue_command", required=True)
@@ -480,6 +535,7 @@ def main(argv: list[str] | None = None) -> int:
                 run_id=args.run_id,
                 master_correlation_id=args.master_correlation_id,
                 force=args.force,
+                with_demo_tasks=args.with_demo_tasks,
             )
         elif args.command == "run":
             steps = None if args.until_done else args.steps
@@ -533,6 +589,16 @@ def main(argv: list[str] | None = None) -> int:
                 message=args.message,
                 dry_run=args.dry_run,
             )
+        elif args.command == "onboard":
+            if args.answers:
+                answers = _read_json_arg(args.answers)
+                if not isinstance(answers, dict):
+                    raise ESAAError("PROJECT_PROFILE_INVALID", "onboard answers must be a JSON object")
+            else:
+                answers = _interactive_onboard_answers(root)
+            result = service.onboard(answers, dry_run=args.dry_run)
+        elif args.command == "profile" and args.profile_command == "show":
+            result = service.show_project_profile()
         elif args.command == "task" and args.task_command == "create":
             result = service.create_task(
                 args.task_id,
@@ -547,6 +613,20 @@ def main(argv: list[str] | None = None) -> int:
                 acceptance_criteria=args.acceptance_criteria,
                 required_review_mode=args.required_review_mode,
                 supersedes=args.supersedes,
+                dry_run=args.dry_run,
+            )
+        elif args.command == "task" and args.task_command == "amend":
+            result = service.amend_task(
+                args.task_id,
+                description=args.description,
+                title=args.title,
+                acceptance_criteria=args.acceptance_criteria,
+                task_kind=args.task_kind,
+                task_type=args.task_type,
+                depends_on=args.depends_on,
+                outputs=args.outputs,
+                required_review_mode=args.required_review_mode,
+                required_verification=args.required_verification,
                 dry_run=args.dry_run,
             )
         elif args.command == "issue" and args.issue_command == "report":

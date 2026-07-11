@@ -19,7 +19,7 @@ def _sha(text: str) -> str:
 
 def _claim_spec(root: Path) -> ESAAService:
     svc = ESAAService(root)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
@@ -391,7 +391,7 @@ def test_single_run_edit_with_stale_disk_base_is_write_conflict(contract_bundle:
     )
 
     svc = ESAAService(contract_bundle, adapter=EditClobberAdapter())
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     result = svc.run(steps=None, parallel=1)
 
     assert (contract_bundle / "docs/spec/shared-edit.md").read_text(encoding="utf-8") == "status: P-1\n"

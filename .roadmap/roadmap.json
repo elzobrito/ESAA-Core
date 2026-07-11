@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 533,
-      "projection_hash_sha256": "a9035a1ccb889333ff9e91960727840660017f9f6607cc967f22acfd367f8114",
+      "last_event_seq": 674,
+      "projection_hash_sha256": "dd0251ca7c5401e89eabca8984f7e46c293f71661ddaf136e05fdbc2614da216",
       "verify_status": "ok"
     },
-    "updated_at": "2026-07-01T18:42:53Z"
+    "updated_at": "2026-07-11T04:42:50Z"
   },
   "project": {
     "name": "esaa-core",
@@ -1257,16 +1257,373 @@
       "issue_id": "ISS-G07-FULL-PYTEST",
       "fixes": "T-G07-QA-001-END-TO-END",
       "completed_at": "2026-07-01T18:00:16Z"
+    },
+    {
+      "task_id": "ONBOARD-001",
+      "task_kind": "spec",
+      "title": "Especificar onboarding guiado e perfil governado",
+      "description": "Formalizar desenho de esaa onboard, project.profile.set, projecao project_profile, trilha GOV-PROFILE e UX de superseded. Fixture ESAA-Core-GUI dry-run.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/spec/ONBOARD-001.md",
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-07-10T21:14:10Z",
+      "verification": {
+        "checks": [
+          "docs/spec/ONBOARD-001.md cobre CLI, evento, projeção, trilha e superseded UX",
+          "readme.md documenta onboard/profile no quickstart"
+        ]
+      },
+      "completed_at": "2026-07-10T21:14:13Z"
+    },
+    {
+      "task_id": "ONBOARD-010",
+      "task_kind": "impl",
+      "title": "Implementar onboard, project profile e superseded UX",
+      "description": "Implementar esaa onboard, profile show, project.profile.set, projecao/schema, dispatch-context, trilha GOV-PROFILE e filtro superseded em eligible/run.",
+      "status": "done",
+      "depends_on": [
+        "ONBOARD-001"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/project_profile.py",
+          "src/esaa/project_profile_service.py",
+          "src/esaa/templates/project_profile.schema.json",
+          "src/esaa/cli.py",
+          "src/esaa/constants.py",
+          "src/esaa/dispatch.py",
+          "src/esaa/execution.py",
+          "src/esaa/projector.py",
+          "src/esaa/seeds.py",
+          "src/esaa/service.py",
+          "src/esaa/service_core.py",
+          "src/esaa/store.py",
+          "src/esaa/bootstrap.py",
+          "src/esaa/reject_codes.py",
+          "src/esaa/workspace/README.md",
+          "tests/test_project_profile_onboarding.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-10T21:14:14Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src python -m pytest tests/test_project_profile_onboarding.py -q",
+          "CLI onboard/profile e evento project.profile.set presentes no codigo"
+        ]
+      },
+      "completed_at": "2026-07-10T21:14:26Z"
+    },
+    {
+      "task_id": "ONBOARD-020",
+      "task_kind": "qa",
+      "title": "Validar onboarding com testes e fixture ESAA-Core-GUI",
+      "description": "Rodar testes project_profile_onboarding, dry-run no ESAA-Core-GUI sem mutar store, documentar evidencia em docs/qa.",
+      "status": "done",
+      "depends_on": [
+        "ONBOARD-010"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/ONBOARD-020.md",
+          "tests/test_project_profile_onboarding.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-07-10T21:14:36Z",
+      "verification": {
+        "checks": [
+          "pytest tests/test_project_profile_onboarding.py: 5 passed",
+          "ESAA-Core-GUI activity.jsonl 533 inalterado apos onboard --dry-run",
+          "docs/qa/ONBOARD-020.md registra evidencia"
+        ]
+      },
+      "completed_at": "2026-07-10T21:14:42Z"
+    },
+    {
+      "task_id": "REL-0.5.0B15",
+      "task_kind": "impl",
+      "title": "Release esaa-core 0.5.0b15 com onboarding e project profile",
+      "description": "Bump PACKAGE_VERSION para 0.5.0b15, atualizar CHANGELOG e readme, gerar dist wheel+sdist local. Inclui feature ONBOARD governada.",
+      "status": "done",
+      "depends_on": [
+        "ONBOARD-020"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md",
+          "readme.md",
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-10T21:20:49Z",
+      "verification": {
+        "checks": [
+          "PACKAGE_VERSION=0.5.0b15 em src/esaa/constants.py",
+          "CHANGELOG 0.5.0b15 documenta onboard/project profile",
+          "python -m build gera dist esaa_core-0.5.0b15"
+        ]
+      },
+      "completed_at": "2026-07-10T21:21:03Z"
+    },
+    {
+      "task_id": "GOV-ONBOARD-OPERATOR-001",
+      "task_kind": "impl",
+      "title": "Simplificar onboarding para nome do operador",
+      "description": "Ajustar o onboarding governado para perguntar apenas como chamar a pessoa, inferindo o restante do perfil a partir do projeto.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/project_profile.py",
+        "src/esaa/cli.py",
+        "src/esaa/templates/project_profile.schema.json",
+        "tests/test_project_profile_onboarding.py"
+      ],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-11T01:22:21Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src python -m pytest tests/test_project_profile_onboarding.py tests/test_reject_codes_inventory.py tests/test_service_decomposition.py -q",
+          "PYTHONPATH=src python -m py_compile src/esaa/project_profile.py src/esaa/project_profile_service.py src/esaa/cli.py src/esaa/store.py",
+          "onboard --answers {operator_name} --dry-run validado em workspace temporario e ESAA-Core-GUI sem mutar activity.jsonl"
+        ]
+      },
+      "completed_at": "2026-07-11T01:25:43Z"
+    },
+    {
+      "task_id": "REL-0.5.0b16",
+      "task_kind": "impl",
+      "title": "Preparar release local 0.5.0b16",
+      "description": "Atualizar versao, changelog, artefatos dist e instalar localmente o pacote esaa-core 0.5.0b16.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/constants.py",
+        "CHANGELOG.md",
+        "readme.md",
+        "src/esaa/workspace/README.md",
+        "dist"
+      ],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-11T01:58:07Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src python -m esaa --version -> 0.5.0b16",
+          "PYTHONPATH=src python -m pytest tests/test_project_profile_onboarding.py tests/test_public_beta_release.py tests/test_plugin_publication_assets.py tests/test_reject_codes_inventory.py tests/test_service_decomposition.py -q -> 43 passed",
+          "python -m build -> esaa_core-0.5.0b16.tar.gz e esaa_core-0.5.0b16-py3-none-any.whl",
+          "python -m twine check dist/esaa_core-0.5.0b16* -> PASSED",
+          "python -m pip install --break-system-packages --force-reinstall dist/esaa_core-0.5.0b16-py3-none-any.whl -> installed esaa-core 0.5.0b16",
+          "python -m esaa --version && esaa --version && import esaa -> 0.5.0b16"
+        ]
+      },
+      "completed_at": "2026-07-11T02:00:51Z"
+    },
+    {
+      "task_id": "INIT-EMPTY-001",
+      "task_kind": "spec",
+      "title": "Especificar init com roadmap vazio por default e flag de demo",
+      "description": "Formalizar: esaa init sem T-1000/1010/1020 por padrao; seeds demo so com flag (ex. --with-demo-tasks). Cobrir plugins, onboard/GOV-PROFILE, clear/init --force, testes e docs.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/spec/INIT-EMPTY-001.md",
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-07-11T04:32:57Z",
+      "verification": {
+        "checks": [
+          "docs/spec/INIT-EMPTY-001.md define default vazio e flag demo",
+          "readme documenta init --with-demo-tasks"
+        ]
+      },
+      "completed_at": "2026-07-11T04:32:58Z"
+    },
+    {
+      "task_id": "INIT-EMPTY-010",
+      "task_kind": "impl",
+      "title": "Implementar init vazio por default e flag de demo seeds",
+      "description": "CLI/service/seeds: init vazio default; flag demo para seed_tasks; testes e README.",
+      "status": "done",
+      "depends_on": [
+        "INIT-EMPTY-001"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/service_core.py",
+          "src/esaa/cli.py",
+          "src/esaa/seeds.py",
+          "tests/test_init_empty_default.py",
+          "src/esaa/workspace/README.md",
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-11T04:33:15Z",
+      "verification": {
+        "checks": [
+          "pytest tests/test_init_empty_default.py passa",
+          "init default task_source=empty; demo flag seeds T-1000"
+        ]
+      },
+      "completed_at": "2026-07-11T04:35:01Z"
+    },
+    {
+      "task_id": "INIT-EMPTY-020",
+      "task_kind": "qa",
+      "title": "QA init vazio default e flag de demo",
+      "description": "pytest + cenario manual init vazio/demo/onboard; evidencia em docs/qa/INIT-EMPTY-020.md.",
+      "status": "done",
+      "depends_on": [
+        "INIT-EMPTY-010"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/INIT-EMPTY-020.md",
+          "tests/test_init_empty_default.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-07-11T04:35:10Z",
+      "verification": {
+        "checks": [
+          "pytest test_init_empty_default + public beta init empty/demo",
+          "manual init empty eligible 0; demo eligible >=1",
+          "docs/qa/INIT-EMPTY-020.md evidencia"
+        ]
+      },
+      "completed_at": "2026-07-11T04:35:16Z"
+    },
+    {
+      "task_id": "REL-0.5.0B17",
+      "task_kind": "impl",
+      "title": "Release esaa-core 0.5.0b17 com init vazio e flag demo",
+      "description": "Bump PACKAGE_VERSION para 0.5.0b17, atualizar CHANGELOG e readme, gerar dist wheel+sdist local com INIT-EMPTY (init vazio default + --with-demo-tasks).",
+      "status": "done",
+      "depends_on": [
+        "INIT-EMPTY-020"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md",
+          "readme.md",
+          "src/esaa/workspace/README.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-11T04:39:29Z",
+      "verification": {
+        "checks": [
+          "PACKAGE_VERSION=0.5.0b17",
+          "CHANGELOG 0.5.0b17 documenta init vazio e --with-demo-tasks",
+          "python -m build gera esaa_core-0.5.0b17"
+        ]
+      },
+      "completed_at": "2026-07-11T04:39:43Z"
+    },
+    {
+      "task_id": "REL-0.5.0B17-PYPI",
+      "task_kind": "qa",
+      "title": "Publicar esaa-core 0.5.0b17 no PyPI",
+      "description": "Upload dos artefatos dist/esaa_core-0.5.0b17 (sdist+wheel) para PyPI via twine, usando token local do operador. Verificar versao publicada. Sem embutir token em artefatos do repo.",
+      "status": "done",
+      "depends_on": [
+        "REL-0.5.0B17"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/REL-0.5.0B17-PYPI.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-07-11T04:42:37Z",
+      "verification": {
+        "checks": [
+          "twine upload exit 0 para wheel e sdist 0.5.0b17",
+          "https://pypi.org/pypi/esaa-core/0.5.0b17/json retorna version 0.5.0b17"
+        ]
+      },
+      "completed_at": "2026-07-11T04:42:50Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 38
+      "done": 49
     },
     "by_kind": {
-      "impl": 19,
-      "qa": 5,
-      "spec": 14
+      "impl": 25,
+      "qa": 8,
+      "spec": 16
     }
   }
 }

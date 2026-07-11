@@ -23,7 +23,7 @@ def _set_resource_limits(root: Path, **limits: int) -> None:
 
 def _claim_spec_task(root: Path) -> ESAAService:
     svc = ESAAService(root)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",

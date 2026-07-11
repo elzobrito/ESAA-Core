@@ -120,7 +120,7 @@ def _workspace_with_active_plugin(tmp_path: Path, repo_root: Path) -> tuple[Path
 def test_external_plugin_effect_dry_run_and_commit(tmp_path: Path, repo_root: Path) -> None:
     workspace, target = _workspace_with_active_plugin(tmp_path, repo_root)
     svc = ESAAService(workspace)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     task_id = "demo-default-T-001"
     content = "package app\n"
 
@@ -169,7 +169,7 @@ def test_external_plugin_effect_rejects_path_outside_allowed_write(tmp_path: Pat
     workspace, _ = _workspace_with_active_plugin(tmp_path, repo_root)
     _write_json(workspace / "docs" / "runtime-contract.json", {"outputs": {"client": "private/generated.go"}})
     svc = ESAAService(workspace)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     task_id = "demo-default-T-001"
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}},

@@ -23,7 +23,7 @@ def test_baseline_lessons_have_required_fields() -> None:
 
 def test_init_appends_baseline_lessons_event(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     matching = [
         e for e in events
@@ -39,7 +39,7 @@ def test_init_appends_baseline_lessons_event(contract_bundle: Path) -> None:
 
 def test_lessons_json_has_three_active_lessons_after_init(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     data = json.loads((contract_bundle / ".roadmap" / "lessons.json").read_text(encoding="utf-8"))
     lessons = data.get("lessons", [])
     assert len(lessons) >= 3
@@ -53,7 +53,7 @@ def test_lessons_json_has_three_active_lessons_after_init(contract_bundle: Path)
 def test_lessons_survive_clean_replay(contract_bundle: Path) -> None:
     """Replay determinístico reproduz lessons identicamente."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     _, _, lessons_view = materialize(events)
     ids = {l["lesson_id"] for l in lessons_view["lessons"]}

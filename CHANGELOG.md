@@ -1,3 +1,45 @@
+## 0.5.0b17
+
+Local beta with empty-by-default `init` and optional demo seeds.
+
+Highlights:
+
+- `esaa init` no longer creates demo tasks `T-1000`/`T-1010`/`T-1020` by default (empty task list + baseline lessons).
+- Added `init --with-demo-tasks` (API: `with_demo_tasks=True`) to opt into the historical demo track.
+- Plugin roadmap seeds still take precedence over demo seeds.
+- Init result includes `task_source` (`empty`/`demo`/`plugin`), `tasks_seeded`, and `with_demo_tasks`.
+- Formalized via INIT-EMPTY-001 / INIT-EMPTY-010 / INIT-EMPTY-020.
+- Built local package artifacts `esaa_core-0.5.0b17` (sdist + wheel).
+
+## 0.5.0b16
+
+Local beta refresh for Mira-style guided onboarding.
+
+Highlights:
+
+- Simplified `esaa onboard` so the interactive flow asks only how agents should address the operator.
+- Added `operator.display_name` to the governed project profile and `dispatch-context`.
+- Kept technical profile fields inferred from the workspace by default instead of requiring manual answers.
+- Preserved compatibility with older project profile projections that do not yet include `operator`.
+- Validated `onboard --answers {"operator_name": "Elzo"} --dry-run` against ESAA-Core-GUI without mutating its event store.
+- Built local package artifacts `esaa_core-0.5.0b16` (sdist + wheel).
+
+## 0.5.0b15
+
+Public beta with guided project onboarding and governed project profile.
+
+Highlights:
+
+- Added `esaa onboard` (interactive, `--answers`, `--dry-run`) and `esaa profile show`.
+- Added reserved event `project.profile.set` and projection `.roadmap/project_profile.json`.
+- Packaged schema `project_profile.schema.json` (bootstrap + package templates).
+- Onboarding creates governance track `GOV-PROFILE-001/010/020` and can supersede seed tasks.
+- `eligible`/`run` hide `superseded_by` tasks and report `suppressed_superseded*`.
+- Compact `project_profile` summary injected into `dispatch-context`.
+- Validation fixture: dry-run against ESAA-Core-GUI without mutating its event store.
+- Formalized via ONBOARD-001 / ONBOARD-010 / ONBOARD-020.
+- Built local package artifacts `esaa_core-0.5.0b15` (sdist + wheel).
+
 # Changelog
 
 ## 0.5.0b14

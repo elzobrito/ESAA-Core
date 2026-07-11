@@ -72,7 +72,7 @@ def test_file_effect_can_recover_after_final_commit_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
@@ -110,7 +110,7 @@ def test_file_effect_can_recover_after_final_commit_failure(
 
 def test_create_hotfix_rejects_orphan_request(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     with pytest.raises(ESAAError) as exc:
         svc.create_hotfix(issue_id="ISS-NOPE", fixes="TASK-NOPE", scope_patch=["src/hotfix/"])
@@ -121,7 +121,7 @@ def test_create_hotfix_rejects_orphan_request(contract_bundle: Path) -> None:
 
 def test_issue_report_command_preserves_done_prior_status(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _complete_seed_task(svc, "T-1000", "agent-spec", "docs/spec/T-1000.md")
 
     svc.report_issue(
@@ -143,7 +143,7 @@ def test_issue_report_command_preserves_done_prior_status(contract_bundle: Path)
 
 def test_activity_clear_reseeds_baseline_lessons(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     result = svc.clear_activity(force=True)
 
     lessons = json.loads((contract_bundle / ".roadmap" / "lessons.json").read_text(encoding="utf-8"))
@@ -156,7 +156,7 @@ def test_activity_clear_reseeds_baseline_lessons(contract_bundle: Path) -> None:
 def test_run_consumes_late_plugin_task(tmp_path: Path, repo_root: Path) -> None:
     _copy_runtime_files(tmp_path, repo_root)
     svc = ESAAService(tmp_path)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _complete_seed_task(svc, "T-1000", "agent-spec", "docs/spec/T-1000.md", reviewer="agent-qa")
     _complete_seed_task(svc, "T-1010", "agent-impl", "src/T-1010.txt", reviewer="agent-qa")
     _complete_seed_task(svc, "T-1020", "agent-qa", "docs/qa/T-1020.md", reviewer="agent-qa")
@@ -212,7 +212,7 @@ def test_run_consumes_late_plugin_task(tmp_path: Path, repo_root: Path) -> None:
 def test_repo_policy_allows_independent_agent_qa_review(tmp_path: Path, repo_root: Path) -> None:
     _copy_runtime_files(tmp_path, repo_root)
     svc = ESAAService(tmp_path)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
@@ -247,7 +247,7 @@ def test_repo_policy_allows_independent_agent_qa_review(tmp_path: Path, repo_roo
 
 def test_runner_metrics_dry_run_response_is_unambiguous(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     before = parse_event_store(contract_bundle)
 
     result = svc.record_runner_metrics(

@@ -15,6 +15,7 @@ GOVERNANCE_TEMPLATE_FILES = (
     "PROJECTION_SPEC.md",
     "agent_result.schema.json",
     "roadmap.schema.json",
+    "project_profile.schema.json",
     "issues.schema.json",
     "lessons.schema.json",
     "agents_swarm.yaml",

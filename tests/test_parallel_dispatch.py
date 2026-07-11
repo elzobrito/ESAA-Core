@@ -34,7 +34,7 @@ def test_run_parallel_claims_first_eligible_parallel_group(contract_bundle: Path
         encoding="utf-8",
     )
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     result = service.run(steps=1, parallel=2)
 

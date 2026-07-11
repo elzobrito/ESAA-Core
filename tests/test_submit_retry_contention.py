@@ -23,7 +23,7 @@ def _verify_start(seq: int, marker: str) -> dict:
 def test_service_retries_stale_state_and_preserves_monotonic_seq(contract_bundle: Path) -> None:
     reset_concurrency_metrics()
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     base_events = parse_event_store(contract_bundle)
     stale_seq = next_event_seq(base_events)
 

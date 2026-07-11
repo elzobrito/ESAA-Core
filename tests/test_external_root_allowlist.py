@@ -21,7 +21,7 @@ def _set_external_policy(workspace: Path, **external_effects: object) -> None:
 
 def _claim_external_task(workspace: Path) -> ESAAService:
     svc = ESAAService(workspace)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "demo-default-T-001", "prior_status": "todo"}},
         actor="agent-impl",

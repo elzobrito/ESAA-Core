@@ -61,7 +61,7 @@ def test_http_llm_adapter_runs_claim_and_complete_against_fake_server(contract_b
     try:
         url = f"http://127.0.0.1:{server.server_port}/agent"
         service = ESAAService(contract_bundle, adapter=HttpLlmAdapter(url=url, agent_id="agent-http"))
-        service.init(force=True)
+        service.init(force=True, with_demo_tasks=True)
 
         result = service.run(steps=2)
 

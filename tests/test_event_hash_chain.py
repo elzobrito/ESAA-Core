@@ -50,7 +50,7 @@ def _append_orchestrator_event(root: Path, action: str = "runner.metrics") -> di
 
 
 def test_chain_init_and_verify_cover_events_after_anchor(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     assert _run_cli(contract_bundle, "verify", "--chain")["chain_status"] == "unanchored"
     anchor = _run_cli(contract_bundle, "chain", "init")
@@ -66,7 +66,7 @@ def test_chain_init_and_verify_cover_events_after_anchor(contract_bundle: Path) 
 
 
 def test_post_anchor_payload_tamper_breaks_parse_and_verify(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
     init_hash_chain(contract_bundle)
     _append_orchestrator_event(contract_bundle)
 
@@ -83,7 +83,7 @@ def test_post_anchor_payload_tamper_breaks_parse_and_verify(contract_bundle: Pat
 
 
 def test_pre_anchor_tamper_breaks_anchor_hash(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
     init_hash_chain(contract_bundle)
 
     lines = _activity_lines(contract_bundle)
@@ -99,7 +99,7 @@ def test_pre_anchor_tamper_breaks_anchor_hash(contract_bundle: Path) -> None:
 
 
 def test_review_role_is_top_level_and_hash_protected(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
     _enable_qa_role_policy(contract_bundle)
     init_hash_chain(contract_bundle)
     _run_cli(contract_bundle, "claim", "T-1000", "--actor", "agent-spec")

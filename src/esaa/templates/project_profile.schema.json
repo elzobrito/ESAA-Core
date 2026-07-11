@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://esaa.local/schemas/project_profile.schema.json",
+  "title": "ESAA Project Profile Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "operator",
+    "project_name",
+    "domain",
+    "language",
+    "sources_of_truth",
+    "output_surfaces",
+    "protected_paths",
+    "workflow_preferences",
+    "guide_topology"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "generated_by", "source_event_store", "last_event_seq", "updated_at"],
+      "properties": {
+        "schema_version": { "const": "0.4.1" },
+        "generated_by": { "const": "esaa.project_profile" },
+        "source_event_store": { "const": ".roadmap/activity.jsonl" },
+        "last_event_seq": { "type": "integer", "minimum": 0 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name"],
+      "properties": {
+        "display_name": { "type": "string" }
+      }
+    },
+    "project_name": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "minLength": 1 },
+    "language": { "type": "string", "minLength": 1 },
+    "sources_of_truth": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "output_surfaces": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "protected_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "workflow_preferences": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "guide_topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guides"],
+      "properties": {
+        "guides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "exists", "role"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "exists": { "type": "boolean" },
+              "role": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

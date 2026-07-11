@@ -8,6 +8,7 @@ from .errors import ESAAError
 from .events import make_event
 from .file_effects import commit_staged, discard_staged
 from .projector import materialize
+from .project_profile import project_profile_view
 from .runtime_policy import (
     attempt_expired,
     is_blocked_by_max_attempts,
@@ -33,6 +34,11 @@ class ExecutionMixin:
         roadmap, _, _ = materialize(events)
 
         tasks, task_sources = tasks_with_planned_plugins(self.root, roadmap["tasks"])
+        suppressed_superseded = [
+            {"task_id": task["task_id"], "title": task.get("title")}
+            for task in tasks
+            if task.get("status") == "todo" and task.get("superseded_by")
+        ]
 
         # R2: filtra tarefas bloqueadas por max_attempts ou em cooldown
 
@@ -78,6 +84,8 @@ class ExecutionMixin:
                 for t in elig
             ],
             "parallel_groups": groups,
+            "suppressed_superseded_count": len(suppressed_superseded),
+            "suppressed_superseded": suppressed_superseded[:20],
         }
 
     def run(self, steps: int | None = 1, dry_run: bool = False, parallel: int = 1) -> dict[str, Any]:
@@ -95,6 +103,7 @@ class ExecutionMixin:
         contract = load_agent_contract(self.root)
 
         schema = load_agent_result_schema(self.root)
+        project_profile = project_profile_view(events)
 
         policy = self._policy()
 
@@ -198,7 +207,16 @@ class ExecutionMixin:
             last_signature = signature
 
             contexts = [
-                (task, build_dispatch_context(effective_roadmap, task, contract, schema=schema))
+                (
+                    task,
+                    build_dispatch_context(
+                        effective_roadmap,
+                        task,
+                        contract,
+                        schema=schema,
+                        project_profile=project_profile,
+                    ),
+                )
                 for task in runnable_wave
             ]
 

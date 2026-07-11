@@ -11,6 +11,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from .boundary_paths import is_governed_state_path, pattern_targets_governed_state
 from .errors import ESAAError
 
 PLUGIN_LOCK_SCHEMA = "esaa-plugins-lock/v1"
@@ -97,13 +98,7 @@ def _validate_output_path(value: str, label: str) -> str:
     normalized = _validate_relative_path(value, label, allow_uri=True)
     if normalized.startswith("runtime://"):
         return normalized
-    forbidden = {
-        ".roadmap/activity.jsonl",
-        ".roadmap/roadmap.json",
-        ".roadmap/issues.json",
-        ".roadmap/lessons.json",
-    }
-    if normalized in forbidden:
+    if is_governed_state_path(normalized):
         raise ESAAError("PLUGIN_PATH_INVALID", f"{label} cannot target governed ESAA state: {value}")
     return normalized
 
@@ -116,6 +111,8 @@ def _validate_glob_pattern(value: str, label: str) -> str:
         raise ESAAError(
             "PLUGIN_SCHEMA_INVALID", f"{label} uses dangerous wildcard without policy opt-in: {value}"
         )
+    if pattern_targets_governed_state(normalized):
+        raise ESAAError("PLUGIN_SCHEMA_INVALID", f"{label} cannot target governed ESAA state: {value}")
     return normalized
 
 

@@ -20,7 +20,7 @@ from esaa.store import parse_event_store
 def test_submit_claim_accepted(contract_bundle: Path) -> None:
     """An agent can claim a todo task via submit."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     agent_output = {
         "activity_event": {
@@ -40,7 +40,7 @@ def test_submit_claim_accepted(contract_bundle: Path) -> None:
 def test_submit_complete_with_files(contract_bundle: Path) -> None:
     """An agent can complete a task and write files via submit."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     service.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
@@ -69,7 +69,7 @@ def test_submit_complete_with_files(contract_bundle: Path) -> None:
 def test_submit_boundary_violation_rejected(contract_bundle: Path) -> None:
     """Submit rejects files outside agent boundaries."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     service.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
@@ -95,7 +95,7 @@ def test_submit_boundary_violation_rejected(contract_bundle: Path) -> None:
 def test_submit_invalid_task_rejected(contract_bundle: Path) -> None:
     """Submit rejects unknown task_id."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     with pytest.raises(ESAAError) as exc:
         service.submit(
@@ -108,7 +108,7 @@ def test_submit_invalid_task_rejected(contract_bundle: Path) -> None:
 def test_submit_dry_run_no_persist(contract_bundle: Path) -> None:
     """Dry run validates but does not persist."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     events_before = parse_event_store(contract_bundle)
     result = service.submit(
@@ -125,7 +125,7 @@ def test_submit_dry_run_no_persist(contract_bundle: Path) -> None:
 def test_submit_full_lifecycle(contract_bundle: Path) -> None:
     """Full claim -> complete -> review cycle via submit."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     service.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
@@ -171,7 +171,7 @@ def test_submit_full_lifecycle(contract_bundle: Path) -> None:
 def test_process_inbox_accepted(contract_bundle: Path) -> None:
     """Process picks up files from inbox and applies them."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
@@ -193,7 +193,7 @@ def test_process_inbox_accepted(contract_bundle: Path) -> None:
 def test_process_inbox_rejected_moved(contract_bundle: Path) -> None:
     """Invalid submissions are moved to rejected/."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
@@ -213,7 +213,7 @@ def test_process_inbox_rejected_moved(contract_bundle: Path) -> None:
 def test_process_inbox_without_actor_prefix(contract_bundle: Path) -> None:
     """Files without actor__ prefix use default actor."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
@@ -232,7 +232,7 @@ def test_process_inbox_without_actor_prefix(contract_bundle: Path) -> None:
 def test_process_empty_inbox(contract_bundle: Path) -> None:
     """Process on empty/missing inbox returns zero counts."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     result = service.process()
     assert result["processed"] == 0
@@ -242,7 +242,7 @@ def test_process_empty_inbox(contract_bundle: Path) -> None:
 def test_process_dry_run(contract_bundle: Path) -> None:
     """Process dry run validates but does not move files."""
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)

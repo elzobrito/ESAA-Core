@@ -243,12 +243,20 @@ def test_bootstrap_cli_then_init_verify_and_eligible(tmp_path: Path) -> None:
 
     init_result = _run_cli(tmp_path, "init")
     assert init_result["last_event_seq"] > 0
+    assert init_result.get("task_source") == "empty"
+    assert init_result.get("tasks_seeded") == []
 
     verify_result = _run_cli(tmp_path, "verify")
     assert verify_result["verify_status"] == "ok"
 
     eligible_result = _run_cli(tmp_path, "eligible")
-    assert eligible_result["eligible_count"] >= 1
+    assert eligible_result["eligible_count"] == 0
+
+    demo_init = _run_cli(tmp_path, "init", "--force", "--with-demo-tasks")
+    assert demo_init.get("task_source") == "demo"
+    assert "T-1000" in demo_init.get("tasks_seeded", [])
+    eligible_demo = _run_cli(tmp_path, "eligible")
+    assert eligible_demo["eligible_count"] >= 1
 
 
 def test_package_data_contains_templates() -> None:

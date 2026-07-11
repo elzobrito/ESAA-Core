@@ -6,6 +6,7 @@ from typing import Any
 
 from jsonschema import ValidationError, validate
 
+from .boundary_paths import assert_writable_not_governed, path_within_scope
 from .errors import ESAAError
 from .external_effects import task_accepts_external_path
 from .reject_codes import REVIEW_MODE_MISMATCH, REVIEW_MODE_REQUIRED
@@ -304,7 +305,7 @@ def _validate_boundaries(
         if (
             path.startswith("runtime://")
             and task.get("is_hotfix")
-            and any(path.startswith(str(prefix)) for prefix in scope_patch)
+            and any(path_within_scope(path, str(prefix)) for prefix in scope_patch)
         ):
             continue
         if not _matches_any(path, allowlist) and not (
@@ -317,5 +318,20 @@ def _validate_boundaries(
         if scope_patch_enabled and task.get("is_hotfix"):
             if not scope_patch:
                 raise ESAAError("BOUNDARY_VIOLATION", "hotfix task missing scope_patch")
-            if not any(path.startswith(normalize_rel_path(prefix)) for prefix in scope_patch):
+            if not any(path_within_scope(path, str(prefix)) for prefix in scope_patch):
                 raise ESAAError("BOUNDARY_VIOLATION", f"path outside scope_patch: {path}")
+
+
+def validate_resolved_file_boundaries(
+    updates: list[dict[str, Any]], contract: dict[str, Any], task: dict[str, Any]
+) -> None:
+    boundaries = contract["boundaries"]["by_task_kind"][task["task_kind"]]
+    denylist = boundaries.get("forbidden_write", [])
+
+    for item in updates:
+        target_path = item.get("_esaa_target_path")
+        if not isinstance(target_path, str) or not target_path:
+            continue
+        assert_writable_not_governed(target_path)
+        if denylist and _matches_any(target_path, denylist):
+            raise ESAAError("BOUNDARY_VIOLATION", f"path explicitly forbidden: {target_path}")

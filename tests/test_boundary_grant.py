@@ -34,7 +34,7 @@ def grant_bundle(contract_bundle: Path) -> Path:
 
 def _service(root: Path) -> ESAAService:
     svc = ESAAService(root)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     return svc
 
 

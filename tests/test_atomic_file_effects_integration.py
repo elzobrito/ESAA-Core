@@ -40,7 +40,7 @@ def test_submit_does_not_write_final_file_when_append_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
@@ -62,7 +62,7 @@ def test_run_does_not_write_final_file_when_append_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.run(steps=1)
 
     monkeypatch.setattr(service_core_module, "append_events", _raise_append_failure)
@@ -78,7 +78,7 @@ def test_run_does_not_write_final_file_when_append_fails(
 
 def test_submit_file_write_event_contains_effect_hash_and_artifact(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",

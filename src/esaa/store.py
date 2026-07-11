@@ -20,9 +20,11 @@ from .constants import (
     EVENT_STORE_PATH,
     ISSUES_PATH,
     LESSONS_PATH,
+    PROJECT_PROFILE_PATH,
     ROADMAP_PATH,
 )
 from .errors import CorruptedStoreError, ESAAError
+from .project_profile import project_profile_view
 from .provenance import resolve_runner, validate_runner_block
 from .utils import ensure_parent, utc_now_iso
 
@@ -73,6 +75,26 @@ def save_issues(root: Path, issues_view: dict[str, Any]) -> None:
 
 def save_lessons(root: Path, lessons_view: dict[str, Any]) -> None:
     _write_json(root / LESSONS_PATH, lessons_view)
+
+
+def save_project_profile(root: Path, profile_view: dict[str, Any] | None) -> None:
+    path = root / PROJECT_PROFILE_PATH
+    if profile_view is None:
+        if path.exists():
+            path.unlink()
+        return
+    _write_json(path, profile_view)
+
+
+def load_project_profile(root: Path) -> dict[str, Any] | None:
+    path = root / PROJECT_PROFILE_PATH
+    if not path.exists():
+        return None
+    profile = _read_json(path)
+    if isinstance(profile, dict) and "operator" not in profile:
+        profile = dict(profile)
+        profile["operator"] = {"display_name": ""}
+    return profile
 
 
 def ensure_event_store(root: Path) -> Path:
@@ -521,7 +543,9 @@ def append_transactional(
             }
 
         # Validacao via materialize antes de persistir
-        final_roadmap, final_issues, final_lessons = materialize(events + new_events)
+        final_events = events + new_events
+        final_roadmap, final_issues, final_lessons = materialize(final_events)
+        final_project_profile = project_profile_view(final_events)
 
         # Append (reentrante sob lock atual; usa a logica de newline-guard)
         serialized_lines = [
@@ -539,6 +563,7 @@ def append_transactional(
         save_roadmap(root, final_roadmap)
         save_issues(root, final_issues)
         save_lessons(root, final_lessons)
+        save_project_profile(root, final_project_profile)
         return {
             "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],

@@ -23,7 +23,7 @@ def _run_cli(root: Path, *args: str) -> dict:
 
 def test_external_runner_metrics_are_recorded_and_aggregated(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     result = service.record_runner_metrics(
         {
@@ -57,7 +57,7 @@ def test_external_runner_metrics_are_recorded_and_aggregated(contract_bundle: Pa
 
 def test_external_runner_metrics_preserve_unknown_values_and_errors(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     service.record_runner_metrics(
         {
@@ -88,7 +88,7 @@ def test_external_runner_metrics_preserve_unknown_values_and_errors(contract_bun
 
 def test_runner_metrics_reject_invalid_payload(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     with pytest.raises(ESAAError) as excinfo:
         service.record_runner_metrics(
@@ -107,7 +107,7 @@ def test_runner_metrics_reject_invalid_payload(contract_bundle: Path) -> None:
 
 
 def test_runner_metrics_cli_records_payload_file(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
     payload = contract_bundle / "runner-metrics.json"
     payload.write_text(
         json.dumps(

@@ -8,7 +8,7 @@ from esaa.store import parse_event_store
 
 def test_hotfix_lifecycle_emits_issue_resolve_after_hotfix_review(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     service.claim_task("T-1000", actor="agent-spec")
     service.complete_task(

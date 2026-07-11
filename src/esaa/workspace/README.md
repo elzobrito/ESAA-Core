@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b14
+python -m pip install esaa-core==0.5.0b17
 python -m esaa --version
 ```
 
@@ -59,6 +59,8 @@ mkdir esaa-demo
 cd esaa-demo
 python -m esaa bootstrap --profile public
 python -m esaa init
+# optional demo seeds T-1000/T-1010/T-1020:
+# python -m esaa init --with-demo-tasks
 python -m esaa verify
 python -m esaa eligible
 ```
@@ -71,6 +73,22 @@ runtime/storage policy, projection spec, PARCER profiles, `README.md`, and
 minimal agent guidance files (`AGENTS.md`, `.claude/CLAUDE.md`). It does not
 create or overwrite `.roadmap/activity.jsonl`, read models, artifacts, backups,
 or snapshots.
+
+After bootstrap and init, `onboard` asks only how agents should address the
+operator, then derives the project profile from the workspace without
+overwriting local guides:
+
+```bash
+python -m esaa --root . onboard --answers project-profile.json --dry-run
+python -m esaa --root . onboard --answers project-profile.json
+python -m esaa --root . profile show
+```
+
+The profile stores the operator display name plus inferred project defaults:
+domain, sources of truth, output surfaces, protected paths, workflow
+preferences, and detected guide topology. It also creates a governance task
+chain that supersedes the generic seed tasks when those seeds are still
+pending.
 
 For production workspaces, use:
 
@@ -103,17 +121,19 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b14`.
+Current package: `esaa-core 0.5.0b17`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b14`:
+Highlights in `0.5.0b17`:
 
-- Spoken transition notifications now say `Task in progress`, `Task review`, and `Task done`.
-- Use `--notify-transition` on `claim`, `complete`, or `review` to speak the resulting state.
-- Use `python -m esaa review <task-id> --actor agent-qa --decision approve --notify-completion`
-  as a compatibility shortcut for the final `Task done` message.
+- `esaa init` creates an empty task list by default; use `--with-demo-tasks` for T-1000/T-1010/T-1020.
+- Mira-style `esaa onboard` asks only how agents should address the operator.
+- `operator.display_name` is stored in the governed project profile and dispatch context.
+- Project defaults are inferred from the workspace instead of requiring manual onboarding fields.
+- Governed `project.profile.set` projection and GOV-PROFILE task track remain available.
+- Superseded tasks hidden from `eligible`/`run` with `suppressed_superseded*` reporting.
 - The canonical state machine remains strictly `todo -> in_progress -> review -> done`;
   notifications are opt-in CLI/service side effects.
 

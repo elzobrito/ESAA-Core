@@ -46,7 +46,7 @@ def _workspace(tmp_path: Path, repo_root: Path) -> Path:
         repo_root / "src" / "esaa" / "templates" / "lessons.schema.json",
         roadmap / "lessons.schema.json",
     )
-    ESAAService(root).init(force=True)
+    ESAAService(root).init(force=True, with_demo_tasks=True)
     return root
 
 

@@ -8,6 +8,7 @@ from .events import (
     validate_hotfix_request,
 )
 from .execution import ExecutionMixin
+from .project_profile_service import ProjectProfileMixin
 from .seeds import (
     BASELINE_LESSONS,
     all_tasks_done,
@@ -27,7 +28,7 @@ from .submission import SubmissionMixin
 from .task_admin import TaskAdminMixin
 
 
-class ESAAService(TaskAdminMixin, SubmissionMixin, ExecutionMixin, ESAAServiceCore):
+class ESAAService(TaskAdminMixin, SubmissionMixin, ExecutionMixin, ProjectProfileMixin, ESAAServiceCore):
     pass
 
 

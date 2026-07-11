@@ -68,7 +68,7 @@ def test_schema_rejects_done_for_complete(contract_bundle: Path) -> None:
 def test_issue_report_on_done_preserves_status(contract_bundle: Path) -> None:
     """issue.report sobre done aceita; task continua done."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit({"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}, actor="agent-spec")
     svc.submit({"activity_event": {
         "action": "complete", "task_id": "T-1000", "prior_status": "in_progress",
@@ -96,7 +96,7 @@ def test_issue_report_on_done_preserves_status(contract_bundle: Path) -> None:
 
 def test_claim_on_done_rejected(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     # Drive T-1000 to done
     svc.submit({"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}, actor="agent-spec")
     svc.submit({"activity_event": {

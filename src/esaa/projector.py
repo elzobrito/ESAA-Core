@@ -101,6 +101,50 @@ def _existing_task_ids(state: dict[str, Any]) -> set[str]:
     return {task["task_id"] for task in state["tasks"]}
 
 
+def _apply_task_amend(state: dict[str, Any], payload: dict[str, Any]) -> None:
+    task_id = str(payload.get("task_id", "")).strip()
+    if not task_id:
+        raise ESAAError("SCHEMA_INVALID", "task.amend requires task_id")
+    task = _task_by_id(state, task_id)
+    if task["status"] != "todo":
+        raise ESAAError("INVALID_TRANSITION", f"task.amend only allowed for todo tasks: {task_id}")
+    if "description" in payload and isinstance(payload["description"], str):
+        description = payload["description"].strip()
+        if description:
+            task["description"] = description
+    if "title" in payload and isinstance(payload["title"], str):
+        title = payload["title"].strip()
+        if title:
+            task["title"] = title
+    if "acceptance_criteria" in payload:
+        criteria = payload["acceptance_criteria"]
+        if not isinstance(criteria, list) or not criteria:
+            raise ESAAError("SCHEMA_INVALID", "acceptance_criteria must be a non-empty list")
+        task["acceptance_criteria"] = [str(item).strip() for item in criteria if str(item).strip()]
+    if "task_kind" in payload and isinstance(payload["task_kind"], str):
+        task_kind = payload["task_kind"].strip()
+        if task_kind in {"spec", "impl", "qa"}:
+            task["task_kind"] = task_kind
+    if "task_type" in payload and isinstance(payload["task_type"], str):
+        task_type = payload["task_type"].strip()
+        if task_type:
+            task["task_type"] = task_type
+    if "depends_on" in payload and isinstance(payload["depends_on"], list):
+        task["depends_on"] = [str(item).strip() for item in payload["depends_on"] if str(item).strip()]
+    if "outputs" in payload and isinstance(payload["outputs"], dict):
+        files = payload["outputs"].get("files")
+        if isinstance(files, list) and files:
+            task["outputs"] = {"files": [str(item).strip() for item in files if str(item).strip()]}
+    if "required_review_mode" in payload and isinstance(payload["required_review_mode"], str):
+        review_mode = payload["required_review_mode"].strip()
+        if review_mode:
+            task["required_review_mode"] = review_mode
+    if "required_verification" in payload and isinstance(payload["required_verification"], list):
+        verification = [str(item).strip() for item in payload["required_verification"] if str(item).strip()]
+        if verification:
+            task["required_verification"] = verification
+
+
 def _derive_superseded_by(state: dict[str, Any], task: dict[str, Any]) -> None:
     task_id = task["task_id"]
     for superseded_task_id in task.get("supersedes", []):
@@ -256,6 +300,8 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         task = _new_task(payload)
         state["tasks"].append(task)
         _derive_superseded_by(state, task)
+    elif action == "task.amend":
+        _apply_task_amend(state, payload)
     elif action == "claim":
         _apply_claim(state, event)
     elif action == "complete":
@@ -282,6 +328,7 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         "output.rejected",
         "orchestrator.file.write",
         "runner.metrics",
+        "project.profile.set",
         "chain.anchor",
         "verify.start",
         "plugin.install",

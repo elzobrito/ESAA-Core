@@ -29,7 +29,7 @@ def _run_cli_error(root: Path, *args: str) -> dict:
 
 
 def test_cli_claim_complete_review_drive_state_machine_without_adapter(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     claim = _run_cli(contract_bundle, "claim", "T-1000", "--actor", "agent-spec")
     assert claim["action"] == "claim"
@@ -84,7 +84,7 @@ def test_cli_claim_complete_review_drive_state_machine_without_adapter(contract_
 
 
 def test_cli_can_speak_transition_messages(contract_bundle: Path, monkeypatch) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     calls = []
 
@@ -142,7 +142,7 @@ def test_cli_can_speak_transition_messages(contract_bundle: Path, monkeypatch) -
 
 
 def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_commands(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     rejected = _run_cli(
         contract_bundle,
@@ -229,7 +229,7 @@ def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_comm
 
 
 def test_cli_task_create_adds_task_through_orchestrator_command(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     created = _run_cli(
         contract_bundle,
@@ -265,7 +265,7 @@ def test_cli_task_create_adds_task_through_orchestrator_command(contract_bundle:
 
 
 def test_cli_task_create_rejects_duplicate_task_id(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     _run_cli(
         contract_bundle,
@@ -296,7 +296,7 @@ def test_cli_task_create_rejects_duplicate_task_id(contract_bundle: Path) -> Non
 
 
 def test_cli_task_create_rejects_values_that_break_roadmap_schema(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     error = _run_cli_error(
         contract_bundle,
@@ -316,7 +316,7 @@ def test_cli_task_create_rejects_values_that_break_roadmap_schema(contract_bundl
 
 
 def test_cli_activity_clear_requires_force_and_reprojects_empty_state(contract_bundle: Path) -> None:
-    ESAAService(contract_bundle).init(force=True)
+    ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
     before = parse_event_store(contract_bundle)
     assert before
 

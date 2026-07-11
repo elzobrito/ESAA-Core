@@ -86,7 +86,7 @@ def test_boundaries_allow_spec_to_update_root_readme(contract_bundle: Path) -> N
 
 def test_output_rejected_has_no_side_effect_files(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle, adapter=InvalidPathAdapter())
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     result = service.run(steps=2)
     assert result["rejected"] >= 1
     assert not (contract_bundle / "src/evil.txt").exists()

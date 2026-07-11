@@ -15,6 +15,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from typing import Any
 
+from .project_profile import project_profile_summary
 from .state_machine import allowed_actions_for, expected_action_for
 
 # Quais campos de activity_event sao necessarios por acao.
@@ -204,6 +205,7 @@ def build_minimal_context(
     schema: dict[str, Any],
     lessons: list[dict[str, Any]] | None = None,
     issues: list[dict[str, Any]] | None = None,
+    project_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Contexto despachado ao agente — fatiado pela maquina de estado.
 
@@ -269,6 +271,10 @@ def build_minimal_context(
 
     if issues is not None and expected == "complete":
         ctx["issues"] = filter_issues(issues, task)
+
+    profile_summary = project_profile_summary(project_profile)
+    if profile_summary is not None:
+        ctx["project_profile"] = profile_summary
 
     # Em review o agente-qa precisa ver a verification produzida no complete.
     if expected == "review" and "verification" in task:

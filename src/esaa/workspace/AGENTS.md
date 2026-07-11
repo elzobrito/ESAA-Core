@@ -34,6 +34,7 @@ python -m esaa --root . --runner codex submit output.json --actor agent-spec
 - Emita exatamente uma `activity_event` por output.
 - Use JSON puro, sem markdown fora do envelope.
 - Inclua `prior_status` em todo output e mantenha-o coerente com o contexto recebido.
+- Quando `dispatch-context` incluir `project_profile`, trate-o como o perfil operacional do projeto.
 - Use `file_updates` somente com `action=complete`.
 - Não inclua campos gerados pelo Orchestrator, como `runner`, `actor`, `event_seq`, `ts` ou `assigned_to`.
 - Nunca reabra nem modifique tarefa `done`; reporte `issue.report`.

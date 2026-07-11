@@ -8,7 +8,7 @@ from esaa.service import ESAAService
 
 def test_verify_ok_then_mismatch_and_corrupted(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     service.run(steps=9)
 
     ok = service.verify()
@@ -30,7 +30,7 @@ def test_verify_ok_then_mismatch_and_corrupted(contract_bundle: Path) -> None:
 
 def test_replay_until_seq(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     service.run(steps=2)
     out = service.replay(until="2", write_views=False)
     assert out["events_replayed"] == 2

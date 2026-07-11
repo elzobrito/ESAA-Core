@@ -72,7 +72,7 @@ def test_loader_uses_active_installed_plugin_tasks(tmp_path: Path, repo_root: Pa
     from esaa.plugins import activate_roadmap, install_plugin, scaffold_plugin
 
     service = ESAAService(tmp_path)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
     install_plugin(tmp_path, "./sso-client", repo_root=repo_root)
@@ -87,7 +87,7 @@ def test_loader_uses_active_installed_plugin_tasks(tmp_path: Path, repo_root: Pa
 
 def test_eligible_includes_planned_plugin_tasks_without_task_create(tmp_path):
     service = ESAAService(tmp_path)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     rm = tmp_path / ".roadmap"
     (rm / "roadmap.opt.json").write_text(
@@ -107,7 +107,7 @@ def test_eligible_includes_planned_plugin_tasks_without_task_create(tmp_path):
 
 def test_claim_admits_planned_plugin_task_before_transition(contract_bundle: Path):
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     rm = contract_bundle / ".roadmap"
     (rm / "roadmap.opt.json").write_text(

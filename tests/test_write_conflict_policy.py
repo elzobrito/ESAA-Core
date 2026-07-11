@@ -111,7 +111,7 @@ def test_parallel_complete_write_conflict_rejects_without_second_side_effect(con
         ],
     )
     service = ESAAService(contract_bundle, adapter=SharedWriteAdapter())
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     service.run(steps=1, parallel=2)
 
     result = service.run(steps=1, parallel=2)
@@ -145,7 +145,7 @@ def test_single_run_cross_iteration_write_conflict_rejects_second_write(contract
         ],
     )
     service = ESAAService(contract_bundle, adapter=SharedWriteAdapter())
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
 
     result = service.run(steps=None, parallel=1)
 

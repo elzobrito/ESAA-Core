@@ -85,7 +85,7 @@ def test_input_commands_register_and_show_use_runner_id(contract_bundle: Path) -
 
 def test_dispatch_context_includes_registered_runtime_capabilities(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     profile = _commands_profile(contract_bundle)
     _run_cli(contract_bundle, "--runner", "codex", "input", "commands", "register", str(profile))
     _run_cli(contract_bundle, "--runner", "codex", "claim", "T-1000", "--actor", "agent-spec")

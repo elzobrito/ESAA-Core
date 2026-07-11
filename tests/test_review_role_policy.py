@@ -59,7 +59,7 @@ def _setup_qa_role_policy(contract_bundle: Path) -> None:
 def test_owner_review_rejected_when_qa_role(contract_bundle: Path) -> None:
     """Sob qa_role: owner (agent-spec) tenta review -> REVIEW_ROLE_VIOLATION."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _setup_qa_role_policy(contract_bundle)
     # Invalida cache de policy
     svc._policy_cache = None
@@ -83,7 +83,7 @@ def test_owner_review_rejected_when_qa_role(contract_bundle: Path) -> None:
 def test_qa_actor_can_review_when_qa_role(contract_bundle: Path) -> None:
     """Sob qa_role: agent-qa pode reviewar mesmo nao tendo feito claim."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _setup_qa_role_policy(contract_bundle)
     svc._policy_cache = None
 
@@ -106,7 +106,7 @@ def test_qa_actor_can_review_when_qa_role(contract_bundle: Path) -> None:
 def test_default_owner_mode_backward_compat(contract_bundle: Path) -> None:
     """Sem policy explicita: owner pode reviewar (legado)."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     svc.submit({"activity_event": {
         "action": "claim", "task_id": "T-1000", "prior_status": "todo"

@@ -14,6 +14,7 @@ from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
 from .metrics import compute_metrics
 from .projector import materialize
+from .project_profile import project_profile_view
 from .runner_metrics import normalize_runner_metrics
 from .runtime_policy import load_policy, parse_duration
 from .seeds import BASELINE_LESSONS, all_tasks_done, load_plugin_seeds, seed_tasks
@@ -22,11 +23,13 @@ from .store import (
     append_transactional,
     ensure_event_store,
     load_roadmap,
+    load_project_profile,
     next_event_seq,
     parse_event_store,
     record_concurrency_metric,
     save_issues,
     save_lessons,
+    save_project_profile,
     save_roadmap,
 )
 
@@ -72,7 +75,8 @@ class ESAAServiceCore:
         return self._policy_cache
 
     def init(
-        self, run_id: str = "RUN-0001", master_correlation_id: str = "CID-ESAA-INIT", force: bool = False
+        self, run_id: str = "RUN-0001", master_correlation_id: str = "CID-ESAA-INIT",
+        force: bool = False, with_demo_tasks: bool = False,
     ) -> dict[str, Any]:
 
         roadmap_dir = self.root / ".roadmap"
@@ -114,9 +118,10 @@ class ESAAServiceCore:
 
                 run_start_payload["audit_scope"] = seed["audit_scope"]
 
-        else:
-
+        elif with_demo_tasks:
             tasks = seed_tasks()
+        else:
+            tasks = []
 
         events: list[dict[str, Any]] = []
 
@@ -173,18 +178,23 @@ class ESAAServiceCore:
         append_events(self.root, events)
 
         roadmap, issues, lessons = materialize(events)
+        project_profile = project_profile_view(events)
 
         save_roadmap(self.root, roadmap)
 
         save_issues(self.root, issues)
 
         save_lessons(self.root, lessons)
+        save_project_profile(self.root, project_profile)
 
         return {
             "run_id": run_id,
             "events_written": len(events),
             "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": roadmap["meta"]["run"]["projection_hash_sha256"],
+            "with_demo_tasks": with_demo_tasks,
+            "tasks_seeded": [task["task_id"] for task in tasks],
+            "task_source": "plugin" if seed else ("demo" if with_demo_tasks else "empty"),
         }
 
     def project(self) -> dict[str, Any]:
@@ -192,12 +202,14 @@ class ESAAServiceCore:
         events = parse_event_store(self.root)
 
         roadmap, issues, lessons = materialize(events)
+        project_profile = project_profile_view(events)
 
         save_roadmap(self.root, roadmap)
 
         save_issues(self.root, issues)
 
         save_lessons(self.root, lessons)
+        save_project_profile(self.root, project_profile)
 
         return {
             "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
@@ -205,6 +217,7 @@ class ESAAServiceCore:
             "tasks": len(roadmap["tasks"]),
             "issues": len(issues["issues"]),
             "lessons": len(lessons["lessons"]),
+            "project_profile": project_profile is not None,
         }
 
     def verify(self) -> dict[str, Any]:
@@ -214,6 +227,7 @@ class ESAAServiceCore:
             events = parse_event_store(self.root)
 
             projected, _, _ = materialize(events)
+            projected_profile = project_profile_view(events)
 
         except CorruptedStoreError as exc:
 
@@ -244,12 +258,16 @@ class ESAAServiceCore:
 
         stored_seq = stored.get("meta", {}).get("run", {}).get("last_event_seq")
 
-        if computed_hash == stored_hash and computed_seq == stored_seq:
+        stored_profile = load_project_profile(self.root)
+        profile_matches = projected_profile == stored_profile
+
+        if computed_hash == stored_hash and computed_seq == stored_seq and profile_matches:
 
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
                 "projection_hash_sha256": computed_hash,
+                "project_profile": projected_profile is not None,
             }
 
         return {
@@ -258,6 +276,7 @@ class ESAAServiceCore:
             "projection_hash_sha256": computed_hash,
             "stored_last_event_seq": stored_seq,
             "stored_projection_hash_sha256": stored_hash,
+            "project_profile_mismatch": not profile_matches,
         }
 
     def metrics(self) -> dict[str, Any]:
@@ -462,6 +481,7 @@ class ESAAServiceCore:
                 selected = out
 
         roadmap, issues, lessons = materialize(selected)
+        project_profile = project_profile_view(selected)
 
         if write_views:
 
@@ -470,6 +490,7 @@ class ESAAServiceCore:
             save_issues(self.root, issues)
 
             save_lessons(self.root, lessons)
+            save_project_profile(self.root, project_profile)
 
         return {
             "events_replayed": len(selected),

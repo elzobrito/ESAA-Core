@@ -25,7 +25,7 @@ def _drive_to_done(svc: ESAAService, task_id: str = "T-1000", actor: str = "agen
 
 def test_validate_target_not_found(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     ok, code, msg = validate_hotfix_request(events, {
         "issue_id": "ISS-Z", "fixes": "T-NONEXISTENT",
@@ -37,7 +37,7 @@ def test_validate_target_not_found(contract_bundle: Path) -> None:
 
 def test_validate_target_not_done(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     # T-1000 ainda esta em todo, com immutability:done_is_immutable=True
     ok, code, _ = validate_hotfix_request(events, {
@@ -50,7 +50,7 @@ def test_validate_target_not_done(contract_bundle: Path) -> None:
 
 def test_validate_scope_invalid_empty(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _drive_to_done(svc, "T-1000")
     events = parse_event_store(contract_bundle)
     ok, code, _ = validate_hotfix_request(events, {
@@ -63,7 +63,7 @@ def test_validate_scope_invalid_empty(contract_bundle: Path) -> None:
 
 def test_validate_scope_missing_uses_default_for_agent_issue(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _drive_to_done(svc, "T-1000")
     svc.report_issue(
         "T-1000",
@@ -84,7 +84,7 @@ def test_validate_scope_missing_uses_default_for_agent_issue(contract_bundle: Pa
 
 def test_validate_valid_hotfix_for_done_open_issue(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     _drive_to_done(svc, "T-1000")
     svc.report_issue(
         "T-1000",

@@ -9,7 +9,7 @@ from esaa.snapshot import create_snapshot
 
 def test_create_snapshot_writes_projection_checkpoint(contract_bundle: Path) -> None:
     service = ESAAService(contract_bundle)
-    service.init(force=True)
+    service.init(force=True, with_demo_tasks=True)
     service.run(steps=1)
 
     result = create_snapshot(contract_bundle, before=3)

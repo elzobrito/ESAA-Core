@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .boundary_paths import assert_writable_not_governed, path_within_scope
 from .errors import ESAAError
 from .plugins import _plugin_dir_from_lock, _read_json, _read_plugins_lock, _read_roadmaps_lock
 from .runtime_policy import load_policy
@@ -66,7 +67,7 @@ def _projected_task(root: Path, task_id: str) -> dict[str, Any] | None:
 
 
 def _scope_allows(scope_patch: list[Any], path: str) -> bool:
-    return any(path.startswith(str(prefix)) for prefix in scope_patch)
+    return any(path_within_scope(path, str(prefix)) for prefix in scope_patch)
 
 
 def _external_specs_with_context(
@@ -284,6 +285,7 @@ def resolve_external_file_updates(
             raise ESAAError(
                 "BOUNDARY_VIOLATION", f"path not allowed for external target {target_id}: {target_path}"
             )
+        assert_writable_not_governed(target_path)
 
         root_input = target.get("root_input")
         if not isinstance(root_input, str) or not root_input:

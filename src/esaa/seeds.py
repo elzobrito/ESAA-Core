@@ -43,6 +43,8 @@ BASELINE_LESSONS: list[dict[str, Any]] = [
 
 
 def seed_tasks() -> list[dict[str, Any]]:
+    """Demo baseline tasks for `init --with-demo-tasks` (not used by default init)."""
+
 
     return [
         {
@@ -286,24 +288,26 @@ def load_audit_seed(root: Path) -> dict[str, Any] | None:
 
 def all_tasks_done(tasks: list[dict[str, Any]]) -> bool:
 
-    return bool(tasks) and all(task["status"] == "done" for task in tasks)
+    active_tasks = [task for task in tasks if not task.get("superseded_by")]
+    return bool(active_tasks) and all(task["status"] == "done" for task in active_tasks)
 
 
 def select_next_task(tasks: list[dict[str, Any]]) -> dict[str, Any] | None:
 
     by_id = {task["task_id"]: task for task in tasks}
+    active_tasks = [task for task in tasks if not task.get("superseded_by")]
 
     for status in ("review", "in_progress"):
 
         candidates = sorted(
-            [task for task in tasks if task["status"] == status], key=lambda item: item["task_id"]
+            [task for task in active_tasks if task["status"] == status], key=lambda item: item["task_id"]
         )
 
         if candidates:
 
             return candidates[0]
 
-    todo = sorted([task for task in tasks if task["status"] == "todo"], key=lambda item: item["task_id"])
+    todo = sorted([task for task in active_tasks if task["status"] == "todo"], key=lambda item: item["task_id"])
 
     for task in todo:
 
@@ -325,11 +329,12 @@ def select_task_wave(tasks: list[dict[str, Any]], limit: int = 1) -> list[dict[s
         return [task] if task else []
 
     by_id = {task["task_id"]: task for task in tasks}
+    active_tasks = [task for task in tasks if not task.get("superseded_by")]
 
     for status in ("review", "in_progress"):
 
         candidates = sorted(
-            [task for task in tasks if task["status"] == status], key=lambda item: item["task_id"]
+            [task for task in active_tasks if task["status"] == status], key=lambda item: item["task_id"]
         )
 
         if candidates:
@@ -354,6 +359,10 @@ def list_eligible_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
 
     for task in sorted(tasks, key=lambda t: t["task_id"]):
+
+        if task.get("superseded_by"):
+
+            continue
 
         if task["status"] != "todo":
 
@@ -404,15 +413,24 @@ def build_dispatch_context(
     schema: dict[str, Any] | None = None,
     lessons: list[dict[str, Any]] | None = None,
     issues: list[dict[str, Any]] | None = None,
+    project_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
 
     if schema is not None:
 
-        return build_minimal_context(roadmap, task, contract, schema, lessons, issues)
+        return build_minimal_context(
+            roadmap,
+            task,
+            contract,
+            schema,
+            lessons,
+            issues,
+            project_profile=project_profile,
+        )
 
     boundaries = contract["boundaries"]["by_task_kind"][task["task_kind"]]
 
-    return {
+    ctx = {
         "boundaries": {"read": boundaries.get("read", []), "write": boundaries.get("write", [])},
         "context_pack": {"run": roadmap["meta"]["run"], "project": roadmap["project"]},
         "task": task,
@@ -421,3 +439,6 @@ def build_dispatch_context(
             "task_id": task["task_id"],
         },
     }
+    if project_profile is not None:
+        ctx["project_profile"] = project_profile
+    return ctx

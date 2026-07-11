@@ -25,7 +25,7 @@ def _sha(text: str) -> str:
 
 def _claim_spec(root: Path) -> ESAAService:
     svc = ESAAService(root)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     svc.submit(
         {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",

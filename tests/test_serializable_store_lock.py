@@ -41,7 +41,7 @@ def _event(seq, action, payload):
 def test_append_transactional_happy_path(contract_bundle: Path) -> None:
     """Caminho normal: build_events_fn cria evento, append + project sob lock."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     start_seq = next_event_seq(events)
 
@@ -60,7 +60,7 @@ def test_append_transactional_happy_path(contract_bundle: Path) -> None:
 def test_append_transactional_stale_state_seq(contract_bundle: Path) -> None:
     """expected_first_seq desatualizado -> STALE_STATE_SEQ."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     actual_next = next_event_seq(events)
 
@@ -76,7 +76,7 @@ def test_append_transactional_stale_state_seq(contract_bundle: Path) -> None:
 def test_append_transactional_stale_state_hash(contract_bundle: Path) -> None:
     """expected_projection_hash divergente -> STALE_STATE_HASH."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     with pytest.raises(ESAAError) as exc:
         append_transactional(
@@ -90,7 +90,7 @@ def test_append_transactional_stale_state_hash(contract_bundle: Path) -> None:
 def test_append_transactional_lock_timeout(contract_bundle: Path) -> None:
     """Lock segurado externamente -> STORE_LOCK_TIMEOUT."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     store_path = contract_bundle / ".roadmap" / "activity.jsonl"
     lock = _acquire_store_lock(store_path, timeout=1.0)
@@ -105,7 +105,7 @@ def test_append_transactional_lock_timeout(contract_bundle: Path) -> None:
 def test_append_transactional_no_duplicate_seq(contract_bundle: Path) -> None:
     """Multiplos appends transacionais: seq monotonico, sem gaps."""
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
 
     for _ in range(3):
         def build_fn(current_events):

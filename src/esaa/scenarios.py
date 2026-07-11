@@ -119,7 +119,7 @@ def run_hotfix_trace(
     service = ESAAService(workspace)
 
     if not parse_event_store(workspace):
-        service.init(force=True)
+        service.init(force=True, with_demo_tasks=True)
 
     events_before = parse_event_store(workspace)
     fixes = _ensure_done_task(service, _first_task_id(events_before))

@@ -19,7 +19,7 @@ def test_submit_claim_uses_serializable_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     monkeypatch.setattr(service_core_module, "append_events", _forbid_append_events)
 
     result = svc.submit(
@@ -38,7 +38,7 @@ def test_run_claim_uses_serializable_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     monkeypatch.setattr(service_core_module, "append_events", _forbid_append_events)
 
     result = svc.run(steps=1)
@@ -54,7 +54,7 @@ def test_orchestrator_command_uses_serializable_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     svc = ESAAService(contract_bundle)
-    svc.init(force=True)
+    svc.init(force=True, with_demo_tasks=True)
     monkeypatch.setattr(service_core_module, "append_events", _forbid_append_events)
 
     result = svc.create_task(
