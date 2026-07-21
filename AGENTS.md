@@ -30,16 +30,20 @@ python -m esaa --root . roadmap status --detail
 Todo comando que escreve no event store deve identificar o runner:
 
 ```powershell
-python -m esaa --root . --runner codex submit --actor agent-spec output.json
-# ou uma vez por sessão:
-$env:ESAA_RUNNER_ID = "codex"
+# Informe o identificador real do runner que está executando a ação.
+python -m esaa --root . --runner <runner_id> submit --actor agent-spec output.json
+
+# Ou configure o runner uma vez por sessão:
+$env:ESAA_RUNNER_ID = "<runner_id>"
 ```
 
 Regras:
-- Use `--runner codex` ou `ESAA_RUNNER_ID=codex` em `submit`, `task create`, `init`, `run`.
-- Não coloque campo `runner` no JSON do agente; o Orchestrator carimba isso.
-- Runners registrados: `claude-cowork`, `claude-code`, `codex`, `human-terminal`, `unattended`.
-- Com policy strict, runner desconhecido falha com `RUNNER_UNKNOWN`.
+- Substitua `<runner_id>` pelo identificador exato do runner em execução.
+- Use `--runner <runner_id>` ou `ESAA_RUNNER_ID=<runner_id>` em `submit`, `task create`, `init` e `run`.
+- Não inclua o campo `runner` no JSON do agente; o Orchestrator o acrescenta ao evento.
+- Runners registrados: `claude-cowork`, `claude-code`, `codex`, `human-terminal` e `unattended`.
+- Com `runner_validation: strict`, um identificador não registrado é rejeitado com `RUNNER_UNKNOWN`.
+- Novos runners devem ser registrados em `.roadmap/agents_swarm.yaml` antes de serem usados em modo `strict`.
 
 ## 3. Concorrência
 

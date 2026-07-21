@@ -65,9 +65,9 @@ e um [mapa de troubleshooting](#mapa-de-troubleshooting).
 projeto num workspace governado, com o event store e as projeções limpos.
 
 ```powershell
-pip install esaa-core
-esaa --version
-# esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
+python -m pip install --upgrade --pre esaa-core
+python -m esaa --version
+# esaa 0.5.0b18 (protocol 0.4.1, esaa 0.4.x)
 
 # Identidade do runner para toda a sessão (evita repetir --runner)
 $env:ESAA_RUNNER_ID = "claude-code"

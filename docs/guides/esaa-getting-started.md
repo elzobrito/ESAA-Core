@@ -8,9 +8,13 @@ review → done` num workspace governado pelo ESAA.
 ## 1. Instalação
 
 ```powershell
-pip install esaa-core
-esaa --version   # ex.: esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
+python -m pip install --upgrade --pre esaa-core
+python -m esaa --version   # ex.: esaa 0.5.0b18 (protocol 0.4.1, esaa 0.4.x)
 ```
+
+As versões públicas atuais são pré-releases, portanto uma instalação limpa
+precisa de `--pre`. Para um ambiente reprodutível, fixe a versão, por exemplo:
+`python -m pip install esaa-core==0.5.0b18`.
 
 O pacote instala o comando `esaa` (equivalente a `python -m esaa`). Não há
 servidor, daemon nem MCP: tudo é CLI local + arquivos no diretório do projeto.

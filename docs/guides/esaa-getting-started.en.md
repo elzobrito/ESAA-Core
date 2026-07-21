@@ -8,9 +8,13 @@ done` cycle in an ESAA-governed workspace.
 ## 1. Installation
 
 ```powershell
-pip install esaa-core
-esaa --version   # e.g.: esaa 0.5.0b10 (protocol 0.4.1, esaa 0.4.x)
+python -m pip install --upgrade --pre esaa-core
+python -m esaa --version   # e.g.: esaa 0.5.0b18 (protocol 0.4.1, esaa 0.4.x)
 ```
+
+Current public versions are pre-releases, so a clean installation requires
+`--pre`. For a reproducible environment, pin the version, for example:
+`python -m pip install esaa-core==0.5.0b18`.
 
 The package installs the `esaa` command (equivalent to `python -m esaa`). There
 is no server, daemon, or MCP: everything is a local CLI + files in the project

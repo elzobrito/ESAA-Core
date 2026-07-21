@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 674,
-      "projection_hash_sha256": "dd0251ca7c5401e89eabca8984f7e46c293f71661ddaf136e05fdbc2614da216",
+      "last_event_seq": 738,
+      "projection_hash_sha256": "e9eed8fdc9abccf29326f6749449bdea855b4d003ae7c4ef8e5d57dc952fd9b7",
       "verify_status": "ok"
     },
-    "updated_at": "2026-07-11T04:42:50Z"
+    "updated_at": "2026-07-21T20:02:57Z"
   },
   "project": {
     "name": "esaa-core",
@@ -1614,16 +1614,222 @@
         ]
       },
       "completed_at": "2026-07-11T04:42:50Z"
+    },
+    {
+      "task_id": "AGENTS-RUNNER-ID-001",
+      "task_kind": "impl",
+      "title": "Generalizar identificação do runner no AGENTS.md",
+      "description": "Alterar cirurgicamente a seção CLI e runner do AGENTS.md do ESAA-Core para substituir o exemplo fixo --runner codex e ESAA_RUNNER_ID=codex por <runner_id>. Exigir o identificador exato do runner em execução; preservar a separação entre runner e actor; manter que o Orchestrator carimba runner; manter a lista de runners registrados e RUNNER_UNKNOWN em policy strict; acrescentar registro prévio de novos runners em .roadmap/agents_swarm.yaml. Não modificar outras seções. Critérios de aceite: exemplos PowerShell usam <runner_id>; regras exigem o runner exato; runner não é enviado no JSON; lista, strict policy e registro prévio permanecem documentados; demais seções ficam inalteradas. Revisão esperada: governance.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "AGENTS.md"
+      ],
+      "outputs": {
+        "files": [
+          "AGENTS.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-21T18:40:13Z",
+      "verification": {
+        "checks": [
+          "AGENTS-RUNNER-ID-001-EFFECT -> done com boundary_grant AGENTS.md",
+          "texto de aceite confirmado e exemplos fixos removidos",
+          "git diff --check -> ok",
+          "ESAA verify -> ok",
+          "pytest -q -> 397 passed, 1 falha baseline não relacionada em test_done_evidence_quality"
+        ]
+      },
+      "completed_at": "2026-07-21T18:48:19Z"
+    },
+    {
+      "task_id": "AGENTS-RUNNER-ID-001-EFFECT",
+      "task_kind": "impl",
+      "title": "Registrar efeito autorizado da generalização de runner",
+      "description": "Tarefa-companheira de AGENTS-RUNNER-ID-001 criada porque a tarefa original foi aberta sem boundary_grant e o dry-run de complete rejeitou AGENTS.md com BOUNDARY_VIOLATION. Autorizar exclusivamente AGENTS.md, registrar pelo Orchestrator o conteúdo já validado e preservar todas as demais seções. Critérios: boundary AGENTS.md explícito; conteúdo igual ao diff aprovado; verify ok; revisão QA.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "AGENTS.md"
+      ],
+      "outputs": {
+        "files": [
+          "AGENTS.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "AGENTS.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-21T18:47:29Z",
+      "verification": {
+        "checks": [
+          "git diff --check -> ok",
+          "diff restrito ao bloco CLI e runner -> 11 adições, 7 remoções",
+          "ESAA verify após edição -> ok",
+          "pytest -q -> 397 passed, 1 falha baseline não relacionada em test_done_evidence_quality"
+        ]
+      },
+      "completed_at": "2026-07-21T18:48:04Z"
+    },
+    {
+      "task_id": "PIP-PRE-INSTALL-001",
+      "task_kind": "spec",
+      "title": "Padronizar instalação beta do esaa-core com --pre",
+      "description": "Atualizar a documentação PT/EN para usar como comando canônico python -m pip install --upgrade --pre esaa-core. O readme.md e o README empacotado já usam essa forma, mas os guias getting-started, cenários e why ainda exibem ou mencionam pip install esaa-core. Preservar como alternativa a instalação com versão fixada. Explicar de forma curta que o pacote está em pré-release e que uma instalação limpa sem --pre pode não encontrar distribuição. Critérios: todos os exemplos executáveis não fixados usam python -m pip install --upgrade --pre esaa-core; PT e EN permanecem equivalentes; comandos pinados continuam disponíveis; nenhuma mudança de runtime ou publicação no PyPI.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "readme.md",
+        "src/esaa/workspace/README.md",
+        "docs/guides/esaa-getting-started.md",
+        "docs/guides/esaa-getting-started.en.md",
+        "docs/guides/esaa-cenarios.md",
+        "docs/guides/esaa-cenarios.en.md",
+        "docs/guides/esaa-why.md",
+        "docs/guides/esaa-why.en.md"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-getting-started.md",
+          "docs/guides/esaa-getting-started.en.md",
+          "docs/guides/esaa-cenarios.md",
+          "docs/guides/esaa-cenarios.en.md",
+          "docs/guides/esaa-why.md",
+          "docs/guides/esaa-why.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-07-21T19:27:41Z",
+      "verification": {
+        "checks": [
+          "seis guias atualizados em pares PT/EN",
+          "nenhum exemplo executável pip install esaa-core sem prefixo python -m e --pre",
+          "git diff --check -> ok",
+          "ESAA verify -> ok"
+        ]
+      },
+      "completed_at": "2026-07-21T19:29:24Z"
+    },
+    {
+      "task_id": "PKG-BUNDLE-SYNC-001",
+      "task_kind": "impl",
+      "title": "Sincronizar e validar bundle publicado do esaa-core",
+      "description": "Corrigir o empacotamento para que wheel, sdist e esaa bootstrap entreguem guias e contratos completos e atualizados. Definir uma fonte canônica ou geração determinística para AGENTS.md, CLAUDE.md e README empacotados; sincronizar src/esaa/workspace com os arquivos canônicos sem reduzir o contrato; auditar todos os GOVERNANCE_TEMPLATE_FILES contra os canônicos de .roadmap e documentar exceções intencionais; reforçar testes para comparar conteúdo/inventário completo em vez de apenas frases ou subconjunto essencial; validar wheel e sdist em ambiente limpo com twine check, instalação do wheel e bootstrap comparado ao bundle esperado. Incluir teste que impeça regressão para exemplos não fixados de pip install esaa-core sem --pre. Critérios: bootstrap gera o AGENTS completo com a regra genérica de runner; nenhum event store/read model é empacotado ou sobrescrito; código e package-data esperados constam do wheel; testes de paridade falham diante de drift; suíte e smoke de wheel documentados. Preparar artefatos para próxima beta, mas não publicar no PyPI sem autorização explícita.",
+      "status": "done",
+      "depends_on": [
+        "PIP-PRE-INSTALL-001"
+      ],
+      "targets": [
+        "AGENTS.md",
+        ".claude/CLAUDE.md",
+        "readme.md",
+        ".roadmap",
+        "src/esaa/workspace",
+        "src/esaa/templates",
+        "src/esaa/bootstrap.py",
+        "pyproject.toml",
+        "MANIFEST.in",
+        "tests/test_public_beta_release.py",
+        "tests/test_plugin_publication_assets.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/workspace/AGENTS.md",
+          "src/esaa/workspace/CLAUDE.md",
+          "src/esaa/workspace/README.md",
+          "src/esaa/bootstrap.py",
+          "pyproject.toml",
+          "MANIFEST.in",
+          "tests/test_public_beta_release.py",
+          "tests/test_plugin_publication_assets.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "pyproject.toml",
+        "MANIFEST.in"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-21T19:29:39Z",
+      "verification": {
+        "checks": [
+          "13 testes direcionados aprovados",
+          "suíte completa: 398 aprovados; única falha é baseline histórica R-DONE-EVIDENCE-MISSING de tarefa imutável fora do escopo",
+          "python -m twine check aprovou wheel e sdist temporários",
+          "inventário do wheel igual ao código e package-data esperados",
+          "wheel instalado em venv limpo; bootstrap, init e verify_status=ok",
+          "pip upgrade e bootstrap --force preservaram hashes de activity.jsonl e read models"
+        ]
+      },
+      "completed_at": "2026-07-21T19:39:37Z"
+    },
+    {
+      "task_id": "REL-0.5.0B18-PYPI",
+      "task_kind": "impl",
+      "title": "Publicar esaa-core 0.5.0b18 no PyPI",
+      "description": "Incrementar a beta para 0.5.0b18, sincronizar superfícies públicas de versão e README empacotado, construir wheel/sdist limpos, executar testes e smoke de instalação, publicar no PyPI com o token fornecido pelo operador e registrar evidências da publicação. Não incluir event store nem read models no pacote.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/constants.py",
+        "readme.md",
+        "src/esaa/workspace/README.md",
+        "docs/guides",
+        "docs/qa/REL-0.5.0B18-PYPI.md",
+        "dist"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "readme.md",
+          "src/esaa/workspace/README.md",
+          "docs/qa/REL-0.5.0B18-PYPI.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "readme.md",
+        "docs/**",
+        "dist/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-07-21T19:49:42Z",
+      "verification": {
+        "checks": [
+          "33 testes de versão/release/assets aprovados",
+          "suíte completa: 398 aprovados; única falha histórica fora do escopo documentada",
+          "twine check aprovou wheel e sdist 0.5.0b18",
+          "inventário integral do wheel e bundle de bootstrap validados",
+          "PyPI confirmou wheel e sdist não yanked com hashes iguais aos locais",
+          "instalação pública sem cache retornou esaa 0.5.0b18 e verify_status=ok"
+        ]
+      },
+      "completed_at": "2026-07-21T20:02:57Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 49
+      "done": 54
     },
     "by_kind": {
-      "impl": 25,
+      "impl": 29,
       "qa": 8,
-      "spec": 16
+      "spec": 17
     }
   }
 }

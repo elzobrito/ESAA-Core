@@ -89,8 +89,8 @@ operacional. Sem governança, um fluxo multi-agente típico sofre de:
 - **Plugins e roadmaps externos**: `plugin`, `plugin-status` e `roadmap`
   instalam, validam e ativam pacotes de tarefas sem misturar domínio no core.
 - **Bootstrap e pacote PyPI**: `bootstrap` cria workspaces padronizados;
-  `pip install esaa-core` disponibiliza `esaa` / `python -m esaa` fora do
-  checkout local.
+  `python -m pip install --upgrade --pre esaa-core` instala ou atualiza a beta
+  e disponibiliza `esaa` / `python -m esaa` fora do checkout local.
 - **CLI no-token**: `claim`, `complete`, `review`, `task create` e comandos
   determinísticos evitam gastar chamada de LLM em transições mecânicas.
 

@@ -2,6 +2,9 @@ version: "0.4.1"
 
 review_authorization: "qa_role"
 
+# G08/PROV-02: permissive aceita qualquer runner_id; strict exige registro na secao runners do swarm
+runner_validation: "permissive"
+
 attempt_lifecycle:
   ttl: "PT30M"
   on_ttl_exceeded:

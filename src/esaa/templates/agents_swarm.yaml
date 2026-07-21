@@ -47,3 +47,22 @@ templates:
   qa.core:
     task_kind: "qa"
     output_contract_hint: "Review with approve/request_changes; report defects with evidence."
+
+# G08/PROV-02: runners conhecidos (proveniencia). Runners nao sao agents:
+# sao os principais/veiculos que emitem comandos vestindo papeis de agent.
+runners:
+  claude-cowork:
+    display_name: "Claude (Cowork)"
+    kind: "llm-agent"
+  claude-code:
+    display_name: "Claude Code (CLI)"
+    kind: "llm-agent"
+  codex:
+    display_name: "Codex"
+    kind: "llm-agent"
+  human-terminal:
+    display_name: "Operador humano via terminal"
+    kind: "human"
+  unattended:
+    display_name: "Execucao nao atribuida"
+    kind: "unknown"

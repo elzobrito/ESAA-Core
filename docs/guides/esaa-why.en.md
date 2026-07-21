@@ -89,8 +89,8 @@ discipline. Without governance, a typical multi-agent flow suffers from:
   install, validate, and activate task packages without mixing the domain into
   the core.
 - **Bootstrap and PyPI package**: `bootstrap` creates standardized workspaces;
-  `pip install esaa-core` makes `esaa` / `python -m esaa` available outside the
-  local checkout.
+  `python -m pip install --upgrade --pre esaa-core` installs or upgrades the
+  beta and makes `esaa` / `python -m esaa` available outside the local checkout.
 - **No-token CLI**: `claim`, `complete`, `review`, `task create`, and other
   deterministic commands avoid spending an LLM call on mechanical transitions.
 

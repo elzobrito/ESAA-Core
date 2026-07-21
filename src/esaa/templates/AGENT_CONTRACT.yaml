@@ -112,6 +112,7 @@ output_contract:
       - task_id
       - prior_status        # NOVO v0.4.1 — obrigatório em todo output
     forbidden_fields:
+      - runner              # G08: proveniencia e carimbada pelo Orchestrator, nunca pelo agente
       - schema_version      # metadado de evento — exclusivo do Orchestrator
       - event_id            # gerado pelo Orchestrator
       - event_seq           # gerado pelo Orchestrator

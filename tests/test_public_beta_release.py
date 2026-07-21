@@ -38,6 +38,25 @@ ESSENTIAL_GOVERNANCE_FILES = (
     "PARCER_PROFILE.orchestrator-runtime.yaml",
 )
 
+INTENTIONAL_TEMPLATE_DIVERGENCES = {
+    "agent_result.schema.json": ("review_mode",),
+    "roadmap.schema.json": ("task_type", "acceptance_criteria", "required_review_mode"),
+    "lessons.schema.json": ("experimental", "require_boundary_grant"),
+}
+
+INSTALL_GUIDES = (
+    "readme.md",
+    "src/esaa/workspace/README.md",
+    "docs/guides/esaa-getting-started.md",
+    "docs/guides/esaa-getting-started.en.md",
+    "docs/guides/esaa-cenarios.md",
+    "docs/guides/esaa-cenarios.en.md",
+    "docs/guides/esaa-why.md",
+    "docs/guides/esaa-why.en.md",
+)
+
+CANONICAL_BETA_INSTALL = "python -m pip install --upgrade --pre esaa-core"
+
 
 def _run_cli(root: Path, *args: str) -> dict:
     stdout = io.StringIO()
@@ -67,7 +86,7 @@ def test_bootstrap_creates_required_governance_files(tmp_path: Path) -> None:
     assert not (tmp_path / ".roadmap" / "lessons.json").exists()
 
 
-def test_bootstrap_creates_agent_guidance_files(tmp_path: Path) -> None:
+def test_bootstrap_creates_agent_guidance_files(tmp_path: Path, repo_root: Path) -> None:
     result = bootstrap_workspace(tmp_path, profile="public")
 
     assert "README.md" in result["files_written"]
@@ -81,8 +100,11 @@ def test_bootstrap_creates_agent_guidance_files(tmp_path: Path) -> None:
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     claude = (tmp_path / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "Contrato operacional ESAA" in agents
-    assert "Contrato operacional ESAA" in claude
+    canonical_agents = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+    canonical_claude = canonical_agents.replace("# AGENTS.md", "# CLAUDE.md", 1)
+    assert agents == canonical_agents
+    assert claude == canonical_claude
+    assert readme == (repo_root / "readme.md").read_text(encoding="utf-8")
     assert "O ESAA não usa MCP" in agents
     assert "O ESAA não usa MCP" in claude
     assert "# ESAA" in readme
@@ -168,7 +190,7 @@ def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path) -
     assert GUIDE_MARKER_PROJECT_BEGIN in merged
     assert GUIDE_MARKER_PROJECT_END in merged
     contract, project = extract_regions(merged)
-    assert "Contrato operacional ESAA" in contract
+    assert "Contrato operacional Codex/ESAA" in contract
     assert project == "\n" + original
 
 
@@ -176,15 +198,15 @@ def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp
     bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
     first = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     _contract, project_before = extract_regions(first)
-    changed = first.replace("Contrato operacional ESAA", "Contrato operacional ESAA atualizado", 1)
+    changed = first.replace("Contrato operacional Codex/ESAA", "Contrato operacional Codex/ESAA atualizado", 1)
     (tmp_path / "AGENTS.md").write_text(changed, encoding="utf-8")
 
     bootstrap_workspace(tmp_path, profile="public", force=True, merge_guides=True)
 
     after = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     contract_after, project_after = extract_regions(after)
-    assert "Contrato operacional ESAA atualizado" not in contract_after
-    assert "Contrato operacional ESAA" in contract_after
+    assert "Contrato operacional Codex/ESAA atualizado" not in contract_after
+    assert "Contrato operacional Codex/ESAA" in contract_after
     assert project_after == project_before
 
 
@@ -269,15 +291,35 @@ def test_package_data_contains_templates() -> None:
 
 def test_packaged_governance_templates_match_canonical_files(repo_root: Path) -> None:
     template_root = repo_root / "src/esaa/templates"
-    for name in ESSENTIAL_GOVERNANCE_FILES:
+    canonical_files = set(GOVERNANCE_TEMPLATE_FILES) - set(INTENTIONAL_TEMPLATE_DIVERGENCES)
+
+    assert canonical_files | set(INTENTIONAL_TEMPLATE_DIVERGENCES) == set(GOVERNANCE_TEMPLATE_FILES)
+    for name in canonical_files:
         assert (template_root / name).read_bytes() == (repo_root / ".roadmap" / name).read_bytes()
+
+    for name, required_markers in INTENTIONAL_TEMPLATE_DIVERGENCES.items():
+        packaged = (template_root / name).read_text(encoding="utf-8")
+        active = (repo_root / ".roadmap" / name).read_text(encoding="utf-8")
+        assert packaged != active
+        assert all(marker in packaged for marker in required_markers)
 
 
 def test_packaged_agent_guides_match_canonical_files(repo_root: Path) -> None:
     workspace_root = repo_root / "src/esaa/workspace"
-    assert "Contrato operacional ESAA" in (workspace_root / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Contrato operacional ESAA" in (workspace_root / "CLAUDE.md").read_text(encoding="utf-8")
+    canonical_agents = (repo_root / "AGENTS.md").read_bytes()
+    canonical_claude = canonical_agents.replace(b"# AGENTS.md", b"# CLAUDE.md", 1)
+
+    assert (workspace_root / "AGENTS.md").read_bytes() == canonical_agents
+    assert (workspace_root / "CLAUDE.md").read_bytes() == canonical_claude
     assert (workspace_root / "README.md").read_bytes() == (repo_root / "readme.md").read_bytes()
+
+
+def test_documented_beta_install_commands_require_pre(repo_root: Path) -> None:
+    for rel in INSTALL_GUIDES:
+        for line in (repo_root / rel).read_text(encoding="utf-8").splitlines():
+            if "pip install" not in line or "esaa-core" not in line or "esaa-core==" in line:
+                continue
+            assert CANONICAL_BETA_INSTALL in line, f"stale beta install command in {rel}: {line.strip()}"
 
 
 def test_pyproject_public_metadata(repo_root: Path) -> None:

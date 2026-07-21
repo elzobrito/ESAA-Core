@@ -1,22 +1,24 @@
-# CLAUDE.md — Contrato operacional ESAA
+# AGENTS.md — Contrato operacional Codex/ESAA
 
 > Versão operacional curta para runners. Em divergência, os artefatos canônicos em `.roadmap/` prevalecem.
 > O ESAA não usa MCP. Use a CLI ESAA: `python -m esaa`.
 
-## 1. Autoridade
+## 1. Autoridade e termos
 
 ESAA é o protocolo de governança. Harness executa. Orchestrator é o single writer do event store. Agente emite intenções válidas, nunca escreve diretamente no store.
 
 Fontes canônicas:
-- `.roadmap/activity.jsonl` é a verdade histórica.
-- `.roadmap/roadmap.json`, `.roadmap/issues.json`, `.roadmap/lessons.json` são projeções.
-- `.roadmap/AGENT_CONTRACT.yaml`, `.roadmap/ORCHESTRATOR_CONTRACT.yaml`, `.roadmap/agent_result.schema.json`, `.roadmap/RUNTIME_POLICY.yaml` definem contrato e runtime.
+- Event store: `.roadmap/activity.jsonl`.
+- Projeções/read models: `.roadmap/roadmap.json`, `.roadmap/issues.json`, `.roadmap/lessons.json`.
+- Contratos: `.roadmap/AGENT_CONTRACT.yaml`, `.roadmap/ORCHESTRATOR_CONTRACT.yaml`, `.roadmap/agent_result.schema.json`, `.roadmap/RUNTIME_POLICY.yaml`.
 
-Não edite manualmente event store nem read models.
+Read models são derivados do event store. Não edite manualmente `roadmap.json`, `issues.json`, `lessons.json` ou `activity.jsonl`.
 
-## 2. CLI e identidade de runner
+## 2. CLI e runner
 
-O pacote público é `esaa-core`, mas o módulo/comando é `esaa`.
+Em workspaces publicados, o pacote Python é `esaa-core`, mas o módulo/comando é `esaa`.
+
+Comandos úteis:
 
 ```powershell
 python -m esaa --version
@@ -25,36 +27,40 @@ python -m esaa --root . eligible
 python -m esaa --root . roadmap status --detail
 ```
 
-Todo comando que escreve no event store deve identificar runner:
+Todo comando que escreve no event store deve identificar o runner:
 
 ```powershell
-python -m esaa --root . --runner claude-code submit --actor agent-spec output.json
-# ou:
-$env:ESAA_RUNNER_ID = "claude-code"
+# Informe o identificador real do runner que está executando a ação.
+python -m esaa --root . --runner <runner_id> submit --actor agent-spec output.json
+
+# Ou configure o runner uma vez por sessão:
+$env:ESAA_RUNNER_ID = "<runner_id>"
 ```
 
 Regras:
-- Use `--runner <id>` ou `ESAA_RUNNER_ID` em `submit`, `task create`, `init`, `run`.
-- O agente nunca envia campo `runner`; o Orchestrator carimba.
-- Runners conhecidos: `claude-cowork`, `claude-code`, `codex`, `human-terminal`, `unattended`.
-- Em validação strict, runner fora do registro falha com `RUNNER_UNKNOWN`.
+- Substitua `<runner_id>` pelo identificador exato do runner em execução.
+- Use `--runner <runner_id>` ou `ESAA_RUNNER_ID=<runner_id>` em `submit`, `task create`, `init` e `run`.
+- Não inclua o campo `runner` no JSON do agente; o Orchestrator o acrescenta ao evento.
+- Runners registrados: `claude-cowork`, `claude-code`, `codex`, `human-terminal` e `unattended`.
+- Com `runner_validation: strict`, um identificador não registrado é rejeitado com `RUNNER_UNKNOWN`.
+- Novos runners devem ser registrados em `.roadmap/agents_swarm.yaml` antes de serem usados em modo `strict`.
 
 ## 3. Concorrência
 
-Até locks robustos estarem validados no workspace alvo:
+Até locks com metadados/read-after-write estarem garantidos no workspace alvo:
 - Um runner por vez neste workspace.
-- Se `.roadmap/activity.jsonl.lock` existir antes de escrever, pare e pergunte.
+- Antes de escrever, se existir `.roadmap/activity.jsonl.lock`, pare e pergunte ao usuário.
 - Se encontrar `STORE_LOCK_TIMEOUT`, `JSONL_INVALID` ou `EVENT_SEQ_*`, pare e reporte.
 - Após escrita governada, rode `python -m esaa --root . verify`.
 - Não reivindique tarefa atribuída a outro runner.
 
-## 4. Modos
+## 4. Modos de operação
 
 ### Read-only
 
 Use para análise, diagnóstico, explicação ou inspeção. Não emita `claim`, `complete`, `review`, nem `file_updates`.
 
-Fechamento:
+Feche com:
 
 ```text
 - Task ID: N/A
@@ -71,22 +77,24 @@ Fechamento:
 Use quando o usuário pede implementar/corrigir/gerar artefatos sob ESAA.
 
 Regras:
-- Two-step obrigatório: `claim` em uma invocação, `complete` em outra.
+- Two-step obrigatório: uma invocação para `claim`, outra para `complete`.
 - Exatamente uma `activity_event` por output.
-- JSON puro, sem markdown e sem texto fora do envelope.
+- JSON puro, sem markdown, sem texto fora do envelope.
 - `prior_status` sempre presente e coerente.
 - `file_updates` apenas com `action=complete`.
-- O agente não aplica efeitos finais diretamente; envia `file_updates`.
-- `done` é imutável; problemas viram `issue.report`.
+- O agente não aplica efeitos finais diretamente; envia `file_updates` para o Orchestrator.
+- Nunca reabra ou modifique tarefa `done`; reporte issue.
+
+Boundaries por `task_kind` vêm de `.roadmap/AGENT_CONTRACT.yaml#boundaries.by_task_kind`.
 
 ## 5. Decision tree
 
-1. `task_status == todo` -> `claim`.
-2. `task_status == in_progress` e `assigned_to` é seu actor -> executar e `complete`.
-3. `task_status == review` -> `review` apenas por `agent-qa`.
-4. `task_status == done` -> `issue.report`.
-5. Lesson ativa inviabiliza o output -> `issue.report`.
-6. Dependência ausente, boundary impossível, contexto insuficiente ou lock divergente -> `issue.report`.
+1. `task_status == todo` -> emitir `claim`.
+2. `task_status == in_progress` e `assigned_to` é seu actor -> executar e emitir `complete`.
+3. `task_status == review` -> apenas `agent-qa` emite `review`.
+4. `task_status == done` -> emitir `issue.report`; done é imutável.
+5. Se uma lesson ativa inviabiliza o output, emitir `issue.report`.
+6. Se houver dependência ausente, boundary impossível, contexto insuficiente ou lock divergente, emitir `issue.report`.
 
 ## 6. Envelopes canônicos
 
@@ -209,17 +217,26 @@ Mínimos de `verification.checks`: `spec=1`, `impl=1`, `qa=1`, `hotfix=2`.
 
 Trate cada lesson com `enforcement.mode` em {`reject`, `require_field`, `require_step`} como **constraint inviolável**. `warn` não bloqueia por si só, mas deve ser respeitado.
 
-Baseline:
+Lessons baseline:
 - LES-0001: nunca colapsar `claim` + `complete`.
 - LES-0002: `file_updates` sem `action=complete` é inválido.
 - LES-0003: `prior_status` é obrigatório e coerente.
 
-## 9. Done, hotfix e tentativas
+## 9. Done e hotfix
 
-`done` é terminal. Nunca reabra, edite ou emita `claim`/`complete`/`review` sobre task done. Problema em task done -> `issue.report`; hotfix é nova tarefa criada pelo Orchestrator.
+`done` é terminal. Nunca reabra, edite ou emita `claim`/`complete`/`review` sobre task done.
 
-Policy padrão: 3 tentativas por tarefa, cooldown de 2 minutos, TTL de 30 minutos. `PRIOR_STATUS_MISMATCH` não consome attempt.
+Problema em task done -> `issue.report`. O Orchestrator decide se cria hotfix. Hotfix exige `scope_patch`, `fixes`/`issue_id` e pelo menos dois checks.
 
-## 10. Regra final
+## 10. Tentativas
+
+Policy padrão:
+- máximo 3 tentativas por tarefa;
+- cooldown de 2 minutos;
+- TTL de attempt de 30 minutos.
+
+`PRIOR_STATUS_MISMATCH` não consome attempt.
+
+## 11. Saída curta
 
 Uma action por invocação. `prior_status` sempre. `file_updates` só com `complete`. JSON puro. O agente não escreve no event store nem em read models. Na dúvida, `issue.report` com evidência.

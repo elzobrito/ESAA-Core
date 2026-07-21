@@ -48,7 +48,7 @@ python -m esaa --version
 For a pinned install:
 
 ```bash
-python -m pip install esaa-core==0.5.0b17
+python -m pip install esaa-core==0.5.0b18
 python -m esaa --version
 ```
 
@@ -121,21 +121,21 @@ the most portable invocation on Windows, Linux, and macOS.
 
 ## Public Beta Status
 
-Current package: `esaa-core 0.5.0b17`.
+Current package: `esaa-core 0.5.0b18`.
 
 Current protocol/schema line: `0.4.1`. The package version marks beta runtime
 readiness; it is not a protocol break.
 
-Highlights in `0.5.0b17`:
+Highlights in `0.5.0b18`:
 
-- `esaa init` creates an empty task list by default; use `--with-demo-tasks` for T-1000/T-1010/T-1020.
-- Mira-style `esaa onboard` asks only how agents should address the operator.
-- `operator.display_name` is stored in the governed project profile and dispatch context.
-- Project defaults are inferred from the workspace instead of requiring manual onboarding fields.
-- Governed `project.profile.set` projection and GOV-PROFILE task track remain available.
-- Superseded tasks hidden from `eligible`/`run` with `suppressed_superseded*` reporting.
-- The canonical state machine remains strictly `todo -> in_progress -> review -> done`;
-  notifications are opt-in CLI/service side effects.
+- `esaa bootstrap` now installs the complete current `AGENTS.md` and
+  `.claude/CLAUDE.md` operational contracts instead of reduced guides.
+- Packaged governance templates include G08 runner provenance defaults and the
+  registered runner inventory.
+- Release tests enforce full bundle parity and require `--pre` in unpinned beta
+  installation examples.
+- Package installation and forced bootstrap continue to preserve
+  `.roadmap/activity.jsonl` and projected read models.
 
 ## When To Use ESAA
 
