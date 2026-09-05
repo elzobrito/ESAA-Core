@@ -14,7 +14,7 @@ README_CONTRACT = (
     "# ESAA\n\n"
     "Este projeto usa ESAA para governança de agentes: agentes emitem intenções, "
     "o Orchestrator valida e aplica efeitos, e `.roadmap/activity.jsonl` é a fonte da verdade.\n\n"
-    "Guias: `docs/guides/`.\n"
+    "Orientações: [AGENTS.md](AGENTS.md). Ajuda: `python -m esaa --help`.\n"
 )
 
 

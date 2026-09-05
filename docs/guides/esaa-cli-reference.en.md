@@ -29,7 +29,7 @@ pass `--runner <id>` before the subcommand or set `ESAA_RUNNER_ID`.
 ### `bootstrap` — install governance templates
 
 ```text
-esaa bootstrap [--profile {public,production}] [--force]
+esaa bootstrap [--profile {public,production}] [--force] [--preserve-guides | --merge-guides]
 ```
 
 Installs the contracts, schemas, and policies packaged in `.roadmap/`.
@@ -417,3 +417,198 @@ temporary workspace; with `--current`, it operates in the current workspace.
 - [Getting started](esaa-getting-started.en.md)
 - [Operating Codex and Claude Code as runners](esaa-runners-codex-claude-code.en.md)
 - [Why use ESAA](esaa-why.en.md)
+
+## Runtime architecture and operations
+
+This reference collects details previously included in the root README. Load the
+relevant topic; installed contracts govern a workspace even when they differ from
+the templates published by the package.
+
+### Authority, states and context
+
+```text
+Agent proposes -> Orchestrator validates -> Event store records -> Projection updates
+
+todo --claim--> in_progress --complete--> review --approve--> done
+                    ^                      |
+                    +--- request_changes --+
+```
+
+Agents emit claim, complete, review or issue.report. Task creation, issue resolution,
+provenance, metrics, file writes and materialization are Orchestrator operations.
+The exact lists live in contracts and schemas. The harness executes agents;
+it does not replace ESAA governance.
+
+Minimal context uses schema_slice by action, filtered lessons/issues and completed
+dependency interfaces without their bodies. Deterministic commands and exact edits
+avoid repeated payloads; this is not a proven inference-cost reduction without
+measuring real tokens. See the runner guide for envelopes, CRLF, UTF-8, base_sha256,
+check minimums and review authorization.
+
+Role resolution uses agents_swarm and runtime fallbacks. review_authorization
+controls who reviews; completing still belongs to the actor that claimed.
+Do not change policy to bypass a review.
+
+### Tracked sources
+
+These examples belong to tracked source and the governance bundle.
+
+```text
+.roadmap/AGENT_CONTRACT.yaml
+.roadmap/ORCHESTRATOR_CONTRACT.yaml
+.roadmap/RUNTIME_POLICY.yaml
+.roadmap/STORAGE_POLICY.yaml
+.roadmap/PROJECTION_SPEC.md
+.roadmap/agent_result.schema.json
+src/esaa/
+tests/
+```
+
+### Paths created by operations
+
+These paths may be absent in a clean workspace; they appear with the matching operation. Task documents enter through the governed workflow.
+
+```text
+.roadmap/plugins.lock.json
+.roadmap/roadmaps.lock.json
+.roadmap/plugin-inputs/
+.roadmap/snapshots/
+docs/spec/
+docs/qa/
+```
+
+### Layout and projections
+
+Contracts, schemas, storage/runtime policies, PROJECTION_SPEC and PARCER profiles
+live in `.roadmap/`; code is in `src/esaa/` and tests in `tests/`.
+Task documents live in `docs/spec/` and `docs/qa/`. The root README is an explicit
+spec write exception in the default contract. Active boundaries take precedence.
+
+Replay rebuilds roadmap, issues, lessons and project profile from events.
+`verify` compares projections: `ok` confirms consistency; `mismatch` means a difference;
+`corrupted` means invalid history; `unknown` does not establish verification.
+A planned task without lifecycle events is not itself a mismatch.
+Never fix a projection by editing it manually.
+
+Baseline lessons are seeded by event and survive project/replay. Historical failures
+should not become global instructions: respect each lesson's scope and enforcement.
+Older terms such as promote, phase.complete, backlog and ready may be historical
+or profile-specific; consult `esaa vocabulary --help`.
+
+### Plugins and executions
+
+Installation records `.roadmap/plugins.lock.json`; activation records
+`.roadmap/roadmaps.lock.json` and exposes eligible tasks. Distinguish available and
+installed packages from active executions. Pause hides an execution from eligible;
+deactivation ends its use for new planning and is not synonymous with uninstall.
+
+```bash
+python -m esaa --runner codex plugin install ./security
+python -m esaa --runner codex roadmap activate security --execution-id default
+python -m esaa eligible
+```
+
+IDs use `<plugin-id>-<execution-id>-<local-task-id>`: `security-default-T-001`.
+`.template.json` templates are not executable by themselves. Loose roadmaps are
+legacy compatibility. External catalogs use ESAA_PLUGINS_HOME or `~/.esaa/plugins`,
+with layout `<plugin>/<version>/plugin.json`. A package may contain no bundled
+plugins; local directories remain installable. Copied inputs live in
+`.roadmap/plugin-inputs/`. See the plugin guides for authoring and the full lifecycle.
+
+### Onboarding and distributed guides
+
+Bootstrap installs contracts and portable guidance. A consumer README is not a
+copy of the Core README. AGENTS points to installed local files; the Claude guide
+points to ../AGENTS.md. Reading the entire manual is not required.
+
+Default mode rejects conflicts. `--preserve-guides` keeps existing guides;
+`--merge-guides` retains the project region and refreshes the ESAA region;
+`--force` permits overwriting allowlisted targets. Existing contracts still require
+force to update. Preserve/merge are mutually exclusive. Invalid markers prevent
+merge before governance writes. A root CLAUDE.md is not merged as though it were
+.claude/CLAUDE.md. Bootstrap does not replace history, projections, backups or
+snapshots. Existing workspaces do not migrate automatically.
+
+```bash
+python -m esaa --runner codex onboard --answers project-profile.json --dry-run
+python -m esaa profile show
+```
+
+Onboarding records how to address the operator, derives the project profile and
+creates a governed task chain. Pending seeds can be superseded by specific tasks;
+clean init starts without demos, and `--with-demo-tasks` is explicit.
+
+### Concurrency and transactional effects
+
+`run --parallel` groups independent tasks while keeping serialized append.
+Conflicts account for exact paths, directory prefixes, scope_patch and actual wave
+effects. A store lock does not authorize concurrent edits to the same files.
+
+```text
+stage_and_compute -> append_transactional -> commit_staged
+```
+
+```json
+{
+  "task_id": "T-EXAMPLE",
+  "files": ["src/example.py"],
+  "effects": [{
+    "path": "src/example.py",
+    "before_sha256": null,
+    "after_sha256": "<sha>",
+    "bytes": 10,
+    "encoding": "utf-8",
+    "artifact_sha256": "<sha>",
+    "artifact_path": ".roadmap/artifacts/file-effects/<sha>.json"
+  }]
+}
+```
+
+The example shows forensic orchestrator.file.write metadata. Content-addressed
+artifacts support audit/replay. The transaction rereads events under lock, checks
+expected sequence/hash, materializes before persistence and verifies the append.
+Errors include STORE_LOCK_TIMEOUT, STALE_STATE_SEQ, STALE_STATE_HASH and
+APPEND_VERIFY_FAILED. Failures do not authorize manual lock removal or store edits.
+
+Admitted effects that did not commit can be recovered; the runtime cleans orphan
+staging. Artifact verification detects ARTIFACT_MISSING, ARTIFACT_HASH_MISMATCH
+and ARTIFACT_CONTENT_HASH_MISMATCH. Implementation details live in store.py and
+file_effects.py; agents should not reimplement the transaction.
+
+### Hotfix, snapshots and recovery
+
+```text
+issue.report -> hotfix.create -> claim -> complete -> review(approve) -> issue.resolve
+```
+
+Hotfix requires issue_id, fixes, scope_patch and two complete checks. Request errors:
+HOTFIX_ISSUE_NOT_FOUND, HOTFIX_ISSUE_NOT_OPEN, HOTFIX_TARGET_NOT_FOUND,
+HOTFIX_TARGET_NOT_DONE, HOTFIX_SCOPE_INVALID and HOTFIX_ALREADY_EXISTS.
+The default hotfix scenario uses a temporary workspace; `--current` changes the real one.
+
+```bash
+python -m esaa snapshot --before 100 --compact --dry-run
+python -m esaa replay --no-write
+python -m esaa effects recover --help
+```
+
+Snapshots capture state and replay evidence. Compaction produces snapshot, archive,
+tail and manifest; it requires verified state, consistent projections and a cutoff
+within the last verified event. Missing archive/tail invalidates recovery.
+Clearing history with `activity clear --force` is a destructive administrative
+operation even though it creates a backup; run it only when explicitly authorized.
+Use dry-run when available and do not confuse recovery with authorization to erase history.
+
+### Runners and telemetry
+
+External runners do not need native adapters for every provider. The generic HTTP
+adapter receives context and returns an envelope; the optional token comes from ESAA_LLM_TOKEN.
+
+```bash
+ESAA_LLM_URL=http://127.0.0.1:8080/agent python -m esaa --runner codex run --adapter http --steps 2
+```
+
+runner.metrics records latency, runner, model, command surface, status, correlation
+and known actual counts. Unknown data remains absent or null, without invented
+costs. A deterministic CLI does not eliminate review judgment.
+The Core error vocabulary is centralized in src/esaa/reject_codes.py.

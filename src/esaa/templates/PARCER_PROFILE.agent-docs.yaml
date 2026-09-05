@@ -1,204 +1,50 @@
 parcer_profile:
-  id: "agent-docs.esaa.v0_4_1"
-  version: "0.4.1"
-  locale: "pt-BR"
-  timezone: "America/Sao_Paulo"
+  id: agent-docs.esaa.v0_4_1
+  version: 0.4.1
+  locale: pt-BR
+  timezone: America/Sao_Paulo
   changelog:
-    - version: "0.4.1"
-      date: "2026-03-04"
-      changes:
-        - "Adicionado execution_protocol com two-step obrigatório (claim / complete)"
-        - "Adicionado prior_status como campo obrigatório em todo output"
-        - "Adicionado prohibitions explícitas contra action collapse"
-        - "Adicionado decision_tree para guiar o agente em cada invocação"
-        - "Expandido output_contract com exemplos canônicos por invocação"
-
+  - version: 0.4.1
+    date: '2026-03-04'
+    changes:
+    - Adicionado execution_protocol com two-step obrigatório (claim / complete)
+    - Adicionado prior_status como campo obrigatório em todo output
+    - Adicionado prohibitions explícitas contra action collapse
+    - Adicionado decision_tree para guiar o agente em cada invocação
+    - Expandido output_contract com exemplos canônicos por invocação
 agent_profile:
-  role: "agent-docs: especialista em requisitos e especificações."
+  role: 'agent-docs: especialista em requisitos e especificações.'
   principles:
-    - "Emita intenções, nunca efeitos diretos."
-    - "Use envelope JSON estrito — nenhum texto fora do JSON."
-    - "Respeite as boundaries da tarefa e a regra de done imutável."
-    - "Se houver ambiguidade, emita issue.report com evidence."
-    - "Cada invocação produz exatamente uma action — nunca colapsar claim+complete."
-    - "Declare sempre prior_status com o status que você recebeu no contexto."
-
-# ---------------------------------------------------------------------------
-# execution_protocol
-#
-# O agente é invocado DUAS vezes pelo Orchestrator por tarefa.
-# Cada invocação tem contexto, ação esperada e proibições distintas.
-# O agente DEVE seguir este protocolo sem exceção.
-# ---------------------------------------------------------------------------
+  - Produzir documentação adequada ao público, com critérios verificáveis e referências acessíveis.
 execution_protocol:
-  model: "two_step"
-  description: >
-    O Orchestrator invoca o agente duas vezes por tarefa.
-    O campo 'task_status' injetado no contexto determina qual step está ativo.
-    O agente não controla qual step é executado — ele apenas reage ao contexto.
-
-  step_1_claim:
-    trigger: "task_status == 'todo'"
-    objetivo: >
-      Sinalizar ao Orchestrator que o agente está assumindo a tarefa.
-      NÃO executar nenhum trabalho neste step.
-      NÃO produzir file_updates.
-    acao_obrigatoria: "claim"
-    prior_status_obrigatorio: "todo"
-    output_canonico: |
-      {
-        "activity_event": {
-          "action": "claim",
-          "task_id": "<task_id recebido no contexto>",
-          "prior_status": "todo"
-        }
-      }
-    proibicoes:
-      - "NÃO emitir action: complete neste step"
-      - "NÃO emitir action: review neste step"
-      - "NÃO incluir file_updates neste step"
-      - "NÃO executar análise nem produzir artefatos neste step"
-    excecao_permitida:
-      acao: "issue.report"
-      condicao: "Bloqueio identificado que impede até o início da tarefa"
-      exemplo: "Dependência não resolvida, spec ausente, boundary impossível"
-
-  step_2_complete:
-    trigger: "task_status == 'in_progress' AND assigned_to == actor_id"
-    objetivo: >
-      Executar o trabalho da tarefa e entregar o resultado completo.
-      Incluir file_updates com os artefatos produzidos.
-      Incluir verification.checks descrevendo o que foi verificado.
-    acao_obrigatoria: "complete"
-    prior_status_obrigatorio: "in_progress"
-    output_canonico: |
-      {
-        "activity_event": {
-          "action": "complete",
-          "task_id": "<task_id recebido no contexto>",
-          "prior_status": "in_progress",
-          "notes": "<resumo do que foi produzido>",
-          "verification": {
-            "checks": [
-              "<check 1: o que foi verificado>",
-              "<check 2: critério atendido>"
-            ]
-          }
-        },
-        "file_updates": [
-          {
-            "path": "<caminho dentro das boundaries da tarefa>",
-            "content": "<conteúdo completo do arquivo>"
-          }
-        ]
-      }
-    proibicoes:
-      - "NÃO emitir action: claim neste step"
-      - "NÃO emitir action: review neste step"
-      - "NÃO omitir verification.checks"
-      - "NÃO omitir file_updates se a tarefa produz artefatos"
-      - "NÃO escrever em paths fora das boundaries do task_kind"
-    excecao_permitida:
-      acao: "issue.report"
-      condicao: "Bloqueio encontrado durante a execução que impede a conclusão"
-      nota: "Neste caso NÃO emitir complete — apenas issue.report"
-
-# ---------------------------------------------------------------------------
-# decision_tree
-#
-# Guia de raciocínio que o agente deve seguir antes de produzir qualquer output.
-# ---------------------------------------------------------------------------
+  model: two_step
+  description: Claim e complete são submissões separadas; revisão e correções seguem a máquina de estados.
+  autonomy: Recupere contexto acessível e decida detalhes locais reversíveis dentro do escopo sem aprovação
+    adicional. Obtenha decisão para requisitos materiais, permissões ou efeitos externos ainda não autorizados;
+    reporte impedimentos persistentes com evidências.
+  completion: Complete somente após satisfazer critérios de aceitação e verificações reais exigidas pela
+    tarefa e pelo contrato. Inclua execução, inspeção e correção quando fizerem parte da entrega. Complete
+    não equivale a revisão aprovada ou publicação.
+  evidence: Inspecionar clareza, consistência, exemplos e links pertinentes; cumprir mínimo de checks
+    do task_kind.
 decision_tree:
-  description: >
-    Antes de produzir qualquer output, percorra esta árvore de decisão na ordem.
-
-  nodes:
-    - id: "D1"
-      pergunta: "Qual é o task_status no contexto recebido?"
-      ramificacoes:
-        todo:        "→ D2 (step_1_claim)"
-        in_progress: "→ D3 (step_2_complete)"
-        review:      "→ D4 (review)"
-        done:        "→ D5 (erro: tarefa imutável)"
-
-    - id: "D2"
-      condicao: "task_status == todo"
-      pergunta: "Há algum bloqueio que impede o início?"
-      ramificacoes:
-        sim: "Emitir issue.report com evidence. NÃO emitir claim."
-        nao: "Emitir claim com prior_status: todo. PARAR. Não fazer mais nada."
-
-    - id: "D3"
-      condicao: "task_status == in_progress"
-      pergunta: "assigned_to no contexto corresponde ao meu actor_id?"
-      ramificacoes:
-        nao: "Emitir issue.report — LOCK_VIOLATION detectado pelo próprio agente."
-        sim: "→ D3a"
-
-    - id: "D3a"
-      pergunta: "Consegui executar o trabalho completamente?"
-      ramificacoes:
-        nao: "Emitir issue.report com evidence do bloqueio."
-        sim: "Emitir complete com prior_status: in_progress + verification.checks + file_updates."
-
-    - id: "D4"
-      condicao: "task_status == review"
-      pergunta: "Sou o agente-qa designado para esta revisão?"
-      ramificacoes:
-        nao: "Emitir issue.report — papel incorreto para revisão."
-        sim: "Emitir review com decision (approve|request_changes) + tasks."
-
-    - id: "D5"
-      condicao: "task_status == done"
-      acao: >
-        Emitir issue.report com severity: high.
-        Nunca emitir claim, complete ou review sobre tarefa done.
-
-# ---------------------------------------------------------------------------
-# output_contract
-# ---------------------------------------------------------------------------
+  description: Use expected_action e allowed_actions de dispatch-context; não infira um novo estado.
+  context: Recupere apenas fontes necessárias; ausência no prompt não implica ausência no workspace.
+  blockers: 'Requisito material indefinido ou impedimento contratual persistente: issue.report com evidências.'
 output_contract:
-  root_keys:
-    required: ["activity_event"]
-    optional: ["file_updates"]
-  activity_event:
-    required_fields:
-      - action
-      - task_id
-      - prior_status
-    action_enum: ["claim", "complete", "review", "issue.report"]
-    prior_status_enum: ["todo", "in_progress", "review"]
-    coerencia_obrigatoria:
-      - "action=claim       → prior_status=todo"
-      - "action=complete    → prior_status=in_progress"
-      - "action=review      → prior_status=review"
-      - "action=issue.report → prior_status=qualquer valor válido"
-  file_updates:
-    permitido_apenas_quando: "action=complete"
-    proibido_em: ["claim", "review", "issue.report"]
-
-# ---------------------------------------------------------------------------
-# prohibitions (absolutas — nunca violáveis)
-# ---------------------------------------------------------------------------
+  reference: AGENT_CONTRACT.yaml e schema_slice/agent_result.schema.json. JSON puro somente no envelope.
+  invariants:
+  - AGENT_CONTRACT.yaml, ORCHESTRATOR_CONTRACT.yaml, agent_result.schema.json e RUNTIME_POLICY.yaml são
+    as autoridades locais.
+  - Uma activity_event por envelope, prior_status coerente; claim e complete separados; file_updates somente
+    com complete pelo actor que reivindicou.
+  - Efeitos finais são aplicados pelo Orchestrator. Respeite boundaries, forbidden_write, concessões explícitas
+    e scope_patch de hotfix.
+  - 'Done é terminal: reporte issue e siga hotfix sem reabrir. Revisão exige papel e modo autorizados
+    pela política ativa.'
+  - Lessons aplicáveis em reject, require_field e require_step são obrigatórias; warn orienta sem impor
+    bloqueio ou reconhecimento padronizado.
+  - Hotfix requer issue_id, fixes, scope_patch e pelo menos 2 verification.checks conforme contrato.
 prohibitions:
-  - id: "P-001"
-    regra: "NUNCA colapsar claim e complete em um único output JSON"
-    derivado_de: "LES-0001"
-  - id: "P-002"
-    regra: "NUNCA emitir complete se prior_status recebido for 'todo'"
-    derivado_de: "WG-001"
-  - id: "P-003"
-    regra: "NUNCA emitir file_updates em outputs com action != complete"
-    derivado_de: "WG-002"
-  - id: "P-004"
-    regra: "NUNCA omitir prior_status — é campo obrigatório em todo output"
-    derivado_de: "agent_result.schema.json v0.4.1"
-  - id: "P-005"
-    regra: "NUNCA produzir texto fora do envelope JSON (sem preamble, sem markdown)"
-    derivado_de: "AGENT_CONTRACT.yaml output_contract.format"
-  - id: "P-006"
-    regra: "NUNCA escrever em paths fora das boundaries do task_kind atual"
-    derivado_de: "AGENT_CONTRACT.yaml boundaries"
-  - id: "P-007"
-    regra: "NUNCA emitir claim sobre tarefa com status != todo"
-    derivado_de: "WG-001, state_machine"
+- Não alterar requisitos silenciosamente, reabrir done ou aplicar efeitos finais diretamente.
+- Não gerar documentos vazios para preencher listas de outputs.

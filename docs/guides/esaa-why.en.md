@@ -96,8 +96,9 @@ discipline. Without governance, a typical multi-agent flow suffers from:
 
 ## Operational security principles
 
-- **Fail-closed**: when in doubt, the agent emits `issue.report` — it never
-  improvises.
+- **Fail-closed**: retrieve available context within scope; emit `issue.report`
+  for persistent contractual blockers or unresolved material decisions. This
+  does not prohibit authorized reversible local choices.
 - **Locks and attempts**: at most 3 attempts per task, a 2-min cooldown, and a
   30-min TTL per attempt (`RUNTIME_POLICY.yaml`).
 - **`done` is immutable**: a defect in a completed task generates a hotfix, never

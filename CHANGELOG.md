@@ -1,3 +1,14 @@
+## 0.5.0b19
+
+Beta refresh with concise, task-specific agent guidance and portable consumer documentation.
+
+- Root guides route to the relevant contracts and operational references instead of repeating them.
+- Five PARCER profiles retain their roles and identities while defining objectives, evidence and completion.
+- Local reversible choices and recoverable context are distinguished from material decisions and contractual blockers.
+- Consumer README, AGENTS and CLAUDE files work without the Core documentation tree; bootstrap modes and protocol gates are preserved.
+- Distribution tests cover local links, project-content preservation, bilingual examples and semantic contract parity.
+- Restored the missing historical hotfix resolution link through an appended Orchestrator event, preserving the original event history and the evidence audit test.
+
 ## 0.5.0b17
 
 Local beta with empty-by-default `init` and optional demo seeds.

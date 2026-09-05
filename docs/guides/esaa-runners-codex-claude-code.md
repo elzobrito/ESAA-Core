@@ -2,219 +2,180 @@
 
 🌐 **Português** · [English](esaa-runners-codex-claude-code.en.md)
 
-O ESAA não usa MCP. Runners LLM (Codex, Claude Code, Antigravity, etc.)
-integram-se por **CLI local + arquivos**: leem o contexto que o Orchestrator
-expõe, produzem um envelope `agent.result` e o submetem ao gate. Este guia
-mostra o fluxo completo e as regras que evitam rejeição.
+O ESAA não usa MCP. Runners integram-se por CLI local e arquivos.
+Use as seções necessárias à ação atual; este guia não é uma sequência obrigatória.
 
-## Papéis
+## Identidade e contexto
 
-- **Runner** — o software que executa o LLM (Codex CLI, Claude Code). Carimba
-  provenance (`--runner`) e telemetria (`runner metrics`).
-- **Agente** — a identidade lógica que assina as transições (`--actor`), ex.:
-  `agent-spec`, `agent-impl`, `agent-qa`. Um runner pode operar vários agentes,
-  mas **quem completa deve ser quem reivindicou** (WG-004).
-- **Orchestrator** — o CLI `esaa`: único escritor do event store, valida tudo
-  antes de persistir.
+Runner é o software executor; actor é o papel lógico. O mesmo runner pode operar
+papéis distintos, mas isso não demonstra revisão por outro modelo ou humano.
+O Orchestrator valida e aplica efeitos; o actor que reivindica é quem completa.
 
-## 1. Identidade do runner (provenance, G08)
-
-Todo comando que escreve evento deve carimbar quem executa:
-
-```powershell
-esaa --root <workspace> --runner codex <subcomando> ...
-esaa --root <workspace> --runner claude-code <subcomando> ...
-# ou uma vez por sessão:
-$env:ESAA_RUNNER_ID = "codex"
+```bash
+python -m esaa --root <workspace> --runner codex <command> ...
 ```
 
-A identidade fica gravada em cada evento — auditoria de *quem* fez *o quê*.
-Nos exemplos abaixo, se `ESAA_RUNNER_ID` não estiver definido, mantenha
-`--runner <id>` em cada comando que persiste eventos.
+Troque `codex` pelo runner real; alternativamente configure `ESAA_RUNNER_ID`.
+Em modo strict, o runner precisa estar registrado em `.roadmap/agents_swarm.yaml`.
+Não inclua `runner` no envelope: o Orchestrator carimba a proveniência.
 
-## 2. Registrar capacidades do ambiente (`input commands`)
-
-Resolve o problema clássico "o agente não sabe se pode usar PowerShell, WSL,
-grep, sed". Uma vez **por workspace**:
-
-```powershell
-esaa --root <workspace> --runner codex input commands register `
-  docs/operations/runtime-capabilities.windows-wsl.yaml
-esaa --root <workspace> --runner codex input commands show
+```bash
+python -m esaa eligible
+python -m esaa state T-EXAMPLE
+python -m esaa dispatch-context T-EXAMPLE
 ```
 
-O YAML declara `command_surfaces` (powershell, cmd, wsl_ubuntu, ...),
-`available_tools`, ferramentas verificadas no WSL e
-`recommended_agent_rules`. Fica em
-`.roadmap/runner-inputs/commands/<runner-id>.yaml` — **local ao workspace**
-(não é global da instalação) e não-canônico (não entra no event store). O
-conteúdo é injetado no `dispatch-context` como `runtime_capabilities`.
+`dispatch-context` traz `task`, ações permitidas, `schema_slice` e correlação.
+Lessons são filtradas por ação e escopo. Em `complete`, há boundaries, interfaces
+das dependências e issues filtradas; em `review`, verificações da entrega quando
+disponíveis. Perfil do projeto e capacidades do runner dependem do cadastro local.
+O corpo de specs e arquivos não é garantido no contexto: recupere as referências
+necessárias, sem varrer todo o repositório. Boundaries de leitura são permissões,
+não uma lista de arquivos a carregar integralmente.
 
-## 3. Obter o contexto mínimo da tarefa
+## Claim, entrega e revisão
 
-```powershell
-esaa eligible                        # o que pode rodar agora
-esaa dispatch-context T-EXEMPLO      # pacote de despacho de uma tarefa
-```
+`claim` e `complete` são submissões distintas, com uma `activity_event` por envelope
+e `prior_status` coerente. Isso não limita a tarefa a duas invocações: revisão,
+correções e novas tentativas seguem a máquina de estados.
+JSON puro se aplica aos envelopes submetidos, não à conversa com o usuário.
 
-O `dispatch-context` traz tudo que o prompt do agente precisa — e nada além:
+### Claim
 
-- `task` (id, kind, status, descrição, outputs, depends_on)
-- `expected_action` e `allowed_actions` (ex.: `claim` + `issue.report`)
-- `schema_slice` — o recorte do `agent_result.schema.json` válido agora
-- `lessons` ativas aplicáveis ao kind (constraints invioláveis)
-- `runtime_capabilities` (se registradas)
-
-## 4. O ciclo two-step
-
-**Uma action por invocação** (LES-0001, gate WG-005). O runner invoca o agente
-duas vezes por tarefa:
-
-### Invocação 1 — claim (sinalização, sem trabalho técnico)
-
-Via envelope:
+Para uma tarefa `todo` elegível:
 
 ```json
-{"activity_event": {"action": "claim", "task_id": "T-EXEMPLO", "prior_status": "todo"}}
+{"activity_event":{"action":"claim","task_id":"T-EXAMPLE","prior_status":"todo"}}
 ```
 
-```powershell
-esaa --runner claude-code submit claim.json --actor agent-spec
+```bash
+python -m esaa --runner codex submit --actor agent-impl claim.json
 ```
 
-Ou pelo atalho determinístico (sem gastar chamada de LLM):
+### Complete e efeitos de arquivos
 
-```powershell
-esaa --runner claude-code claim T-EXEMPLO --actor agent-spec
-```
-
-### Invocação 2 — complete (trabalho + evidência + arquivos)
-
-O agente produz o envelope completo:
+Para `in_progress`, o actor responsável entrega artefatos e verificações reais:
 
 ```json
 {
   "activity_event": {
     "action": "complete",
-    "task_id": "T-EXEMPLO",
+    "task_id": "T-EXAMPLE",
     "prior_status": "in_progress",
-    "notes": "resumo do que foi produzido",
-    "verification": {"checks": ["criterio 1 atendido", "criterio 2 atendido"]}
+    "verification": {"checks": ["affected behavior verified"]}
   },
-  "file_updates": [
-    {"path": "docs/spec/exemplo.md", "content": "<conteudo completo>"}
-  ]
+  "file_updates": [{"path": "src/example.py", "content": "VALUE = 1\n"}]
 }
 ```
 
-```powershell
-esaa --runner claude-code submit complete.json --actor agent-spec
+O exemplo pressupõe tarefa impl com o caminho autorizado; adapte aos critérios
+da tarefa. `file_updates` é permitido somente com `complete`; efeitos finais são
+do Orchestrator. Uma entrada também pode usar edits exatos no lugar de `content`:
+
+```json
+{
+  "path": "src/example.py",
+  "base_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "edits": [{"old_string": "VALUE = 1", "new_string": "VALUE = 2", "replace_all": false}]
+}
 ```
 
-Regras do envelope (schema `additionalProperties: false`):
+Substitua o hash ilustrativo pelo SHA-256 dos bytes atuais do arquivo.
+Os edits são aplicados progressivamente ao texto UTF-8; preserve os newlines
+exatos, inclusive CRLF. Múltiplos matches exigem `replace_all=true`; arquivos
+não UTF-8 são rejeitados. Códigos: `EDIT_BASE_MISMATCH`, `EDIT_TARGET_NOT_FOUND`,
+`EDIT_AMBIGUOUS`, `EDIT_INVALID`. A resolução precede validação dos efeitos,
+limites de recursos, staging e artefatos.
 
-- **JSON puro** — sem markdown, sem cercas, sem texto solto.
-- `prior_status` obrigatório e igual ao status injetado (WG-003).
-- Campos como `event_seq`, `ts`, `actor`, `assigned_to` são **proibidos** —
-  o Orchestrator os gera.
-- `file_updates` só com `action=complete` (WG-002); paths dentro das
-  boundaries do `task_kind` (`spec`→`docs/**`; `impl`→`src/**`,`tests/**`;
-  `qa`→`docs/qa/**`,`tests/**`).
-- Forma compacta: `file_updates.edits` com `base_sha256` — patch pequeno que
-  falha se o arquivo base mudou (economiza tokens e evita sobrescrita cega).
-- Os arquivos são aplicados pelo **Orchestrator** com staging atômico; o
-  agente nunca escreve direto no repositório.
-
-### Invocação 3 — review por QA independente
-
-```powershell
-esaa --runner claude-code review T-EXEMPLO --actor agent-qa --decision approve
+```bash
+python -m esaa --runner codex submit --actor agent-impl complete.json --dry-run
+python -m esaa --runner codex submit --actor agent-impl complete.json
+python -m esaa verify
 ```
 
-`review_authorization=qa_role`: o owner não se auto-aprova
-(`REVIEW_ROLE_VIOLATION`). `request_changes` devolve a tarefa para
-`in_progress`.
+O dry-run é opcional. Antes de complete, atenda aos critérios de aceitação e
+execute as verificações pertinentes; quando solicitado, prossiga por execução,
+inspeção e correção. Mínimos do contrato: spec/impl/qa = 1 check; hotfix = 2.
+Complete não significa aprovação nem autorização de publicação.
 
-### Quando bloqueado: `issue.report`
+### Review e done
 
-Fail-closed — se faltar dependência, contexto ou boundary, o agente emite:
+```json
+{"activity_event":{"action":"review","task_id":"T-EXAMPLE","prior_status":"review","decision":"approve","tasks":["T-EXAMPLE"]}}
+```
+
+```bash
+python -m esaa --runner codex review T-EXAMPLE --actor agent-qa --decision approve
+```
+
+A política `review_authorization=qa_role` admite papéis QA/orchestrator;
+um owner sem esse papel recebe `REVIEW_ROLE_VIOLATION`. Observe o modo de revisão
+exigido pela tarefa. `request_changes` retorna a `in_progress`; `approve` chega a
+`done`. Não reabra done: reporte issue e siga hotfix, preservando a tarefa original.
+Em issue sobre done, `prior_status` deve ser `done`.
+
+## Autonomia e impedimentos
+
+Consultas são somente leitura, sem transições; relate resultado e limites úteis.
+Dentro do escopo autorizado, investigue informação acessível e resolva escolhas
+locais reversíveis sem aprovação a cada passo. A preparação e validação local
+não autorizam efeitos finais diretos nem operações externas ainda não autorizadas.
+
+Obtenha decisão antes de alterar requisitos materiais ou permissões. Reporte
+impedimentos persistentes de contexto, dependência ou boundary com evidências;
+a ausência de informação no prompt, por si só, não demonstra impedimento.
 
 ```json
 {
   "activity_event": {
     "action": "issue.report",
-    "task_id": "T-EXEMPLO",
+    "task_id": "T-EXAMPLE",
     "prior_status": "in_progress",
-    "issue_id": "ISS-0001",
-    "severity": "high",
-    "title": "Dependencia X nao esta done",
-    "evidence": {"symptom": "...", "repro_steps": ["passo 1", "passo 2"]}
+    "issue_id": "ISS-EXAMPLE",
+    "severity": "medium",
+    "title": "Required dependency is unavailable",
+    "evidence": {"symptom": "Required source cannot be obtained", "repro_steps": ["Inspect the dependency reference"]}
   }
 }
 ```
 
-## 5. Os 5 workflow gates (por que outputs são rejeitados)
+Lessons em `reject`, `require_field` e `require_step` são obrigatórias.
+`warn` deve ser considerado, sem impor bloqueio ou texto fixo de reconhecimento
+que não esteja exigido pela própria lesson.
 
-| Gate | Verifica | Reject code |
-|---|---|---|
-| WG-001 | `complete`/`review` só após `claim` | `MISSING_CLAIM` |
-| WG-002 | `complete` exige checks; `file_updates` exige `complete` | `MISSING_VERIFICATION` / `MISSING_COMPLETE` |
-| WG-003 | `prior_status` bate com o roadmap | `PRIOR_STATUS_MISMATCH` |
-| WG-004 | Quem completa é quem reivindicou | `LOCK_VIOLATION` |
-| WG-005 | Uma action por output | `ACTION_COLLAPSE` |
+## Concorrência e integridade
 
-`PRIOR_STATUS_MISMATCH` é a única rejeição que **não** consome tentativa
-(tratada como lag de contexto). Limites: 3 tentativas por tarefa, cooldown de
-2 min, TTL de 30 min por attempt.
+O runtime atual possui locks com PID, host e data, releitura transacional sob lock
+e verificação após append. A CLI trata contenção e recuperação de locks conforme
+suas regras; não remova locks manualmente. Não generalize essas garantias para
+versões antigas ou para edição concorrente nos mesmos arquivos.
 
-## 6. Telemetria do runner
+Não assuma tarefas de outro responsável. Interrompa a operação afetada por
+`STORE_LOCK_TIMEOUT`, `JSONL_INVALID`, `EVENT_SEQ_*`, `APPEND_VERIFY_FAILED` ou
+falha de integridade. Não contorne o erro. Conflitos de estado são tratados pelo
+runtime; se persistirem, recupere o contexto antes de nova submissão válida.
+Após escrita governada, execute `verify`.
 
-Após cada execução externa, o operador/harness registra evidência:
+## Referências operacionais
 
-```powershell
-esaa --runner codex runner metrics `
-  --task-id T-EXEMPLO `
-  --actor agent-spec `
-  --runner-id codex `
-  --runner-kind codex `
-  --model gpt-5 `
-  --command-surface "powershell: python -m esaa submit" `
-  --latency-ms 1250 `
-  --input-tokens 4200 `
-  --output-tokens 900 `
-  --status success `
-  --correlation-id CID-T-EXEMPLO
+Gates, campos e limites vêm de `.roadmap/AGENT_CONTRACT.yaml`,
+`ORCHESTRATOR_CONTRACT.yaml`, `agent_result.schema.json` e `RUNTIME_POLICY.yaml`.
+Os defaults de tentativas são 3, cooldown de 2 minutos e TTL de 30 minutos;
+`PRIOR_STATUS_MISMATCH` não consome tentativa. Consulte a política instalada.
+
+Quando o ambiente exigir orientação especializada de comandos, registre suas
+capacidades reais. O registro é local ao workspace e só então é injetado no despacho.
+Telemetria deve registrar valores observados; não invente tokens ou custos.
+
+```bash
+python -m esaa --runner codex input commands register <capabilities.yaml>
+python -m esaa --runner codex input commands show
+python -m esaa runner metrics --help
 ```
 
-Vira evento `runner.metrics` (reservado ao Orchestrator — agentes nunca o
-emitem), dando telemetria real sem depender do provedor do modelo. Campos
-obrigatórios: `task_id`, `actor`, `runner_id`, `runner_kind`,
-`command_surface` e `status`.
-
-## 7. Receitas práticas
-
-### Codex / Claude Code como operador interativo
-
-1. `esaa --runner codex eligible` → escolher tarefa.
-2. `esaa --runner codex dispatch-context T-X` → montar o prompt do agente.
-3. Agente responde **só o envelope JSON** → salvar em arquivo.
-4. `esaa --runner codex submit envelope.json --actor agent-<kind>` (usar
-   `--dry-run` antes, se quiser validar sem persistir).
-5. Repetir para o complete; despachar `agent-qa` para o review.
-6. `esaa --runner codex verify` ao final de cada onda.
-
-### Transições determinísticas sem LLM
-
-Para passos que não exigem raciocínio (claim, review de rotina, task create),
-use os comandos diretos (`claim`, `review`, `task create`) — zero tokens.
-
-### Instrução de sistema recomendada para o agente
-
-O arquivo `CLAUDE.md`/`AGENTS.md` do projeto deve refletir o
-`AGENT_CONTRACT.yaml`: uma action por invocação, `prior_status` sempre
-presente, `file_updates` só com complete, nunca tocar em `done`, na dúvida
-`issue.report`. Em divergência, os artefatos canônicos em `.roadmap/`
-prevalecem.
+Os comandos diretos de transição evitam uma chamada LLM adicional; não substituem
+a avaliação necessária para decidir uma revisão. Perfis PARCER são referências
+por papel, não pré-requisito de leitura para todas as tarefas.
 
 ## Veja também
 

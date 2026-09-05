@@ -52,9 +52,9 @@ vocabulary:
 dispatch_model:
   model: "two_step_per_task"
   description: >
-    O Orchestrator invoca o agente exatamente duas vezes por tarefa.
-    O campo task_status injetado no contexto determina qual ação é esperada.
-    O agente deve produzir exatamente uma action por invocação.
+    Claim e complete são submissões distintas; revisão, correções solicitadas e
+    novas tentativas seguem a máquina de estados. O status da tarefa no contexto
+    determina a ação esperada. Cada envelope contém exatamente uma action.
 
   invocation_by_status:
     todo:

@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 738,
-    "updated_at": "2026-07-21T20:02:57Z"
+    "last_event_seq": 815,
+    "updated_at": "2026-09-05T18:26:19Z"
   },
   "issues": [
     {
@@ -90,7 +90,7 @@
       },
       "resolution": {
         "status": "resolved_by_command",
-        "hotfix_task_id": "HF-ISS-COD-ALARM-HOTFIX-SCOPE"
+        "hotfix_task_id": "HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION"
       },
       "links": {
         "reported_by_task_id": "COD-ALARM-001",
@@ -99,7 +99,7 @@
       },
       "timeline": {
         "created_event_seq": 304,
-        "resolved_event_seq": 325
+        "resolved_event_seq": 787
       }
     },
     {
@@ -186,6 +186,39 @@
       "timeline": {
         "created_event_seq": 493,
         "resolved_event_seq": 521
+      }
+    },
+    {
+      "issue_id": "ISS-GUIDE-20260905-BASELINE-EVIDENCE",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Auditoria preexistente aponta divergencia de hotfix na resolucao de issue",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "test_done_tasks_have_governed_evidence falha antes e depois da revisao de guias: issue.resolve aponta HF-ISS-COD-ALARM-HOTFIX-SCOPE, enquanto o auditor exige HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION. verify permanece ok.",
+        "repro_steps": [
+          "PYTHONPATH=src python -B -m pytest -q tests/test_done_evidence_quality.py",
+          "Inspecionar ISS-COD-ALARM-STATE-MACHINE-SEPARATION: resolution.hotfix_task_id diverge de links.hotfix_task_id."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-GUIDE-20260905-BASELINE-EVIDENCE",
+        "review_task_id": "HF-ISS-GUIDE-20260905-BASELINE-EVIDENCE",
+        "checks": [
+          "test_done_tasks_have_governed_evidence: 1 passed; auditor unchanged.",
+          "Prefix of all 780 original events remains byte-identical; new issue.resolve admitted and verify ok."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "HF-ISS-COD-ALARM-STATE-MACHINE-SEPARATION",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-GUIDE-20260905-BASELINE-EVIDENCE"
+      },
+      "timeline": {
+        "created_event_seq": 765,
+        "resolved_event_seq": 794
       }
     }
   ],

@@ -749,10 +749,12 @@ Este repositório já traz `.claude/CLAUDE.md` e `AGENTS.md` — ambos refletem 
 `AGENT_CONTRACT.yaml`. **Grok Build** ([x.ai/cli](https://x.ai/cli)) reconhece os
 dois nativamente (lê a família `AGENTS.md` e auto-lê `CLAUDE.md` + `.claude/`),
 então pega o contrato sem configuração extra. Para o **Gemini CLI**, aponte a
-ferramenta para esse mesmo contrato (um `GEMINI.md` que repita as regras, ou o
+ferramenta para esse mesmo contrato (um `GEMINI.md` que referencie o AGENTS.md, ou o
 caminho de instruções que a CLI aceitar). A regra de ouro do contrato é sempre a
 mesma: **uma action por invocação, `prior_status` sempre, `file_updates` só com
-`complete`, JSON puro, na dúvida `issue.report`**.
+`complete` e JSON puro no envelope**. Recupere contexto disponível antes de
+reportar impedimentos; decisões materiais não resolvidas e limites contratuais
+exigem `issue.report` com evidências.
 
 ### "Registrado por padrão?" — permissive vs strict
 

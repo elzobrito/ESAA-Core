@@ -76,22 +76,20 @@ def test_repository_hygiene_doc_exists(repo_root: Path) -> None:
     assert "Never ignore `.roadmap/activity.jsonl`" in text
 
 
-def test_readme_separates_tracked_layout_from_runtime_created_paths(repo_root: Path) -> None:
-    text = (repo_root / "readme.md").read_text(encoding="utf-8")
-    assert "Tracked source and governance files in the reference repository" in text
-    assert "Runtime-created paths may not exist in a clean checkout" in text
-
-    tracked_section = text.split("Runtime-created paths may not exist in a clean checkout", 1)[0]
-    assert ".roadmap/plugins.lock.json" not in tracked_section
-    assert ".roadmap/roadmaps.lock.json" not in tracked_section
-    assert ".roadmap/plugin-inputs/" not in tracked_section
-    assert ".roadmap/snapshots/" not in tracked_section
-    assert "docs/spec/" not in tracked_section
-    assert "docs/qa/" not in tracked_section
+def test_reference_separates_tracked_layout_from_runtime_created_paths(repo_root: Path) -> None:
+    readme = (repo_root / "readme.md").read_text(encoding="utf-8")
+    assert "docs/guides/esaa-cli-reference.en.md" in readme
+    text = (repo_root / "docs/guides/esaa-cli-reference.en.md").read_text(encoding="utf-8")
+    tracked = text.split("### Tracked sources", 1)[1].split("### Paths created by operations", 1)[0]
+    generated = text.split("### Paths created by operations", 1)[1].split("### Layout and projections", 1)[0]
+    assert ".roadmap/AGENT_CONTRACT.yaml" in tracked
+    for path in (".roadmap/plugins.lock.json", ".roadmap/roadmaps.lock.json", ".roadmap/plugin-inputs/", ".roadmap/snapshots/", "docs/spec/", "docs/qa/"):
+        assert path not in tracked
+        assert path in generated
 
 
-def test_readme_uses_current_file_effect_recovery_command(repo_root: Path) -> None:
-    text = (repo_root / "readme.md").read_text(encoding="utf-8")
+def test_reference_uses_current_file_effect_recovery_command(repo_root: Path) -> None:
+    text = (repo_root / "docs/guides/esaa-cli-reference.en.md").read_text(encoding="utf-8")
     assert "esaa effects recover" in text
     legacy_command = "esaa " + "recover" + "-file-effects"
     assert legacy_command not in text

@@ -1,269 +1,67 @@
 parcer_profile:
-  id: "orchestrator-runtime.esaa.v0_4_1"
-  version: "0.4.1"
-  locale: "pt-BR"
-  timezone: "America/Sao_Paulo"
+  id: orchestrator-runtime.esaa.v0_4_1
+  version: 0.4.1
+  locale: pt-BR
+  timezone: America/Sao_Paulo
   changelog:
-    - version: "0.4.1"
-      date: "2026-03-04"
-      changes:
-        - "Pipeline expandido para two-step dispatch (claim / complete)"
-        - "Adicionado workflow_gate_enforcement com WG-001..WG-005"
-        - "Adicionado prior_status_check antes de cada transição de estado"
-        - "Adicionado reject_handling com códigos de erro canônicos"
-        - "Adicionado context_injection explícito por invocação"
-
+  - version: 0.4.1
+    date: '2026-03-04'
+    changes:
+    - Pipeline expandido para two-step dispatch (claim / complete)
+    - Adicionado workflow_gate_enforcement com WG-001..WG-005
+    - Adicionado prior_status_check antes de cada transição de estado
+    - Adicionado reject_handling com códigos de erro canônicos
+    - Adicionado context_injection explícito por invocação
 runtime_actor:
-  role: "deterministic orchestrator runtime"
+  role: deterministic orchestrator runtime
   principles:
-    - "Nenhum efeito antes de validação completa."
-    - "Event store append-only é a única fonte de verdade."
-    - "Todos os read models são derivados por projeção determinística."
-    - "Cada run deve ser verificável por replay e hash SHA-256."
-    - "Agentes são invocados duas vezes por tarefa: claim e complete."
-    - "Workflow gates são executados fail-closed antes de qualquer append."
-
-# ---------------------------------------------------------------------------
-# pipeline two-step
-#
-# O pipeline executa o dispatch duas vezes por tarefa:
-#   Fase A — claim:    tarefa em 'todo'    → transição para 'in_progress'
-#   Fase B — complete: tarefa em 'in_progress' → transição para 'review'
-#
-# Cada fase tem seu próprio ciclo de validate → append → project → verify.
-# ---------------------------------------------------------------------------
+  - Orchestrator é single writer; agentes propõem intenções e não aplicam efeitos finais.
+  - Este perfil descreve responsabilidades; código, contratos e schemas definem a execução determinística.
 pipeline:
-  model: "two_step_per_task"
-
-  shared_steps:
-    - id: "S1"
-      name: "parse_event_store"
-      description: "Lê e valida activity.jsonl. Verifica event_seq monotônico sem gaps."
-      on_failure: "halt — event store corrompido"
-
-    - id: "S2"
-      name: "select_next_eligible_task"
-      description: >
-        Seleciona a próxima tarefa elegível respeitando depends_on.
-        Tarefa elegível: status=todo E todas as dependências em status=done.
-      on_no_eligible_task: "emit run.end com status=success se todas done, ou halted se bloqueado"
-
-  phase_a_claim:
-    label: "Fase A — claim"
-    precondition: "task_status == todo"
-
-    steps:
-      - id: "A1"
-        name: "inject_claim_context"
-        description: >
-          Monta o contexto para a invocação de claim.
-          Injeta: task_id, task_kind, task_status='todo', task_description,
-          boundaries, active_lessons, actor_id esperado.
-
-      - id: "A2"
-        name: "dispatch_agent_claim"
-        description: "Invoca o agente com o contexto de claim."
-        expected_output_action: "claim"
-
-      - id: "A3"
-        name: "validate_agent_output_claim"
-        description: "Executa validação completa do output recebido."
-        sub_steps:
-          - "schema_validation: valida contra agent_result.schema.json"
-          - "prior_status_check: prior_status declarado == 'todo' (WG-003)"
-          - "action_check: action == 'claim' (WG-001)"
-          - "no_file_updates_check: file_updates ausente (WG-002)"
-          - "no_action_collapse_check: apenas um activity_event (WG-005)"
-          - "boundary_check: paths em file_updates dentro das boundaries (N/A aqui)"
-        on_valid: "→ A4"
-        on_invalid: "→ reject_handler"
-
-      - id: "A4"
-        name: "append_claim_events"
-        description: >
-          Persiste no event store:
-            1. O evento de claim do agente (com event_seq+1)
-            2. orchestrator.view.mutate registrando a transição todo→in_progress
-          Atualiza assigned_to e started_at na tarefa.
-
-      - id: "A5"
-        name: "project_views_after_claim"
-        description: "Reprojecta roadmap.json, issues.json, lessons.json."
-
-      - id: "A6"
-        name: "verify_projection_after_claim"
-        description: "Calcula SHA-256 da projeção e compara com hash armazenado."
-        on_ok: "→ Fase B"
-        on_mismatch: "reproject_or_halt"
-        on_corrupted: "halt_and_snapshot"
-
-  phase_b_complete:
-    label: "Fase B — complete"
-    precondition: "task_status == in_progress AND assigned_to == actor_id"
-
-    steps:
-      - id: "B1"
-        name: "inject_complete_context"
-        description: >
-          Monta o contexto para a invocação de complete.
-          Injeta: task_id, task_kind, task_status='in_progress', task_description,
-          boundaries, active_lessons, prior_file_state (estado atual dos arquivos alvo).
-
-      - id: "B2"
-        name: "dispatch_agent_complete"
-        description: "Invoca o agente com o contexto de complete."
-        expected_output_action: "complete"
-
-      - id: "B3"
-        name: "validate_agent_output_complete"
-        description: "Executa validação completa do output recebido."
-        sub_steps:
-          - "schema_validation: valida contra agent_result.schema.json"
-          - "prior_status_check: prior_status declarado == 'in_progress' (WG-003)"
-          - "action_check: action == 'complete' (WG-001)"
-          - "lock_ownership_check: actor == assigned_to (WG-004)"
-          - "verification_checks: verification.checks presente e minItems atendido (WG-002)"
-          - "file_updates_check: file_updates presente se tarefa produz artefatos"
-          - "boundary_check: todos os paths em file_updates dentro das boundaries do task_kind"
-          - "no_action_collapse_check: apenas um activity_event (WG-005)"
-        on_valid: "→ B4"
-        on_invalid: "→ reject_handler"
-
-      - id: "B4"
-        name: "apply_file_updates"
-        description: >
-          Para cada item em file_updates:
-            1. Verifica boundary (prefix_match contra task_kind boundaries)
-            2. Persiste orchestrator.file.write no event store
-            3. Escreve o arquivo no filesystem
-
-      - id: "B5"
-        name: "append_complete_events"
-        description: >
-          Persiste no event store:
-            1. O evento de complete do agente (com event_seq+N)
-            2. orchestrator.view.mutate registrando a transição in_progress→review
-          Atualiza completed_at e verification na tarefa.
-
-      - id: "B6"
-        name: "project_views_after_complete"
-        description: "Reprojecta roadmap.json, issues.json, lessons.json."
-
-      - id: "B7"
-        name: "verify_projection_after_complete"
-        description: "Calcula SHA-256 da projeção e compara com hash armazenado."
-        on_ok: "→ Fase C (review dispatch) ou run.end se pipeline completo"
-        on_mismatch: "reproject_or_halt"
-        on_corrupted: "halt_and_snapshot"
-
-# ---------------------------------------------------------------------------
-# reject_handler
-#
-# Tratamento centralizado de rejeições. Executado em qualquer fase.
-# ---------------------------------------------------------------------------
+  model: two_step_per_task
+  objective: Admitir cada intenção válida, registrar eventos e materializar projeções consistentes.
+  context: dispatch-context recorta schema e lessons por ação; complete recebe boundaries, interfaces
+    de dependências e issues; review recebe verification disponível.
+  completion: Claim e complete são separados. Review e request_changes continuam a máquina de estados;
+    não limitar tarefa a duas invocações.
+  file_effects: Validar e preparar efeitos antes da admissão; commit e recuperação seguem o mecanismo
+    transacional do runtime.
+  concurrency: A CLI serializa o store com lock, releitura e verificação da escrita; isso não autoriza
+    conflitos nos arquivos de tarefas.
 reject_handler:
-  description: "Executado quando validate_agent_output retorna inválido."
-  steps:
-    - "Emite output.rejected no event store com reject_code e task_id"
-    - "Incrementa attempt_counter para a tarefa (se aplicável ao reject_code)"
-    - "Avalia attempt_counter contra RUNTIME_POLICY.attempt_limits.max_attempts_per_task"
-    - "Se counter < max: aguarda cooldown e retorna ao dispatch (mesma fase)"
-    - "Se counter == max: emite issue.report com severity=high e bloqueia tarefa"
-
-  reject_codes:
-    MISSING_CLAIM:
-      descricao: "complete/review emitido sem claim anterior"
-      penaliza_counter: true
-      retry_fase: "phase_a_claim"
-
-    MISSING_COMPLETE:
-      descricao: "file_updates presente sem action=complete, ou complete ausente após trabalho"
-      penaliza_counter: true
-      retry_fase: "phase_b_complete"
-
-    MISSING_VERIFICATION:
-      descricao: "complete sem verification.checks em tarefa impl/qa"
-      penaliza_counter: true
-      retry_fase: "phase_b_complete"
-
-    PRIOR_STATUS_MISMATCH:
-      descricao: "prior_status declarado diverge do status real no roadmap"
-      penaliza_counter: false
-      corrective_action: "re_inject_current_status_and_retry"
-      nota: "Provável lag de contexto — não penaliza, apenas corrige o contexto e retenta"
-
-    LOCK_VIOLATION:
-      descricao: "complete emitido por actor diferente do assigned_to"
-      penaliza_counter: true
-      retry_fase: "none — requer intervenção manual via issue.report"
-
-    ACTION_COLLAPSE:
-      descricao: "output contém mais de um activity_event ou mistura claim+complete"
-      penaliza_counter: true
-      retry_fase: "phase_a_claim"
-
-    SCHEMA_VIOLATION:
-      descricao: "output não conforma com agent_result.schema.json"
-      penaliza_counter: true
-      retry_fase: "current"
-
-    BOUNDARY_VIOLATION:
-      descricao: "file_updates contém path fora das boundaries do task_kind"
-      penaliza_counter: true
-      retry_fase: "phase_b_complete"
-
-# ---------------------------------------------------------------------------
-# workflow_gate_enforcement
-#
-# Referência aos gates definidos no ORCHESTRATOR_CONTRACT.yaml v0.4.1.
-# Executados em A3 e B3 antes de qualquer append.
-# ---------------------------------------------------------------------------
+  description: Falhas são relatadas com códigos e evidências; limites, cooldown, TTL e escalonamento vêm
+    de RUNTIME_POLICY.yaml.
+  integrity: Interromper operação afetada por corrupção, timeout de lock ou APPEND_VERIFY_FAILED; não
+    remover locks manualmente.
 workflow_gate_enforcement:
-  gates_aplicados_em_phase_a:
-    - WG-001  # claim_before_work: verifica que action=claim e task=todo
-    - WG-003  # prior_status_consistency
-    - WG-005  # no_action_collapse
-
-  gates_aplicados_em_phase_b:
-    - WG-001  # verifica que action=complete e task=in_progress
-    - WG-002  # complete_requires_verification
-    - WG-003  # prior_status_consistency
-    - WG-004  # lock_ownership
-    - WG-005  # no_action_collapse
-
-  ordem_de_execucao: "sequencial — primeiro gate que falhar dispara reject_handler"
-
-# ---------------------------------------------------------------------------
-# commands
-# ---------------------------------------------------------------------------
+  reference: ORCHESTRATOR_CONTRACT.yaml, AGENT_CONTRACT.yaml e schemas locais.
+  invariants:
+  - AGENT_CONTRACT.yaml, ORCHESTRATOR_CONTRACT.yaml, agent_result.schema.json e RUNTIME_POLICY.yaml são
+    as autoridades locais.
+  - Uma activity_event por envelope, prior_status coerente; claim e complete separados; file_updates somente
+    com complete pelo actor que reivindicou.
+  - Efeitos finais são aplicados pelo Orchestrator. Respeite boundaries, forbidden_write, concessões explícitas
+    e scope_patch de hotfix.
+  - 'Done é terminal: reporte issue e siga hotfix sem reabrir. Revisão exige papel e modo autorizados
+    pela política ativa.'
+  - Lessons aplicáveis em reject, require_field e require_step são obrigatórias; warn orienta sem impor
+    bloqueio ou reconhecimento padronizado.
+  - Hotfix requer issue_id, fixes, scope_patch e pelo menos 2 verification.checks conforme contrato.
 commands:
   esaa_run:
-    description: "Executa o pipeline completo para a próxima tarefa elegível."
-    required_pipeline:
-      - parse_event_store          # S1
-      - select_next_eligible_task  # S2
-      - inject_claim_context       # A1
-      - dispatch_agent_claim       # A2
-      - validate_agent_output      # A3 (gates WG-001, WG-003, WG-005)
-      - append_claim_events        # A4
-      - project_views              # A5
-      - verify_projection          # A6
-      - inject_complete_context    # B1
-      - dispatch_agent_complete    # B2
-      - validate_agent_output      # B3 (gates WG-001..WG-005)
-      - apply_file_updates         # B4
-      - append_complete_events     # B5
-      - project_views              # B6
-      - verify_projection          # B7
-
+    description: Consultar python -m esaa run --help para despacho e condições de término.
   esaa_verify:
-    description: "Replay determinístico do event store e comparação de hash."
+    description: Replay determinístico do event store e comparação de hash.
     outputs:
-      verify_status_enum: ["ok", "mismatch", "corrupted"]
+      verify_status_enum:
+      - ok
+      - mismatch
+      - corrupted
     canonicalization:
-      encoding: "UTF-8"
-      key_order: "sorted"
-      separators: "[',', ':']"
+      encoding: UTF-8
+      key_order: sorted
+      separators: '['','', '':'']'
       trailing_newline: true
-      hash_excludes: ["meta.run"]
-      algorithm: "SHA-256"
+      hash_excludes:
+      - meta.run
+      algorithm: SHA-256

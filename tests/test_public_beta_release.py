@@ -100,11 +100,10 @@ def test_bootstrap_creates_agent_guidance_files(tmp_path: Path, repo_root: Path)
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     claude = (tmp_path / ".claude" / "CLAUDE.md").read_text(encoding="utf-8")
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
-    canonical_agents = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
-    canonical_claude = canonical_agents.replace("# AGENTS.md", "# CLAUDE.md", 1)
-    assert agents == canonical_agents
-    assert claude == canonical_claude
-    assert readme == (repo_root / "readme.md").read_text(encoding="utf-8")
+    workspace_templates = repo_root / "src/esaa/workspace"
+    assert agents == (workspace_templates / "AGENTS.md").read_text(encoding="utf-8")
+    assert claude == (workspace_templates / "CLAUDE.md").read_text(encoding="utf-8")
+    assert readme == (workspace_templates / "README.md").read_text(encoding="utf-8")
     assert "O ESAA não usa MCP" in agents
     assert "O ESAA não usa MCP" in claude
     assert "# ESAA" in readme
@@ -176,7 +175,7 @@ def test_bootstrap_preserve_guides_force_refreshes_governance_only(tmp_path: Pat
     )
 
 
-def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path) -> None:
+def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path, repo_root: Path) -> None:
     original = "# App\n\nLocal context.\n"
     (tmp_path / "AGENTS.md").write_text(original, encoding="utf-8")
 
@@ -190,23 +189,23 @@ def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path) -
     assert GUIDE_MARKER_PROJECT_BEGIN in merged
     assert GUIDE_MARKER_PROJECT_END in merged
     contract, project = extract_regions(merged)
-    assert "Contrato operacional Codex/ESAA" in contract
+    assert contract.strip() == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
     assert project == "\n" + original
 
 
-def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp_path: Path) -> None:
+def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp_path: Path, repo_root: Path) -> None:
     bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
     first = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     _contract, project_before = extract_regions(first)
-    changed = first.replace("Contrato operacional Codex/ESAA", "Contrato operacional Codex/ESAA atualizado", 1)
+    changed = first.replace("# AGENTS.md", "# OLD_GUIDANCE", 1)
     (tmp_path / "AGENTS.md").write_text(changed, encoding="utf-8")
 
     bootstrap_workspace(tmp_path, profile="public", force=True, merge_guides=True)
 
     after = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     contract_after, project_after = extract_regions(after)
-    assert "Contrato operacional Codex/ESAA atualizado" not in contract_after
-    assert "Contrato operacional Codex/ESAA" in contract_after
+    assert "# OLD_GUIDANCE" not in contract_after
+    assert contract_after.strip() == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
     assert project_after == project_before
 
 
@@ -291,9 +290,14 @@ def test_package_data_contains_templates() -> None:
 
 def test_packaged_governance_templates_match_canonical_files(repo_root: Path) -> None:
     template_root = repo_root / "src/esaa/templates"
-    canonical_files = set(GOVERNANCE_TEMPLATE_FILES) - set(INTENTIONAL_TEMPLATE_DIVERGENCES)
+    # Active workspace guidance is deliberately not migrated by a package change.
+    # Semantic contract parity and profile identities are checked separately.
+    editorial_files = {"AGENT_CONTRACT.yaml"} | {
+        name for name in GOVERNANCE_TEMPLATE_FILES if name.startswith("PARCER_PROFILE.")
+    }
+    canonical_files = set(GOVERNANCE_TEMPLATE_FILES) - set(INTENTIONAL_TEMPLATE_DIVERGENCES) - editorial_files
 
-    assert canonical_files | set(INTENTIONAL_TEMPLATE_DIVERGENCES) == set(GOVERNANCE_TEMPLATE_FILES)
+    assert canonical_files | set(INTENTIONAL_TEMPLATE_DIVERGENCES) | editorial_files == set(GOVERNANCE_TEMPLATE_FILES)
     for name in canonical_files:
         assert (template_root / name).read_bytes() == (repo_root / ".roadmap" / name).read_bytes()
 
@@ -304,14 +308,11 @@ def test_packaged_governance_templates_match_canonical_files(repo_root: Path) ->
         assert all(marker in packaged for marker in required_markers)
 
 
-def test_packaged_agent_guides_match_canonical_files(repo_root: Path) -> None:
+def test_packaged_guides_are_consumer_specific(repo_root: Path) -> None:
     workspace_root = repo_root / "src/esaa/workspace"
-    canonical_agents = (repo_root / "AGENTS.md").read_bytes()
-    canonical_claude = canonical_agents.replace(b"# AGENTS.md", b"# CLAUDE.md", 1)
-
-    assert (workspace_root / "AGENTS.md").read_bytes() == canonical_agents
-    assert (workspace_root / "CLAUDE.md").read_bytes() == canonical_claude
-    assert (workspace_root / "README.md").read_bytes() == (repo_root / "readme.md").read_bytes()
+    # The repo and consumers have different audiences, not an equality contract.
+    assert (workspace_root / "README.md").read_bytes() != (repo_root / "readme.md").read_bytes()
+    assert (workspace_root / "AGENTS.md").read_bytes() != (repo_root / "AGENTS.md").read_bytes()
 
 
 def test_documented_beta_install_commands_require_pre(repo_root: Path) -> None:

@@ -96,7 +96,9 @@ operacional. Sem governança, um fluxo multi-agente típico sofre de:
 
 ## Princípios de segurança operacional
 
-- **Fail-closed**: na dúvida, o agente emite `issue.report` — nunca improvisa.
+- **Fail-closed**: recupere contexto disponível dentro do escopo; reporte
+  `issue.report` quando persistir impedimento contratual ou decisão material
+  não resolvida. Isso não proíbe escolhas locais reversíveis autorizadas.
 - **Locks e tentativas**: máximo de 3 tentativas por tarefa, cooldown de 2 min,
   TTL de 30 min por attempt (`RUNTIME_POLICY.yaml`).
 - **`done` é imutável**: defeito em tarefa concluída gera hotfix, nunca reabertura.
