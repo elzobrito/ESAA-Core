@@ -44,11 +44,12 @@ def _first_task_id(events: list[dict[str, Any]]) -> str:
 
 
 def _actor_for_task(task: dict[str, Any]) -> str:
+    kind = task.get("task_kind")
     return {
         "spec": "agent-spec",
         "impl": "agent-impl",
         "qa": "agent-qa",
-    }.get(task.get("task_kind"), "agent-spec")
+    }.get(kind if isinstance(kind, str) else "", "agent-spec")
 
 
 def _default_output_path(task: dict[str, Any]) -> str:

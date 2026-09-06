@@ -164,7 +164,7 @@ def _check_transition(task: dict[str, Any], action: str) -> None:
     """Aplica a maquina de estado canonica (RF01) com reject_codes do contrato."""
     ok, code = classify_transition(task["status"], action)
     if not ok:
-        raise ESAAError(code, f"{action} invalid for status={task['status']}")
+        raise ESAAError(code or "INVALID_TRANSITION", f"{action} invalid for status={task['status']}")
 
 
 def _apply_claim(state: dict[str, Any], event: dict[str, Any]) -> None:

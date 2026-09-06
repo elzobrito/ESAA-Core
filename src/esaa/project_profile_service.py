@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
 from .events import make_event
@@ -17,6 +17,13 @@ from .store import load_project_profile, next_event_seq, parse_event_store
 
 
 class ProjectProfileMixin:
+    if TYPE_CHECKING:
+        root: Path
+
+        def _commit_orchestrator_events(
+            self, candidate_events: list[dict[str, Any]], dry_run: bool = False
+        ) -> dict[str, Any]: ...
+
     def show_project_profile(self) -> dict[str, Any]:
         profile = load_project_profile(self.root)
         if profile is None:

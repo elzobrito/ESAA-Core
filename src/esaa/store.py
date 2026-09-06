@@ -313,10 +313,11 @@ def _pid_is_alive(pid: int) -> bool:
         return False
     if os.name == "nt":
         process_query_limited_information = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(process_query_limited_information, False, pid)
+        windll = getattr(ctypes, "windll")
+        handle = windll.kernel32.OpenProcess(process_query_limited_information, False, pid)
         if not handle:
             return False
-        ctypes.windll.kernel32.CloseHandle(handle)
+        windll.kernel32.CloseHandle(handle)
         return True
     try:
         os.kill(pid, 0)
@@ -401,9 +402,9 @@ def _acquire_store_lock(
             record_concurrency_metric("lock_wait_ms", int((time.monotonic() - started) * 1000))
             return lock_path
         except FileExistsError as exc:
-            should_takeover, reason, metadata = _should_takeover_lock(lock_path, lock_max_age)
+            should_takeover, reason, existing = _should_takeover_lock(lock_path, lock_max_age)
             if should_takeover and reason is not None:
-                _takeover_lock(lock_path, reason, metadata)
+                _takeover_lock(lock_path, reason, existing)
                 continue
             if time.monotonic() >= deadline:
                 record_concurrency_metric("lock_wait_ms", int((time.monotonic() - started) * 1000))

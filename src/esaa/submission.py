@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .conflicts import conflict_between_sets, explain_conflict, normalize_write_set
 from .edits import resolve_edit_updates
@@ -32,6 +32,9 @@ from .validator import (
     validate_resolved_file_boundaries,
     validate_unique_file_update_paths,
 )
+
+if TYPE_CHECKING:
+    from .adapters.base import AgentAdapter
 
 
 def _normalize_file_updates(root: Path, file_updates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -75,6 +78,20 @@ def _file_write_payload(task_id: str, effects: list[dict[str, Any]]) -> dict[str
 
 
 class SubmissionMixin:
+    if TYPE_CHECKING:
+        root: Path
+        adapter: AgentAdapter
+
+        def _policy(self) -> dict[str, Any]: ...
+
+        def task_state(self, task_id: str) -> dict[str, Any]: ...
+
+        def _append_events_transactionally(
+            self,
+            base_events: list[dict[str, Any]],
+            new_events: list[dict[str, Any]],
+        ) -> dict[str, Any]: ...
+
     def _submit_command(
         self,
         output: dict[str, Any],

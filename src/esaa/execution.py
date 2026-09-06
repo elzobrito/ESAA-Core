@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
 from .events import make_event
@@ -25,8 +25,38 @@ from .seeds import (
 )
 from .store import load_agent_contract, load_agent_result_schema, next_event_seq, parse_event_store
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .adapters.base import AgentAdapter
+
 
 class ExecutionMixin:
+    if TYPE_CHECKING:
+        root: Path
+        adapter: AgentAdapter
+
+        def _policy(self) -> dict[str, Any]: ...
+
+        def _append_events_transactionally(
+            self,
+            base_events: list[dict[str, Any]],
+            new_events: list[dict[str, Any]],
+        ) -> dict[str, Any]: ...
+
+        def _accept_agent_output(
+            self,
+            events: list[dict[str, Any]],
+            new_events: list[dict[str, Any]],
+            task: dict[str, Any],
+            output: dict[str, Any],
+            schema: dict[str, Any],
+            contract: dict[str, Any],
+            dry_run: bool,
+            wave_write_set: list[str] | None = None,
+            staged_file_effects: list[dict[str, Any]] | None = None,
+        ) -> int: ...
+
     def eligible(self) -> dict[str, Any]:
 
         events = parse_event_store(self.root)

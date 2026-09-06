@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 822,
-      "projection_hash_sha256": "ac637db8d213941153de8c067d2da88ec814eb6d554bfde37c74030ce4ab83c4",
+      "last_event_seq": 835,
+      "projection_hash_sha256": "a78d22afd09b64ec364b697f5df716a09c3d162262333072f3d39f9f1e8115d4",
       "verify_status": "ok"
     },
-    "updated_at": "2026-09-06T01:09:33Z"
+    "updated_at": "2026-09-06T01:14:39Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2046,14 +2046,48 @@
         ]
       },
       "completed_at": "2026-09-06T01:09:33Z"
+    },
+    {
+      "task_id": "CI-TYPECHECK-001",
+      "task_kind": "impl",
+      "title": "Make hosted mypy typecheck pass on main",
+      "description": "Eliminate the 77 mypy errors that mark 4b7cd7a red on GitHub. Preserve runtime behavior, protocol gates, and unrelated plugin WIP. Do not change CI from advisory to blocking.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/cli.py",
+          "src/esaa/submission.py",
+          "src/esaa/execution.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/project_profile_service.py",
+          "src/esaa/project_profile.py",
+          "src/esaa/projector.py",
+          "src/esaa/store.py",
+          "src/esaa/scenarios.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-09-06T01:10:52Z",
+      "verification": {
+        "checks": [
+          "mypy src/esaa: Success, no issues found in 45 source files (venv with esaa-core[dev], same [tool.mypy] as CI).",
+          "pytest -q: 415 passed. task_admin.py stays under 500 lines (497). Unrelated plugin WIP remains stashed."
+        ]
+      },
+      "completed_at": "2026-09-06T01:14:39Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 60
+      "done": 61
     },
     "by_kind": {
-      "impl": 32,
+      "impl": 33,
       "qa": 10,
       "spec": 18
     }

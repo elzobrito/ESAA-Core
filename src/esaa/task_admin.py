@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .activity_admin import apply_activity_clear, plan_activity_clear
 from .errors import ESAAError
@@ -28,8 +28,18 @@ from .store import (
 )
 from .task_creation import build_task_create_payload
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class TaskAdminMixin:
+    if TYPE_CHECKING:
+        root: Path
+        def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
+        def _commit_orchestrator_events(self, candidate_events: list[dict[str, Any]], dry_run: bool = False) -> dict[str, Any]: ...
+        def verify(self) -> dict[str, Any]: ...
+        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool) -> dict[str, Any]: ...
+
     def create_task(
         self,
         task_id: str,

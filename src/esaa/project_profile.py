@@ -52,7 +52,7 @@ def _existing_paths(root: Path, candidates: tuple[str, ...], suffix: str = "") -
 
 def _operator(payload: dict[str, Any]) -> dict[str, str]:
     raw = payload.get("operator") or {}
-    if raw is not None and not isinstance(raw, dict):
+    if not isinstance(raw, dict):
         raise ESAAError("PROJECT_PROFILE_INVALID", "operator must be an object")
     display_name = str(
         payload.get("operator_name")
@@ -158,7 +158,7 @@ def build_onboarding_tasks(profile: dict[str, Any], supersedes_existing: set[str
         "GOV-PROFILE-010": ["T-1010"],
         "GOV-PROFILE-020": ["T-1020"],
     }
-    tasks = [
+    tasks: list[dict[str, Any]] = [
         {
             "task_id": "GOV-PROFILE-001",
             "task_kind": "spec",
