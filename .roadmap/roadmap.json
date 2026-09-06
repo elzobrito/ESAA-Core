@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 815,
-      "projection_hash_sha256": "7a60e24d6a5965ba859f830bb11181f9d449fe7f75c66b21bc4de2cf697ac481",
+      "last_event_seq": 822,
+      "projection_hash_sha256": "ac637db8d213941153de8c067d2da88ec814eb6d554bfde37c74030ce4ab83c4",
       "verify_status": "ok"
     },
-    "updated_at": "2026-09-05T18:26:19Z"
+    "updated_at": "2026-09-06T01:09:33Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2022,7 +2022,7 @@
       "task_kind": "qa",
       "title": "Publish 0.5.0b19 after hosted CI and verify PyPI installation",
       "description": "Publish 0.5.0b19 after hosted CI and verify PyPI installation",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "REL-0.5.0B19-PREP"
       ],
@@ -2036,13 +2036,21 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-qa",
-      "started_at": "2026-09-05T18:26:19Z"
+      "started_at": "2026-09-05T18:26:19Z",
+      "verification": {
+        "checks": [
+          "Hosted CI 33984077549 success on 4b7cd7a; Python 3.11/3.12/3.13 tests and lint passed; advisory typecheck failed.",
+          "Publish 33984152601 success; PyPI JSON exposes wheel and sdist for 0.5.0b19.",
+          "Fresh no-cache public PyPI installation; public/production bootstrap, init, eligible and verify passed.",
+          "Installed /home/elzobrito CLI version 0.5.0b19; verify ok seq4176; Core verify ok seq815."
+        ]
+      },
+      "completed_at": "2026-09-06T01:09:33Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 59,
-      "in_progress": 1
+      "done": 60
     },
     "by_kind": {
       "impl": 32,
