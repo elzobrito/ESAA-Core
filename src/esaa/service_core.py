@@ -9,6 +9,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .adapters import AgentAdapter, MockAgentAdapter
+from .boundary_paths import legacy_scope_warnings
 from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
@@ -176,9 +177,7 @@ class ESAAServiceCore:
 
         roadmap, issues, lessons = materialize(events)
         project_profile = project_profile_view(events)
-
         save_roadmap(self.root, roadmap)
-
         save_issues(self.root, issues)
 
         save_lessons(self.root, lessons)
@@ -265,6 +264,7 @@ class ESAAServiceCore:
                 "last_event_seq": computed_seq,
                 "projection_hash_sha256": computed_hash,
                 "project_profile": projected_profile is not None,
+                **legacy_scope_warnings(projected.get("tasks", [])),
             }
 
         return {

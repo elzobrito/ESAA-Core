@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 1204,
-    "updated_at": "2026-10-24T13:53:56Z"
+    "last_event_seq": 1254,
+    "updated_at": "2026-10-24T14:08:29Z"
   },
   "issues": [
     {
@@ -157,6 +157,40 @@
       "timeline": {
         "created_event_seq": 115,
         "resolved_event_seq": 132
+      }
+    },
+    {
+      "issue_id": "ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Replay rejeita scope_patch absoluto legado (b20)",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "esaa 0.5.0b20 verify em ~/.roadmap falha com HOTFIX_SCOPE_INVALID: unsafe scope_patch: /home/elzobrito/.local/share/applications/ (evento histórico de hotfix); com 0.5.0b19 o mesmo verify retorna ok (last_event_seq 8168).",
+        "repro_steps": [
+          "cd ~ && python -m esaa verify com esaa 0.5.0b20 (checkout ESAA-Core 3b6dc7b)",
+          "Comparar com esaa 0.5.0b19 instalado em ~/.local: verify_status ok"
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+        "review_task_id": "HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+        "checks": [
+          "unit: tests/test_legacy_scope_replay.py 6 passed (legacy replay ok + warning; hotfix create/amend reject absolute scope)",
+          "regression: pytest -q 533 passed, 4 skipped (docker opt-in); mypy src/esaa clean",
+          "verify on copy of ~/.roadmap (8168 events): ok with LEGACY_SCOPE_PATCH_UNSAFE warning, activity.jsonl md5 unchanged"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE"
+      },
+      "timeline": {
+        "created_event_seq": 1212,
+        "resolved_event_seq": 1226
       }
     },
     {

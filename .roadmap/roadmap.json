@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1204,
-      "projection_hash_sha256": "ca3856c7bc7f4a3e01b902980c95584ca7dcfaed16f22de3da1ac0cc43352567",
+      "last_event_seq": 1254,
+      "projection_hash_sha256": "66b53cf2af8cb5d39b8a03dd0a1b7c85dfb95b8c90821bf7c6a8080cab2e5374",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-24T13:53:56Z"
+    "updated_at": "2026-10-24T14:08:29Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2821,7 +2821,7 @@
       "task_kind": "qa",
       "title": "Commit push e publicação PyPI autorizados",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Commit push e publicação PyPI autorizados. Dependências: REL-0.5.0B20-PREP, REL-0.5.0B20-GUIDE. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/publish.json. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "REL-0.5.0B20-PREP",
         "REL-0.5.0B20-GUIDE"
@@ -2836,7 +2836,14 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-qa",
-      "started_at": "2026-10-24T13:53:56Z"
+      "started_at": "2026-10-24T13:53:56Z",
+      "verification": {
+        "checks": [
+          "git push main 6122d59..3b6dc7b and tag v0.5.0b20 accepted; git ls-remote confirms remote main SHA; CI run 40100139633 success.",
+          "twine check PASSED; twine upload to PyPI succeeded; PyPI JSON sha256 for wheel and sdist equal local build hashes; clean venv wheel install reports 0.5.0b20."
+        ]
+      },
+      "completed_at": "2026-10-24T13:55:38Z"
     },
     {
       "task_id": "REL-0.5.0B20-INSTALL",
@@ -2891,16 +2898,126 @@
         ]
       },
       "completed_at": "2026-10-24T13:51:05Z"
+    },
+    {
+      "task_id": "HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+      "description": "Apply a minimal hotfix to resolve issue ISS-ESAA-B21-LEGACY-ABS-SCOPE without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-ESAA-B21-LEGACY-ABS-SCOPE"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/boundary_paths.py",
+          "src/esaa/projector.py",
+          "src/esaa/service_core.py",
+          "tests/test_legacy_scope_replay.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-ESAA-B21-LEGACY-ABS-SCOPE",
+      "fixes": "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+      "scope_patch": [
+        "src/esaa/boundary_paths.py",
+        "src/esaa/projector.py",
+        "src/esaa/service_core.py",
+        "tests/test_legacy_scope_replay.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        "src/esaa/boundary_paths.py",
+        "src/esaa/projector.py",
+        "src/esaa/service_core.py",
+        "tests/test_legacy_scope_replay.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T14:07:06Z",
+      "verification": {
+        "checks": [
+          "unit: tests/test_legacy_scope_replay.py 6 passed (legacy replay ok + warning; hotfix create/amend reject absolute scope)",
+          "regression: pytest -q 533 passed, 4 skipped (docker opt-in); mypy src/esaa clean",
+          "verify on copy of ~/.roadmap (8168 events): ok with LEGACY_SCOPE_PATCH_UNSAFE warning, activity.jsonl md5 unchanged"
+        ]
+      },
+      "completed_at": "2026-10-24T14:07:18Z"
+    },
+    {
+      "task_id": "REL-0.5.0B21-PREP",
+      "task_kind": "impl",
+      "title": "Preparar release 0.5.0b21 (versão e CHANGELOG b20/b21)",
+      "description": "Bump PACKAGE_VERSION para 0.5.0b21 e CHANGELOG para 0.5.0b20 e 0.5.0b21 após HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE.",
+      "status": "done",
+      "depends_on": [
+        "HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T14:08:01Z",
+      "verification": {
+        "checks": [
+          "version: PACKAGE_VERSION=0.5.0b21 (single source)",
+          "changelog: CHANGELOG.md is outside impl boundary; delivered via REL-0.5.0B21-CHANGELOG with explicit boundary grant"
+        ]
+      },
+      "completed_at": "2026-10-24T14:08:25Z"
+    },
+    {
+      "task_id": "REL-0.5.0B21-CHANGELOG",
+      "task_kind": "impl",
+      "title": "CHANGELOG 0.5.0b20 e 0.5.0b21",
+      "description": "Entradas de CHANGELOG para b20 e b21 (hotfix de replay de scope_patch legado). Grant explícito porque CHANGELOG.md está fora dos boundaries padrão.",
+      "status": "done",
+      "depends_on": [
+        "REL-0.5.0B21-PREP"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T14:08:27Z",
+      "verification": {
+        "checks": [
+          "changelog: entries 0.5.0b21 and 0.5.0b20 added above 0.5.0b19; content reviewed against upgrade guide and HF diff"
+        ]
+      },
+      "completed_at": "2026-10-24T14:08:29Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 82,
-      "in_progress": 1,
+      "done": 86,
       "todo": 5
     },
     "by_kind": {
-      "impl": 50,
+      "impl": 53,
       "qa": 17,
       "spec": 21
     }

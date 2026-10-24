@@ -1,3 +1,25 @@
+## 0.5.0b21
+
+Hotfix beta for legacy event stores.
+
+- Replay/projection again accepts historical hotfix `scope_patch` entries that 0.5.0b19 accepted (for example absolute paths), so `esaa verify` no longer fails with `HOTFIX_SCOPE_INVALID` on existing stores (ISS-ESAA-B21-LEGACY-ABS-SCOPE / HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE).
+- New commands (`hotfix create`, `task amend --scope-patch`, `issue report`, `submit`) still reject absolute or otherwise unsafe scopes.
+- `esaa verify` reports such historical entries under `warnings` with code `LEGACY_SCOPE_PATCH_UNSAFE`; the projection hash and schema are unchanged.
+- Regression tests cover legacy replay (verify ok + warning) and strict rejection in create/amend.
+- Users of 0.5.0b20 with legacy absolute scopes should upgrade directly to 0.5.0b21.
+
+## 0.5.0b20
+
+Beta announcing protocol 0.4.2 with an optional executable verification extension; storage stays on schema 0.4.1.
+
+- `verification enable/show/run/result`: operator-authorized checks in isolated Docker (digest-pinned images, no network, no host mounts, no local fallback).
+- `--executable-check` on `task create`, `task amend` and `hotfix create`; completion requires a passed `verification.execution_id` bound to task, actor, cycle, configuration, inputs and candidate.
+- `hotfix create` accepts `--boundary-grant`, `--output` and `--executable-check`; `task amend` supports grants and `--scope-patch` while in `todo`.
+- `task list` and `activity list` queries with filters, pagination and table/jsonl formats.
+- Optional actor registry with signed history; hash-chain anchor generated under lock.
+- Upgrade guides: `docs/guides/esaa-upgrade-0.5.0b20.md` (PT) and `.en.md` (EN).
+- Known issue: stricter hotfix scope validation also ran on replay and broke `verify` on stores with legacy absolute `scope_patch`; fixed in 0.5.0b21.
+
 ## 0.5.0b19
 
 Beta refresh with concise, task-specific agent guidance and portable consumer documentation.

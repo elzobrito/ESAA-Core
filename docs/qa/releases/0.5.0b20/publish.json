@@ -1,0 +1,13 @@
+{
+  "release": "esaa-core 0.5.0b20",
+  "protocol": "0.4.2",
+  "storage_protocol": "0.4.1",
+  "git": {"commit": "3b6dc7b8653f2b45cd2bb2d16538d55186cd5523", "remote_main": "3b6dc7b8653f2b45cd2bb2d16538d55186cd5523", "tag": "v0.5.0b20", "tag_object": "5574232492146d039c61f324cc3edf5a0a3451fe", "remote": "https://github.com/elzobrito/ESAA-Core.git"},
+  "ci": {"workflow": "CI", "run_id": 40100139633, "conclusion": "success", "event": "push", "branch": "main"},
+  "pypi": {"url": "https://pypi.org/project/esaa-core/0.5.0b20/", "artifacts": [
+    {"filename": "esaa_core-0.5.0b20-py3-none-any.whl", "sha256_local": "0340801860f0e6c926d2001c923cbe2b953fdf3ca032d92b7774c9b44d6d9630", "sha256_pypi": "0340801860f0e6c926d2001c923cbe2b953fdf3ca032d92b7774c9b44d6d9630"},
+    {"filename": "esaa_core-0.5.0b20.tar.gz", "sha256_local": "bacdff15ebae709ced316b45ffb89727865304e04bf67ca02746ac7deda385a9", "sha256_pypi": "bacdff15ebae709ced316b45ffb89727865304e04bf67ca02746ac7deda385a9"}]},
+  "gates": {"pytest_docker": "531 passed", "mypy": "Success: no issues found in 56 source files", "ruff_ci_scope": "All checks passed", "black_ci_scope": "3 files unchanged", "twine_check": "PASSED (wheel, sdist)", "clean_wheel_install": "esaa 0.5.0b20 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)"},
+  "runner": "grok-bot",
+  "token_handling": "token passed via environment variable only; never printed, copied or committed"
+}

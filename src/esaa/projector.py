@@ -45,7 +45,8 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
         if field in payload:
             task[field] = deepcopy(payload[field])
     if payload.get("is_hotfix"):
-        task["scope_patch"] = validate_hotfix_scope_entries(task.get("scope_patch", []))
+        # Replay preserves historical scopes; new commands validate strictly before append.
+        task["scope_patch"] = validate_hotfix_scope_entries(task.get("scope_patch", []), legacy=True)
     if "executable_checks" in payload:
         ids = payload["executable_checks"]
         if not isinstance(ids, list) or not ids or any(not isinstance(i, str) or not i for i in ids):
