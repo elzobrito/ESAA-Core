@@ -1,0 +1,24 @@
+{
+  "task": "REL-0.5.0B20-INSTALL",
+  "outcome": "0.5.0b20 superseded on install by 0.5.0b21",
+  "reason": "esaa-core 0.5.0b20 failed verify on the home workspace (HOTFIX_SCOPE_INVALID on legacy absolute scope_patch); 0.5.0b20 was never installed on this machine. Fixed by ISS-ESAA-B21-LEGACY-ABS-SCOPE / HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE and released as 0.5.0b21.",
+  "release_installed": {
+    "package": "esaa-core==0.5.0b21",
+    "source": "https://pypi.org/project/esaa-core/0.5.0b21/",
+    "git": {"commit": "a53b27adca477bb6a7f0eee7d218e4d3aacce1df", "tag": "v0.5.0b21", "tag_object": "f322986dab83fa4557d70cae210ce619db16b639"},
+    "ci": {"workflow": "CI", "run_id": 40101278716, "conclusion": "success"},
+    "pypi_sha256": {
+      "esaa_core-0.5.0b21-py3-none-any.whl": "0bc8c84050466d90594d01881a1bb9a0817456a707fc18d4d5fe8d5cc46e5d77",
+      "esaa_core-0.5.0b21.tar.gz": "4516462f036d345b664bcdedbc587a4f2e53227b85de6e99cabe4f901d34d522"
+    }
+  },
+  "installs": [
+    {"host": "notebook (elzobrito)", "command": "/usr/bin/python3 -m pip install --user --break-system-packages --pre esaa-core==0.5.0b21", "python": "3.14", "module": "/home/elzobrito/.local/lib/python3.14/site-packages/esaa/__init__.py", "esaa_version": "esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)", "pythonpath": "unset"},
+    {"host": "grok-bot box", "command": "python3 -m pip install --user --pre esaa-core==0.5.0b21", "esaa_version": "esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)"}
+  ],
+  "smoke": {
+    "home_verify": {"verify_status": "ok", "last_event_seq": 8168, "projection_hash_sha256": "04c54efb81e21e9241be6472d684526f5fac681efaf79f4ea5722704016d0aa3", "warnings": ["LEGACY_SCOPE_PATCH_UNSAFE: HF-ISS-BOOK-ZOTERO-LAUNCHER-20260909"], "home_roadmap_md5_unchanged": true},
+    "core_verify": {"verify_status": "ok", "last_event_seq_at_check": 1254}
+  },
+  "runner": "grok-bot"
+}

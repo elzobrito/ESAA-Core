@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1254,
-      "projection_hash_sha256": "66b53cf2af8cb5d39b8a03dd0a1b7c85dfb95b8c90821bf7c6a8080cab2e5374",
+      "last_event_seq": 1264,
+      "projection_hash_sha256": "01979defc927944b0d4f1a895bfea261b7d0b399950a0e56fcd8351779b35902",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-24T14:08:29Z"
+    "updated_at": "2026-10-24T14:13:24Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2850,7 +2850,7 @@
       "task_kind": "qa",
       "title": "Instalar release publicada e validar esta máquina",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Instalar release publicada e validar esta máquina. Dependências: REL-0.5.0B20-PUBLISH. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/install.json, /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/final.md. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "REL-0.5.0B20-PUBLISH"
       ],
@@ -2863,7 +2863,16 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-24T14:13:22Z",
+      "verification": {
+        "checks": [
+          "install: pip --user esaa-core==0.5.0b21 from PyPI on notebook and box; esaa --version 0.5.0b21 without PYTHONPATH",
+          "smoke: verify ok in ~ (unchanged) and ESAA-Core"
+        ]
+      },
+      "completed_at": "2026-10-24T14:13:24Z"
     },
     {
       "task_id": "REL-0.5.0B20-TYPING",
@@ -3013,8 +3022,8 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 86,
-      "todo": 5
+      "done": 87,
+      "todo": 4
     },
     "by_kind": {
       "impl": 53,
