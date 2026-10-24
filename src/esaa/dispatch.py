@@ -234,6 +234,7 @@ def build_minimal_context(
         "fixes",
         "scope_patch",
         "required_verification",
+        "executable_checks",
         "baseline_id",
         "boundary_grant",
         "task_type",

@@ -1,0 +1,6 @@
+{
+  "algorithm": "SHA-256",
+  "inventory": "bb47964c7de005c4053a43f444ddaf272179a6e7d5efdfd8d4806325b6b36cf7  docs/qa/actor-registration/preactivation/README.md\nd4c7fc32d08081637c393978d736b73f83d4055c4d4e46c3a4517769c06b170d  docs/qa/actor-registration/preactivation/authority-and-bootstrap.md\n030b15ee632222f833b6755e7ea9992afe0c38b4aeedcb7dc9b0373aa2fa0f65  docs/qa/actor-registration/preactivation/fixture-reproductions.py\n4e07205dea66b49c1bdcb8823fc2f7cd99bef8f1cc1770c5d586e444db532d41  docs/qa/actor-registration/preactivation/implementation.patch\n046106e2eb126daa66409c20b51c991c3105db865d395546460d3ba634468752  docs/qa/actor-registration/preactivation/independent-review.md\ne4c583a688e1c07d949d9f2b19df17d17e3dfc33f0bfca2b5fca998025754872  docs/qa/actor-registration/preactivation/packaging-pending.md\n09c84953e6d80a59e0682cf7ddffd3fcd80395a001ca26878024d917a81e0c91  docs/qa/actor-registration/preactivation/source-hashes-after.sha256\n09c84953e6d80a59e0682cf7ddffd3fcd80395a001ca26878024d917a81e0c91  docs/qa/actor-registration/preactivation/source-hashes-before.sha256\n54c59589545b2a363c929208d7730dee16742b63550fece0ccd2a165ba8fdc31  docs/qa/actor-registration/preactivation/tests-and-transition.md\n",
+  "equal": true,
+  "scope": "nine published original preactivation artifacts; not all repository files"
+}

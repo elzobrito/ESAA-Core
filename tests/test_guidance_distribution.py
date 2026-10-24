@@ -54,12 +54,15 @@ def test_consumer_links_and_project_content(tmp_path: Path, profile: str, mode: 
             assert_local_links_exist(tmp_path, path)
 
 
-def test_contract_change_is_narrative_only() -> None:
+def test_contract_preserves_permissions_with_optional_verification_actions() -> None:
     active = yaml.safe_load((REPO / ".roadmap/AGENT_CONTRACT.yaml").read_text())
     packaged = yaml.safe_load((REPO / "src/esaa/templates/AGENT_CONTRACT.yaml").read_text())
-    # Only this exact descriptive leaf may differ; permissions/defaults/gates may not.
+    # New reserved actions are operator-only; legacy permissions/defaults/gates stay identical.
     active["dispatch_model"].pop("description")
     packaged["dispatch_model"].pop("description")
+    for action in ("verification.configure", "verification.run"):
+        assert packaged["vocabulary"]["reserved_orchestrator_actions"].count(action) == 1
+        packaged["vocabulary"]["reserved_orchestrator_actions"].remove(action)
     assert packaged == active
 
 

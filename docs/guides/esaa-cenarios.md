@@ -388,12 +388,13 @@ esaa issue report T-LOGIN-SPEC --actor agent-qa `
   --issue-id ISS-LOGIN-DONE --severity high `
   --title "Spec aprovada deixou lacuna" `
   --symptom "Fluxo de erro nao foi documentado" `
-  --repro-step "Comparar spec aprovada com o teste de QA" `
-  --fixes T-LOGIN-SPEC
+  --repro-step "Comparar spec aprovada com o teste de QA"
 
 # 2) Orchestrator cria a tarefa de correção (escopo declarado)
 esaa hotfix create --issue-id ISS-LOGIN-DONE --fixes T-LOGIN-SPEC `
-  --scope-patch src/hotfix/
+  --scope-patch docs/spec/login.md `
+  --boundary-grant docs/spec/login.md `
+  --output docs/spec/login.md
 
 # 3) Executa o ciclo na hotfix — complete exige issue_id, fixes e 2+ checks
 esaa claim <HOTFIX-ID> --actor agent-impl
@@ -1089,6 +1090,9 @@ Get-Content .roadmap/activity.jsonl.lock
 | `STALE_STATE_SEQ` / `STALE_STATE_HASH` | estado mudou desde que o envelope foi montado | recomponha sobre o estado atual e reenvie (Cenário 20) |
 | `APPEND_VERIFY_FAILED` | read-after-write não conferiu o que foi gravado | rode `verify --chain`; investigue I/O/filesystem (Cenário 20) |
 
+
+`issue report --fixes` já cria um hotfix com defaults. Omita `--fixes` ao usar o fluxo explícito com `hotfix create` acima. Grants são explícitos; `scope_patch` apenas restringe caminhos. Um hotfix ainda em `todo` pode ser corrigido com `task amend --scope-patch ... --boundary-grant ... --output ...`.
+
 ## Veja também
 
 - [Referência completa do CLI](esaa-cli-reference.md) — sintaxe de cada flag
@@ -1096,3 +1100,5 @@ Get-Content .roadmap/activity.jsonl.lock
 - [Operando Codex e Claude Code como runners](esaa-runners-codex-claude-code.md)
 - [Por que usar o ESAA](esaa-why.md)
 - Plugins: [authoring](../plugins/authoring.md) · [installing](../plugins/installing.md) · [lifecycle](../plugins/lifecycle.md) · [security](../plugins/security.md)
+
+[Grok e Antigravity: verificação executável e consultas](esaa-grok-antigravity.md).

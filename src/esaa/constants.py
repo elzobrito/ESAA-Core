@@ -2,7 +2,7 @@ from __future__ import annotations
 
 SCHEMA_VERSION = "0.4.1"
 ESAA_VERSION = "0.4.x"
-PACKAGE_VERSION = "0.5.0b19"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
+PACKAGE_VERSION = "0.5.0b20"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
 
 ROADMAP_DIR = ".roadmap"
 EVENT_STORE_PATH = ".roadmap/activity.jsonl"
@@ -16,7 +16,11 @@ PROJECT_PROFILE_SCHEMA_PATH = ".roadmap/project_profile.schema.json"
 AGENT_RESULT_SCHEMA_PATH = ".roadmap/agent_result.schema.json"
 AGENT_CONTRACT_PATH = ".roadmap/AGENT_CONTRACT.yaml"
 
+PROTOCOL_VERSION = "0.4.2"  # optional verification protocol; base storage stays 0.4.1
+
 CANONICAL_ACTIONS = {
+    "verification.configure",
+    "verification.run",
     "run.start",
     "run.end",
     "task.create",
@@ -30,6 +34,8 @@ CANONICAL_ACTIONS = {
     "runner.metrics",
     "project.profile.set",
     "chain.anchor",
+    "actor.bootstrap",
+    "actor.register",
     "output.rejected",
     "orchestrator.file.write",
     "orchestrator.view.mutate",

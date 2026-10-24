@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 835,
-    "updated_at": "2026-09-06T01:14:39Z"
+    "last_event_seq": 1204,
+    "updated_at": "2026-10-24T13:53:56Z"
   },
   "issues": [
     {
@@ -160,6 +160,102 @@
       }
     },
     {
+      "issue_id": "ISS-ESAA-GROK-CHAIN-PROJECTION",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Fluxo documentado precisa manter projeções consistentes após chain init",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Na QA instalada, bootstrap/init/chain init seguido de verify retorna mismatch: store seq5 e roadmap seq4. A operação chain init preexistente usa append_events sem projetar; leituras/hash também ocorrem fora do lock.",
+        "repro_steps": [
+          "Em workspace temporário executar bootstrap, init, chain init e imediatamente verify; ver wheel-smoke.log e sdist-smoke.log em /tmp/esaa-grok-ng2vtrjq."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-CHAIN-PROJECTION",
+        "review_task_id": "HF-ISS-ESAA-GROK-CHAIN-PROJECTION",
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "ESAA-GROK-20261024-007",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-CHAIN-PROJECTION"
+      },
+      "timeline": {
+        "created_event_seq": 1113,
+        "resolved_event_seq": 1136
+      }
+    },
+    {
+      "issue_id": "ISS-ESAA-GROK-LEGACY-SCOPE",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Preservar scope runtime legado ao endurecer validação de hotfix",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A nova validação de scope rejeita runtime://catalog/item.py, embora o validador de boundaries mantenha suporte explícito a hotfix externo controlado; risco de rejeitar replay legado.",
+        "repro_steps": [
+          "Invocar validate_hotfix_scope_entries com runtime://catalog/item.py e comparar com suporte explícito runtime:// em validator._validate_boundaries."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+        "review_task_id": "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "ESAA-GROK-20261024-002",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-LEGACY-SCOPE"
+      },
+      "timeline": {
+        "created_event_seq": 1060,
+        "resolved_event_seq": 1080
+      }
+    },
+    {
+      "issue_id": "ISS-ESAA-GROK-POSITIONAL",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Preservar posição legada de dry_run na API Python administrativa",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Os novos argumentos foram inseridos antes de dry_run em create_hotfix/create_task/amend_task. Chamadas posicionais legadas podem interpretar True como grant ou IDs de checks e falhar, apesar da CLI funcionar.",
+        "repro_steps": [
+          "Em fixture com issue aberta executar svc.create_hotfix(issue, fixes, None, True), que deve ser dry-run sem efeitos."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-POSITIONAL",
+        "review_task_id": "HF-ISS-ESAA-GROK-POSITIONAL",
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "ESAA-GROK-20261024-002",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-GROK-POSITIONAL"
+      },
+      "timeline": {
+        "created_event_seq": 1126,
+        "resolved_event_seq": 1144
+      }
+    },
+    {
       "issue_id": "ISS-G07-FULL-PYTEST",
       "status": "resolved",
       "severity": "high",
@@ -220,9 +316,263 @@
         "created_event_seq": 765,
         "resolved_event_seq": 794
       }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
+      "status": "open",
+      "severity": "high",
+      "title": "Âncora e ativação substituíveis por controle dos arquivos do projeto",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Fixture independente: troca conjunta anchor+payload bootstrap permite cadastro atacante; remoção de bootstrap/register restaura qa_role unsigned. Troca isolada é rejeitada, mas não cobre adversário solicitado. Não ativar; pacote R2.",
+        "repro_steps": [
+          "Executar casos test_replace_anchor_and_bootstrap_payload_then_register e test_identity_rollback_enters_unsigned_qa_role_path do pacote em fixtures.",
+          "Verificar load_anchor lê projeto e project_registry define active somente pela presença de bootstrap; autoridade externa protegida não demonstrada."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 865,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
+      "status": "open",
+      "severity": "high",
+      "title": "Autorrevisão por alias unsigned não vinculado ao principal QA",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Fixture independente: mesmo processo com chave QA faz claim/complete unsigned reviewer-alias e review signed reviewer-qa => accepted/done. IDs distintos não demonstram independência. Bloqueia ativação; pacote R3.",
+        "repro_steps": [
+          "Executar test_reviewer_claims_under_unsigned_alias_and_self_approves do pacote apenas em fixture.",
+          "Conferir submissão claim/complete sem prova de principal e comparação actor_id/assigned_to textual em assert_review_identity."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 868,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-HOTFIX-PACKAGE-MISSING-001",
+      "status": "open",
+      "severity": "medium",
+      "title": "Pacote vinculante dos hotfixes não localizado",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Usuário autorizou executar ESAA-ACTOR-SECURITY-HOTFIXES-2026-10-02.zip com quatro contratos vinculantes. Arquivo não localizado no checkout, Downloads resolvido para /mnt/backup-ssd/Downloads nem Documents/Codex verificado. Sem contratos não registrar tarefas resumidas nem inferir dependencies/boundaries. Baseline verify ok seq 873; nenhum hotfix aplicado.",
+        "repro_steps": [
+          "Verificar arquivo exato em /home/elzobrito/Downloads: inexistente; inventário rg/find nos locais verificados não retorna o ZIP.",
+          "Solicitar anexo ZIP ou caminho absoluto acessível; então validar SHA256, listar membros com segurança e ler integralmente quatro especificações antes do cadastro."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 874,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-PACKAGING-BOUNDARY-001",
+      "status": "open",
+      "severity": "high",
+      "title": "BLOCKED_BOUNDARY: task.amend não oferece concessão de manifesto à tarefa existente",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Tarefa existente preservada todo. Boundary impl src/tests não permite pyproject.toml; descrição vinculante impede claim antes concessão. CLI task.amend --boundary-grant pyproject.toml --dry-run retorna exit2 unrecognized arguments; service amend_task também não possui boundary_grant. create aceita grant mas recriar/duplicar tarefa é proibido. Nenhuma edição manifesto, instalação ou aprovação efetuada.",
+        "repro_steps": [
+          "Consultar state ESAA-CORE-ACTOR-PACKAGING-001 e dispatch-context/boundaries",
+          "Consultar task amend --help e src/esaa/task_admin.py96–150",
+          "Executar somente diagnóstico task amend --boundary-grant pyproject.toml --dry-run: flag desconhecida, sem evento",
+          "Solicitar ao operador solução oficial versionada sem duplicar task nem alterar projeções"
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-PACKAGING-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 935,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
+      "status": "open",
+      "severity": "medium",
+      "title": "Parecer pré-ativação preservado; registro independente de decisão pendente",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Instância /root/preactivation_review entregou parecer técnico request_changes e conferiu pacote publicado. A plataforma encerrou suas tentativas com mensagem de possível risco cyber antes do comando oficial review. Nenhum review administrativo foi emitido; executor/publicador não substitui revisor nem inventa autenticação. Implementação permanece review e identidade inactive.",
+        "repro_steps": [
+          "Consultar pacote docs/qa/actor-registration/preactivation/independent-review.md e mensagens da instância avaliadora nesta sessão.",
+          "Retomar registro da decisão por avaliador/operador legitimamente autorizado; não realizar bootstrap ou aprovar para contornar o impedimento."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 871,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
+      "status": "open",
+      "severity": "high",
+      "title": "Replay e verify não autenticam assinaturas históricas",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Fixture independente: assinaturas actor.bootstrap/register/review zeradas continuam verify/replay ok. Bloqueia ativação; não houve adulteração real. Pacote docs/qa/actor-registration/preactivation/independent-review.md R1.",
+        "repro_steps": [
+          "Executar fixture-reproductions.py em scratch com pytest; caso test_replay_verify_accept_invalid_identity_signatures.",
+          "Conferir identity.py project_registry, projector e verify/replay: payload histórico projetado sem verify_signature. Controle de arquivos é pré-condição explícita, não ataque remoto."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 862,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
+      "status": "open",
+      "severity": "high",
+      "title": "BLOCKED_STORAGE persiste no scan original; diff atual não coberto",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "ScanId original cfe966df-2ad4-4d14-9f2d-c7354bf49a6d preservado running/discovery. Helper ready3pass; savepersistent repete Scan output parent must not be group- or world-writable without the sticky bit. Pai ESAA-Core0775 semsticky fora boundary, scanDir0700 não basta. Nãochmod, não cancel/fail, não novo scan. Snapshot antigo a690f5e6... não cobre current; diagnóstico publicado via Orchestrator seq931 e permanece review, sem cobertura scan adequada.",
+        "repro_steps": [
+          "Ler docs/qa/actor-registration/security-scan-recovery/README.md, permission-observations.json e scan-status-final.json",
+          "namei -l scanDir confirma pai scans/ESAA-Core0775",
+          "save_codex_security_artifact persistent reproduz recusa",
+          "Intervenção de proprietário necessária em caminho externo específico; atualizar snapshot apenas por mecanismo oficial disponível e revalidar coverage antes de QA004"
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 877,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001",
+      "status": "open",
+      "severity": "high",
+      "title": "Autoridade bootstrap autenticável ausente: parada antes da implementação",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Preflight confirmou que actor/runner são strings do caller e resolve_role usa prefixo; nenhuma autenticação de autoridade implementada. Threat model menciona HMAC/identity.strict não presentes no runtime. Fixture oficial: actor register indisponível exit 2; dry-run review aceita claimant QA, QA inexistente e orchestrator informado, todos exit 0. Condições 5/13 exigem stop, sem complete/done. Evidências duráveis: /home/elzobrito/desenvolvimento/ESAA-Core-actor-preflight-hJcuPJ/{preflight.md,baseline.json,commands.json,protected-hashes-before.txt,protected-hashes-after.txt}; 208 hashes iguais. Proposta: proprietário estabelecer credencial de assinatura fora do boundary do agente e âncora pública aprovada por canal confiável, vinculada à raiz e operação, com recibo auditável e replay protection; não provisionado neste run. Boundary impl não permite docs/qa; evidências preparadas, não publicadas. Nenhum código ou TCG alterado.",
+        "repro_steps": [
+          "Executar python -B /home/elzobrito/desenvolvimento/ESAA-Core-actor-preflight-hJcuPJ/collect_preflight.py em nova cópia de staging com fixture inexistente; comandos completos e outputs preservados em commands.json.",
+          "Inspecionar src/esaa/cli.py, provenance.py, runtime_policy.py resolve_role, submission.py e projector.py _apply_review; confrontar docs/security/threat-model.md."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 842,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
+      "status": "open",
+      "severity": "high",
+      "title": "Request_changes técnico pós-correção: auth fornecida inválida degradada para legacy; BLOCKED_ADMIN_REVIEW",
+      "baseline_id": null,
+      "affected": {
+        "paths": [
+          "docs/qa/actor-registration/hotfix-signed-replay/"
+        ],
+        "environment": "Pré-ativação; identity real inativa; sem bootstrap ou TCG"
+      },
+      "evidence": {
+        "symptom": "Revisor fresco /root/postfix_auditor, sem participação na implementação/tests/GT anteriores, concluiu request_changes técnico sobre hashes finais. authorize_review_event identity.py340–369 ignora authorization fornecida no registry inativo/qa_role: objeto assinado inválido é convertido em review unsigned aceito inclusive dry-run. Parent confirmou CLI. Nenhum evento administrativo review emitido: ausência de reviewer credenciado; mesmo runner codex com alias não comprova independência humana/criptográfica. 001/CALLERS devem permanecer review. Não existe via de file_updates em review nem task.amend de review: outputs postfix-review/ NOT_PRODUCED por boundary/ciclo; parecer integral preservado neste evento sem criar task duplicada. Scanner current não coberto, storage falhou. Packaging boundary pendente. Não READY e sem bootstrap/TCG.",
+        "repro_steps": [
+          "Versão revista HEAD6122d59b13569976d5537399c7ded532efa75cb4 + worktree dirty; snapshot /tmp/esaa-postfix-review-9Xi0SE em seq921. Hashes finais:\n06ae360e2a058aeb34f72cd66aa58810f0838762f5a38f0bc160c0f9032c21b7 identity.py\n4918699e808a64c3bc0eaf9e835199b80585f662e4afdc58f05b4c3d49525d86 identity_history.py\n2d835a5e116cf78364c4097e05e755e86076ccbc07fb28425ed3f89e002ff2cb store.py\n895d91109c766d294e821d6222c03b0ad8453a45af1646eb5f76b00457e870f8 reject_codes.py\n37ebcc0b1e3642ad3eb3786761edcf607e3d163c1e56c1f0b5647b959715a73c service_core.py\n8e48b4694a6119f8c2d82a6ec041c5041c67235b9946ed70dadd04c9574fb2e0 submission.py\ncb54cf5ca75fb6fc0b33aeed9aa475a7a183b9d437355f840857895d2e446226 test_signed_replay.py",
+          "Auditor: /root/postfix_auditor, instância fresca tecnicamente separada; runner Codex; sem credencial administrativa/prova de separação humana/criptográfica. Leu parse/normalização/append/replay/verify/internal submit/dry-run e inventários. Parecer REQUEST_CHANGES posterior à correção, não approval ESAA.",
+          "Repro independente: TemporaryDirectory; helpers runpy.run_path tests/test_actor_registration.py; _copy_runtime(root, snapshot); ESAAService(root).init(force=True,with_demo_tasks=True); _ready_task(svc); _review_auth(chave descartável, project_id='00'*32, nonce='55'*16, actor='agent-qa', task='T-1000', decision='approve'); signature_hex='00'*64. svc.review_task(...authorization=auth,dry_run=True)=>dry_run, bytes store idênticos. svc.review_task(...authorization=auth)=>accepted,taskdone, evento review sem _authorization. Somente fixture, nunca estado vivo.",
+          "Parent CLI em cópia seq921: review ESAA-HF-ACTOR-SIGNED-REPLAY-001 --actor agent-qa --decision approve --authorization invalid-authorization.json --dry-run (payload{},signature_hex invalid): dry_run/would_append_events3; state continua seq921review. Prova da insuficiência do mecanismo histórico, não uso como aprovação.",
+          "Regressão real PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider --tb=short: 477PASS36.37s exit0. Auditor: focused60PASS11.63s; full inicial475PASS2FAIL33.96s por AGENTS.md ausente da cópia; após copiar AGENTS idêntico, 477PASS32.81s exit0; 7hashes inalterados.",
+          "Casos executados cobrem cadeia SHA recalculada invalidsig, auth top/data antes normalização, signedlegacyinvalid, mixed/data válido, anchor ausente, signer/scope/project/nonce/epoch/schema, append/internaldryrun. Novo caso na entrada legacy NÃO coberto pela suíteverde e bloqueia aceite.",
+          "Quatro testemunhos históricos intactos reexecutados: 2failed/2passed1.25s. Primeiro falha pois verifycorrupted assinatura; segundo ANCHOR_MISMATCH cedo antes de substituição conjunta reassinada. Rollback e alias ainda reproduzíveis (002/003); não certificados.",
+          "Original scanId cfe966df-2ad4-4d14-9f2d-c7354bf49a6d running/discovery; snapshot a690f5e6a2756e17aafe71aa1ac2feed4e36b13528012d19bd187777445b1d2b não current. Skill helperready3pass, savepersistent recusa pai group-writable semsticky; nãochmod/cancel/newscan. Diagnóstico publicado docs/qa/actor-registration/security-scan-recovery/, taskOPSreviewseq931.",
+          "Correção necessária: rejeitar explicitamente authorization fornecida sem autoridade previamente estabelecida; preservar legacy legítimo authorization=None; novos negativos CLI/serviço/submission/dryrun e revisão pós-novo-patch. Não implementada nesta auditoria.",
+          "001 e CALLERSreview; 002todo blockeddependency001done;003todo elegível mas não iniciada após stopsecurity;packagingtodo boundary não concedível por taskamend instalado;004todo depsnão done. Não modificarDAG/reabrirhistórico/autoaprovar."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 919,
+        "resolved_event_seq": null
+      }
     }
   ],
   "indexes": {
-    "open_by_baseline": {}
+    "open_by_baseline": {
+      "unknown": [
+        "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
+        "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
+        "ISSUE-ESAA-ACTOR-HOTFIX-PACKAGE-MISSING-001",
+        "ISSUE-ESAA-ACTOR-PACKAGING-BOUNDARY-001",
+        "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
+        "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
+        "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
+        "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001",
+        "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001"
+      ]
+    }
   }
 }

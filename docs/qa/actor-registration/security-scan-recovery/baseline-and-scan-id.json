@@ -1,0 +1,8 @@
+{
+  "scanId": "cfe966df-2ad4-4d14-9f2d-c7354bf49a6d",
+  "snapshot": "codex-security-snapshot/v1:sha256:a690f5e6a2756e17aafe71aa1ac2feed4e36b13528012d19bd187777445b1d2b",
+  "head": "6122d59b13569976d5537399c7ded532efa75cb4",
+  "baseline_seq": 921,
+  "registration_seq": 924,
+  "claim_seq": 927
+}

@@ -28,6 +28,8 @@ roles:
       - verify.start
       - verify.ok
       - verify.fail
+      - verification.configure
+      - verification.run
       - runner.metrics  # FIX-1812 — external runner telemetry
       - plugin.install
       - plugin.remove

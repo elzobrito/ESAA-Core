@@ -14,7 +14,8 @@ from .state_machine import (
     classify_transition,
 )
 from .utils import sha256_hex, utc_now_iso
-from .validator import validate_g07_review_mode, validate_g07_task_create_payload
+from .validator import validate_g07_review_mode, validate_g07_task_create_payload, validate_boundary_grant
+from .boundary_paths import validate_hotfix_scope_entries
 
 
 def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
@@ -39,10 +40,17 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
             if field in payload:
                 task[field] = deepcopy(payload[field])
     if payload.get("boundary_grant"):
-        task["boundary_grant"] = deepcopy(payload["boundary_grant"])
+        task["boundary_grant"] = validate_boundary_grant(payload["boundary_grant"])
     for field in ("task_type", "acceptance_criteria", "required_review_mode", "supersedes"):
         if field in payload:
             task[field] = deepcopy(payload[field])
+    if payload.get("is_hotfix"):
+        task["scope_patch"] = validate_hotfix_scope_entries(task.get("scope_patch", []))
+    if "executable_checks" in payload:
+        ids = payload["executable_checks"]
+        if not isinstance(ids, list) or not ids or any(not isinstance(i, str) or not i for i in ids):
+            raise ESAAError("VERIFICATION_CONFIG_INVALID", "invalid executable check IDs")
+        task["executable_checks"] = sorted(set(ids))
     if payload.get("plugin"):
         task["plugin"] = deepcopy(payload["plugin"])
     return task
@@ -108,6 +116,21 @@ def _apply_task_amend(state: dict[str, Any], payload: dict[str, Any]) -> None:
     task = _task_by_id(state, task_id)
     if task["status"] != "todo":
         raise ESAAError("INVALID_TRANSITION", f"task.amend only allowed for todo tasks: {task_id}")
+    if "executable_checks" in payload:
+        ids = payload["executable_checks"]
+        if not isinstance(ids, list) or not ids or any(not isinstance(i, str) or not i for i in ids):
+            raise ESAAError("VERIFICATION_CONFIG_INVALID", "invalid executable check IDs")
+        task["executable_checks"] = sorted(set(ids))
+    if "boundary_grant" in payload:
+        grants = validate_boundary_grant(payload["boundary_grant"])
+        if grants:
+            task["boundary_grant"] = grants
+        else:
+            task.pop("boundary_grant", None)
+    if "scope_patch" in payload:
+        if not task.get("is_hotfix"):
+            raise ESAAError("INVALID_ARGUMENT", "scope_patch amendment requires a hotfix")
+        task["scope_patch"] = validate_hotfix_scope_entries(payload["scope_patch"])
     if "description" in payload and isinstance(payload["description"], str):
         description = payload["description"].strip()
         if description:
@@ -328,8 +351,12 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         "output.rejected",
         "orchestrator.file.write",
         "runner.metrics",
+        "verification.configure",
+        "verification.run",
         "project.profile.set",
         "chain.anchor",
+        "actor.bootstrap",
+        "actor.register",
         "verify.start",
         "plugin.install",
         "plugin.remove",

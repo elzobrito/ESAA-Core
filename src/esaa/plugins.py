@@ -286,6 +286,18 @@ def validate_plugin_dir(plugin_dir: Path, repo_root: Path | None = None) -> dict
                     "PLUGIN_ROADMAP_INVALID", f"tasks[{idx}].outputs.files[{out_idx}] must be a string"
                 )
             _validate_output_path(output_path, f"tasks[{idx}].outputs.files[{out_idx}]")
+        boundary_grant = task.get("boundary_grant", [])
+        if not isinstance(boundary_grant, list):
+            raise ESAAError(
+                "PLUGIN_ROADMAP_INVALID", f"tasks[{idx}].boundary_grant must be an array"
+            )
+        for grant_idx, pattern in enumerate(boundary_grant):
+            if not isinstance(pattern, str):
+                raise ESAAError(
+                    "PLUGIN_ROADMAP_INVALID",
+                    f"tasks[{idx}].boundary_grant[{grant_idx}] must be a string",
+                )
+            _validate_glob_pattern(pattern, f"tasks[{idx}].boundary_grant[{grant_idx}]")
         external_files = outputs.get("external_files", [])
         if external_files:
             if not isinstance(external_files, list):
@@ -705,6 +717,13 @@ def _tasks_for_roadmap_entry(
                 "local_task_id": local_task_id,
             },
         }
+        if raw_task.get("boundary_grant"):
+            task["boundary_grant"] = [
+                _validate_glob_pattern(
+                    pattern, f"tasks[{local_task_id}].boundary_grant[{index}]"
+                )
+                for index, pattern in enumerate(raw_task["boundary_grant"])
+            ]
         tasks.append(task)
     return tasks
 

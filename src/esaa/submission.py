@@ -26,6 +26,7 @@ from .store import (
     parse_event_store,
 )
 from .utils import normalize_rel_path
+from .verification_gate import validate_evidence
 from .validator import (
     validate_agent_output,
     validate_file_update_resource_limits,
@@ -90,6 +91,7 @@ class SubmissionMixin:
             self,
             base_events: list[dict[str, Any]],
             new_events: list[dict[str, Any]],
+            precommit: Any = None, postcommit: Any = None,
         ) -> dict[str, Any]: ...
 
     def _submit_command(
@@ -98,9 +100,10 @@ class SubmissionMixin:
         actor: str,
         task_id: str,
         dry_run: bool,
+        authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
-        result = self.submit(output, actor=actor, dry_run=dry_run)
+        result = self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization)
 
         if not dry_run:
 
@@ -108,7 +111,13 @@ class SubmissionMixin:
 
         return result
 
-    def submit(self, agent_output: dict[str, Any], actor: str, dry_run: bool = False) -> dict[str, Any]:
+    def submit(
+        self,
+        agent_output: dict[str, Any],
+        actor: str,
+        dry_run: bool = False,
+        authorization: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         events = parse_event_store(self.root)
 
@@ -165,28 +174,26 @@ class SubmissionMixin:
 
         try:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
+            validate_evidence(self.root, events, actor, agent_output)
             file_updates = _normalize_file_updates(self.root, file_updates)
             validate_file_update_resource_limits(file_updates, policy)
             file_updates = resolve_external_file_updates(self.root, task, file_updates)
             validate_resolved_file_boundaries(file_updates, contract, task)
-            # FIX-1807: review_authorization=qa_role -> resolve role e injeta _reviewer_role no payload
+            # FIX-1807 + identity contract: review authorization before effects.
             if validated_event["action"] == "review":
-                from .runtime_policy import resolve_role, review_authorization_mode
+                from .identity import authorize_review_event
 
-                mode = review_authorization_mode(policy)
-
-                role = resolve_role(actor, root=self.root)
-
-                if mode == "qa_role":
-
-                    if role not in {"qa", "orchestrator"}:
-
-                        raise ESAAError(
-                            "REVIEW_ROLE_VIOLATION",
-                            f"actor {actor} role={role} not authorized to review (qa_role mode)",
-                        )
-
-                    validated_event["_reviewer_role"] = role
+                validated_event.update(
+                    authorize_review_event(
+                        root=self.root,
+                        events=events,
+                        actor=actor,
+                        task=task,
+                        decision=str(validated_event.get("decision") or ""),
+                        authorization=authorization,
+                        policy=policy,
+                    )
+                )
 
             agent_event = make_event(
                 current_seq, actor=actor, action=validated_event["action"], payload=validated_event
@@ -244,6 +251,8 @@ class SubmissionMixin:
 
         new_events.append(verify_start)
 
+        from .identity_history import validate_identity_history
+        validate_identity_history(self.root, all_events)
         final_roadmap, final_issues, final_lessons = materialize(all_events)
 
         if all_tasks_done(final_roadmap["tasks"]) and final_roadmap["meta"]["run"]["status"] != "success":
@@ -276,8 +285,8 @@ class SubmissionMixin:
 
         if not dry_run:
             try:
-                self._append_events_transactionally(events, new_events)
-                commit_staged(self.root, staged_file_effects)
+                self._append_events_transactionally(events, new_events,
+                    postcommit=lambda: commit_staged(self.root, staged_file_effects))
             except Exception:
                 discard_staged(staged_file_effects)
                 raise
@@ -396,6 +405,7 @@ class SubmissionMixin:
     ) -> int:
         current_seq = next_event_seq(events + new_events)
         activity_event, file_updates = validate_agent_output(output, schema, contract, task)
+        validate_evidence(self.root, events + new_events, self.adapter.agent_id, output)
         file_updates = _normalize_file_updates(self.root, file_updates)
         validate_file_update_resource_limits(file_updates, self._policy())
         file_updates = resolve_external_file_updates(self.root, task, file_updates)
@@ -413,6 +423,9 @@ class SubmissionMixin:
                 "targets": list(task.get("targets", [])),
                 "outputs": task.get("outputs", {"files": []}),
             }
+            if task.get("executable_checks"):
+                from .verification_config import validate_check_ids
+                task_payload["executable_checks"] = validate_check_ids(task["executable_checks"], events + new_events)
             candidate_events.append(
                 make_event(current_seq, actor="orchestrator", action="task.create", payload=task_payload)
             )
@@ -421,6 +434,8 @@ class SubmissionMixin:
             current_seq, actor=self.adapter.agent_id, action=activity_event["action"], payload=activity_event
         )
         candidate_events.append(agent_event)
+        from .identity_history import validate_identity_history
+        validate_identity_history(self.root, events + new_events + candidate_events)
         _ = materialize(events + new_events + candidate_events)
 
         files_written = 0

@@ -71,6 +71,39 @@ def test_activate_roadmap_exposes_namespaced_tasks(tmp_path: Path, repo_root: Pa
     assert all(":" not in task["task_id"] for task in seed["tasks"])
 
 
+def test_activate_roadmap_preserves_validated_task_boundary_grant(
+    tmp_path: Path, repo_root: Path
+) -> None:
+    plugin_dir = tmp_path / "sso-client"
+    scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
+    roadmap_path = plugin_dir / "roadmap.template.json"
+    roadmap = json.loads(roadmap_path.read_text(encoding="utf-8"))
+    roadmap["tasks"][0]["boundary_grant"] = ["artifacts/**/pedido_docente.yaml"]
+    roadmap_path.write_text(json.dumps(roadmap), encoding="utf-8")
+
+    install_plugin(tmp_path, "./sso-client", repo_root=repo_root)
+    activate_roadmap(tmp_path, "sso-client", execution_id="lesson", repo_root=repo_root)
+
+    seed = load_active_roadmap_tasks(tmp_path, repo_root=repo_root)
+    assert seed is not None
+    first = seed["tasks"][0]
+    assert first["boundary_grant"] == ["artifacts/**/pedido_docente.yaml"]
+
+
+def test_plugin_rejects_dangerous_task_boundary_grant(tmp_path: Path, repo_root: Path) -> None:
+    plugin_dir = tmp_path / "sso-client"
+    scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
+    roadmap_path = plugin_dir / "roadmap.template.json"
+    roadmap = json.loads(roadmap_path.read_text(encoding="utf-8"))
+    roadmap["tasks"][0]["boundary_grant"] = ["**"]
+    roadmap_path.write_text(json.dumps(roadmap), encoding="utf-8")
+
+    with pytest.raises(ESAAError) as exc:
+        validate_plugin(tmp_path, "./sso-client", repo_root=repo_root)
+
+    assert exc.value.code == "PLUGIN_SCHEMA_INVALID"
+
+
 def test_remove_plugin_removes_active_roadmaps(tmp_path: Path, repo_root: Path) -> None:
     scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
     install_plugin(tmp_path, "./sso-client", repo_root=repo_root)

@@ -15,6 +15,7 @@ authors = [
 dependencies = [
   "PyYAML>=6.0",
   "jsonschema>=4.22.0",
+  "cryptography>=42.0.0",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

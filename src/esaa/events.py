@@ -6,6 +6,7 @@ from typing import Any
 from .boundary_paths import validate_hotfix_scope_entries
 from .constants import SCHEMA_VERSION
 from .errors import ESAAError
+from .validator import validate_boundary_grant
 from .projector import materialize
 from .provenance import resolve_runner
 from .store import next_event_seq
@@ -155,7 +156,9 @@ def build_hotfix_event(
             "description": f"Apply a minimal hotfix to resolve issue {issue_id} without regressing immutable done tasks.",
             "depends_on": [],
             "targets": [issue_id],
-            "outputs": {"files": [f"src/hotfix/{hotfix_task_id}.txt"]},
+            "outputs": issue_payload.get("outputs", {"files": [f"src/hotfix/{hotfix_task_id}.txt"]}),
+            **({"boundary_grant": validate_boundary_grant(issue_payload["boundary_grant"])} if "boundary_grant" in issue_payload else {}),
+            **({"executable_checks": issue_payload["executable_checks"]} if "executable_checks" in issue_payload else {}),
             "is_hotfix": True,
             "issue_id": issue_id,
             "fixes": fixes,

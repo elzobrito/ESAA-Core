@@ -275,7 +275,13 @@
           "format": "date-time"
         },
         "verification": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "execution_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         },
         "acceptance_criteria": {
           "$comment": "G07: ordered human-verifiable acceptance criteria; stable references use AC[0], AC[1], ...",
@@ -354,6 +360,15 @@
         "baseline_id": {
           "type": "string",
           "minLength": 1
+        },
+        "executable_checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       },
       "allOf": [

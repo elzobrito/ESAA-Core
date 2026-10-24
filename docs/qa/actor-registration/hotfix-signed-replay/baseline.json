@@ -1,0 +1,13 @@
+{
+  "task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
+  "issue": "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
+  "head": "6122d59b13569976d5537399c7ded532efa75cb4",
+  "dirty": true,
+  "version": "0.5.0b19",
+  "baseline_seq": 879,
+  "code_publication_seqs": [
+    910,
+    914
+  ],
+  "identity_real_active": false
+}

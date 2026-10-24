@@ -34,6 +34,8 @@ vocabulary:
     - verify.start
     - verify.ok
     - verify.fail
+    - verification.configure
+    - verification.run
     - runner.metrics  # FIX-1812 — external runner telemetry (Claude Code, Codex, etc.)
     - plugin.install
     - plugin.remove

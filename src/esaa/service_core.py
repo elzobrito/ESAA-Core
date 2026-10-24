@@ -33,11 +33,9 @@ from .store import (
     save_roadmap,
 )
 
-
 def _projection_hash(events: list[dict[str, Any]]) -> str:
     roadmap, _, _ = materialize(events)
     return roadmap["meta"]["run"]["projection_hash_sha256"]
-
 
 def _duration_seconds(value: Any, default: float) -> float:
     if value is None:
@@ -46,7 +44,6 @@ def _duration_seconds(value: Any, default: float) -> float:
         return float(value)
     parsed = parse_duration(str(value)).total_seconds()
     return parsed if parsed > 0 else default
-
 
 def _concurrency_policy(policy: dict[str, Any]) -> dict[str, float | int]:
     data = policy.get("concurrency", {}) if isinstance(policy.get("concurrency", {}), dict) else {}
@@ -289,6 +286,7 @@ class ESAAServiceCore:
         self,
         base_events: list[dict[str, Any]],
         new_events: list[dict[str, Any]],
+        precommit=None, postcommit=None,
     ) -> dict[str, Any]:
         expected_first_seq = next_event_seq(base_events)
         expected_hash = _projection_hash(base_events)
@@ -296,8 +294,9 @@ class ESAAServiceCore:
         max_retries = int(concurrency["submit_retries"])
         retry_backoff = float(concurrency["retry_backoff"])
         lock_max_age = float(concurrency["lock_max_age"])
-
         def build_events(current_events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            if precommit is not None:
+                precommit(current_events)
             current_first_seq = next_event_seq(current_events)
             adjusted: list[dict[str, Any]] = []
             for offset, event in enumerate(new_events):
@@ -306,8 +305,9 @@ class ESAAServiceCore:
                 adjusted_event["event_seq"] = expected_seq
                 adjusted_event["event_id"] = f"EV-{expected_seq:08d}"
                 adjusted.append(adjusted_event)
+            from .verification_gate import validate_pending
+            validate_pending(self.root, current_events, adjusted)
             return adjusted
-
         attempt = 0
         while True:
             try:
@@ -317,6 +317,7 @@ class ESAAServiceCore:
                     expected_first_seq=expected_first_seq if attempt == 0 else None,
                     expected_projection_hash=expected_hash if attempt == 0 else None,
                     lock_max_age=lock_max_age,
+                    after_append=postcommit,
                 )
             except ESAAError as exc:
                 if exc.code not in {"STALE_STATE_SEQ", "STALE_STATE_HASH"} or attempt >= max_retries:
@@ -327,7 +328,6 @@ class ESAAServiceCore:
                 attempt += 1
                 if sleep_for > 0:
                     time.sleep(sleep_for)
-
     def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None:
         schema_path = self.root / ".roadmap" / "roadmap.schema.json"
         if not schema_path.exists():
@@ -363,7 +363,7 @@ class ESAAServiceCore:
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 
     def _commit_orchestrator_events(
-        self, candidate_events: list[dict[str, Any]], dry_run: bool = False
+        self, candidate_events: list[dict[str, Any]], dry_run: bool = False, precommit=None, postcommit=None
     ) -> dict[str, Any]:
 
         if not candidate_events:
@@ -382,10 +382,10 @@ class ESAAServiceCore:
 
         all_events = events + new_events
 
+        from .identity_history import validate_identity_history
+        validate_identity_history(self.root, all_events)
         final_roadmap, final_issues, final_lessons = materialize(all_events)
-
         if all_tasks_done(final_roadmap["tasks"]) and final_roadmap["meta"]["run"]["status"] != "success":
-
             run_end = make_event(
                 next_event_seq(all_events),
                 actor="orchestrator",
@@ -423,7 +423,7 @@ class ESAAServiceCore:
         final_roadmap, final_issues, final_lessons = materialize(all_events)
 
         if not dry_run:
-            self._append_events_transactionally(events, new_events)
+            self._append_events_transactionally(events, new_events, precommit=precommit, postcommit=postcommit)
 
         first = candidate_events[0]
 

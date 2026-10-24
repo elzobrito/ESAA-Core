@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 835,
-      "projection_hash_sha256": "a78d22afd09b64ec364b697f5df716a09c3d162262333072f3d39f9f1e8115d4",
+      "last_event_seq": 1204,
+      "projection_hash_sha256": "ca3856c7bc7f4a3e01b902980c95584ca7dcfaed16f22de3da1ac0cc43352567",
       "verify_status": "ok"
     },
-    "updated_at": "2026-09-06T01:14:39Z"
+    "updated_at": "2026-10-24T13:53:56Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2080,16 +2080,829 @@
         ]
       },
       "completed_at": "2026-09-06T01:14:39Z"
+    },
+    {
+      "task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
+      "task_kind": "impl",
+      "title": "Disponibilizar cadastro oficial, determinístico e auditável de atores e papéis de governança",
+      "description": "Abertura autorizada expressamente pelo operador Elzo Brito em 2026-10-02. Natureza: hotfix de infraestrutura; revisão requerida: governança. O schema ativo não reconhece task_type, required_review_mode ou acceptance_criteria; equivalência semântica preservada nesta descrição, sem migração manual. ESAA instalado 0.5.0b19 não dispõe de cadastro oficial de atores. Escopo restrito a identidades e autorizações nos contratos atuais, não um sistema completo de usuários. Critérios obrigatórios: (1) operação oficial de cadastro exclusivamente pelo Orchestrator, sem edição direta do event store, registry ou projeções; (2) identidade explícita e única com papel e escopo de autorização, sem autorização apenas por prefixo; (3) evidência da autoridade responsável, sem autocadastro ou autoelevação de agentes a revisores; (4) evento auditável conforme protocolo vigente com proveniência e integridade; (5) reconstrução determinística do registry por replay; (6) rejeição de atores inexistentes, duplicidades incompatíveis e tentativas de autorrevisão, sem confundir novo ID com independência efetiva; (7) compatibilidade testada com tarefas/eventos históricos sem reescrita retroativa; (8) testes de autorização, integridade e regressão com esaa verify PASS. Bootstrap obrigatório: autoridade de governança previamente estabelecida, documentada e comprovada; primeiro cadastro não depende de segundo QA inexistente e nunca concede autoridade ao próprio executor avaliado. Sequência: implementação, regressão, revisão autorizada, verify PASS, disponibilização de versão corrigida em fluxo próprio; depois cadastro de segundo QA, comprovação de independência efetiva e review da tarefa TCG existente. Referências externas, não IDs locais de depends_on: TCG-MDSTUDIO-POST051-CHANGE-IMPACT-EVAL-001 em review, verdict NO-GO e verify PASS seq 1423; ISSUE-TCG-MDSTUDIO-POST051-QA-REGISTRATION-001 e ISSUE-TCG-MDSTUDIO-POST051-INDEPENDENT-REVIEW-001. Proibido reabrir/substituir tarefa TCG, alterar código TCG/MD Studio, thresholds, oracle ou resultados históricos. Este registro não cadastra ator, não concede privilégios e não inicia implementação.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/",
+        "tests/"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/",
+          "tests/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-02T14:18:30Z",
+      "verification": {
+        "checks": [
+          "pytest -q: 433 passed (actor registry, negative auth, historical qa_role compatibility, service module line cap)",
+          "esaa verify: ok last_event_seq 844 projection 333f069d16cded2ee6c28b772459ded9a4bc5c0466b7e9a6e01b2f26507c3444",
+          "actor show: identity_contract inactive; live governance-anchor.json absent; no owner private key generated",
+          "negative cases: ACTOR_NOT_REGISTERED AUTH_SIGNATURE_INVALID AUTH_REPLAY ANCHOR_MISMATCH SELF_REVIEW_FORBIDDEN ORCHESTRATOR_IMPERSONATION ACTOR_DUPLICATE ACTOR_SELF_ELEVATION ACTOR_BOOTSTRAP_EXISTS ACTOR_BOOTSTRAP_REQUIRED; dry-run review requires signed auth"
+        ]
+      },
+      "completed_at": "2026-10-15T12:39:51Z"
+    },
+    {
+      "task_id": "ESAA-CORE-ACTOR-PREACTIVATION-REVIEW-001",
+      "task_kind": "qa",
+      "title": "Publicar revisão técnica pré-ativação do cadastro de atores",
+      "description": "Autorizado pelo proprietário em 2026-10-02: pacote de revisão da ESAA-CORE-ACTOR-REGISTRATION-001 atualmente em review. Boundary exclusivo docs/qa/actor-registration/preactivation/**. Publicar diff exato e hashes, evidências dos 433 testes e quatro reproduções em fixtures, contrato e comandos reais, análise qa_role versus identidade, parecer da instância /root/preactivation_review separada do executor e limitações: mesmo runner codex, sem autenticação criptográfica real nem independência humana comprovada. Não corrigir implementação, gerar chave definitiva, fazer bootstrap, alterar TCG ou aprovar automaticamente. Modo semântico security/governance preservado na descrição pois schema ativo antigo não aceita campos auxiliares. Publicação de evidências não significa aceite de implementação. Revisor administrativo autorizado distinto do claimant necessário para encerrar esta publicação.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/qa/actor-registration/preactivation/"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/actor-registration/preactivation/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-02T23:17:56Z",
+      "verification": {
+        "checks": [
+          "Full regression executed: 433 passed in 27.20s, pytest cache disabled, no downloads",
+          "Separate evaluator /root/preactivation_review: 16 actor tests passed; 4 disposable adversarial reproductions passed, technical request_changes",
+          "Implementation hashes unchanged; identity_contract inactive; no definitive credentials or real bootstrap; no TCG changes"
+        ]
+      },
+      "completed_at": "2026-10-15T12:39:52Z"
+    },
+    {
+      "task_id": "ESAA-CORE-ACTOR-PACKAGING-001",
+      "task_kind": "impl",
+      "title": "Regularizar cryptography no pacote distribuído e validar instalação limpa",
+      "description": "Pendência separada autorizada pelo proprietário em 2026-10-02; não ampliar retroativamente ESAA-CORE-ACTOR-REGISTRATION-001. pyproject.toml já contém alteração dirty cryptography>=42.0.0 fora do footprint original. Preservar bytes existentes; reconciliar por tarefa própria antes de qualquer publicação. Escopo proposto pyproject.toml, testes de instalação e docs/qa/actor-registration/packaging/**. Critérios: dependência distribuída cryptography>=42.0.0; construção wheel/sdist; instalação em ambiente limpo sem dependência implícita; smoke import CLI actor; regressão completa; revisão independente e verify PASS. Boundary impl vigente permite somente src/** e tests/**; portanto NÃO claim/editar manifesto até concessão oficial de boundary apropriado compatível com schema ativo. Não bootstrap nem chave definitiva nem TCG. Não executar implementação nesta sessão; registro da pendência apenas. Resolver segurança da revisão pré-ativação separadamente antes de ativar.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [
+        "pyproject.toml",
+        "tests/",
+        "docs/qa/actor-registration/packaging/"
+      ],
+      "outputs": {
+        "files": [
+          "pyproject.toml",
+          "docs/qa/actor-registration/packaging/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
+      "task_kind": "impl",
+      "title": "Validar criptograficamente eventos em replay e verify",
+      "description": "Issue vinculada ISSUE-ESAA-ACTOR-REPLAY-AUTH-001; contexto ESAA-CORE-ACTOR-REGISTRATION-001 em review, não depends_on done. Contrato do proprietário 2026-10-02: hotfix integridade/autenticação, revisão segurança/governança por avaliador distinto; metadata não suportada pelo schema antigo preservada aqui. Validar Ed25519 com algoritmo existente e envelope canônico único, scope/operação/ator/projeto/nonce/signer/epoch em parse/verify/replay/project e escrita/dry-run; assinatura presente inválida jamais legacy; assinatura obrigatória após bootstrap, legado legítimo anterior preservado, erros estáveis explícitos para trust/ambiente/versionamento. Não reescrever eventos; fixtures com chaves descartáveis. Tests-first reprodução anterior, cadeia recalculada válida com assinatura inválida, bitflip/signer/projeto/operação/escopo/nonce/tipo/epoch ausente desconhecido, replay determinístico, suíte integral e revisão independente. Boundary src/esaa/identity.py, novo src/esaa/identity_history.py, src/esaa/store.py, src/esaa/actor_admin.py, src/esaa/reject_codes.py, tests/test_signed_replay.py; publicar evidências via tarefa QA separada em docs/qa/actor-registration/hotfix-signed-replay/. Trust externo/rollback 002 e principal/claim 003 fora do escopo. Não bootstrap real, chaves definitivas, TCG nem alterar preactivation histórico.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/identity.py",
+        "src/esaa/identity_history.py",
+        "src/esaa/store.py",
+        "src/esaa/actor_admin.py",
+        "src/esaa/reject_codes.py",
+        "tests/test_signed_replay.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/identity.py",
+          "src/esaa/identity_history.py",
+          "src/esaa/store.py",
+          "src/esaa/actor_admin.py",
+          "src/esaa/reject_codes.py",
+          "tests/test_signed_replay.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-02T23:58:05Z",
+      "verification": {
+        "checks": [
+          "Scratch full suite: 477 passed in 34.00s, 44 new plus 433 existing; historical hashes preserved",
+          "Canonical signature gate in parser and both append paths; chain recomputed attack rejected; legacy valid and deterministic replay pass",
+          "Technical independent request_changes normalization point corrected with regressions, approval after correction still pending; not READY"
+        ]
+      },
+      "issue_id": "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
+      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001",
+      "completed_at": "2026-10-15T12:39:53Z"
+    },
+    {
+      "task_id": "ESAA-HF-ACTOR-TRUST-ROLLBACK-002",
+      "task_kind": "impl",
+      "title": "Proteger trust root externo e detectar rollback",
+      "description": "Issue vinculada ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001. Contrato proprietário 2026-10-02: depends_on 001 done obrigatório antes de claim. Pin público project_id/epoch/autoridade e checkpoint monotônico seq/hash fora do domínio agente/projeto; não autoenrollment de bytes locais. Verify/replay/operações/dry-run rejeitam troca conjunta anchor/histórico com chain recalculada, rollback prébootstrap, perdas/config downgrade e divergências seq/hash/project. Ordem append/checkpoint, crash recovery fail-closed e recuperação/import autorizado do owner explicitados e testados, keys só fixtures; ambient trust real ausente => BLOCKED_ENVIRONMENT ativação. Boundary a detalhar oficialmente antes de claim após inspeção e 001 done, coordenar módulos compartilhados. Evidência QA docs/qa/actor-registration/hotfix-trust-rollback/; review distinto segurança/governance conforme schema. Não IAM amplo, bootstrap/chaves definitivas, packaging, TCG ou provas antigas.",
+      "status": "todo",
+      "depends_on": [
+        "ESAA-HF-ACTOR-SIGNED-REPLAY-001"
+      ],
+      "targets": [
+        "src/esaa/",
+        "tests/"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/",
+          "tests/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003",
+      "task_kind": "impl",
+      "title": "Vincular governança ao principal canônico e rejeitar alias self-review",
+      "description": "Issue vinculada ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001; base implementação registration 001 em review, sem dependência funcional 002. Contrato proprietário 2026-10-02: principal estável provado por credencial autorizada e aliases explicitamente vinculados, não actor/runner/prefixo/PID/env/key autopublicada. Metadados canônicos versionados claim/complete/review, completer mesmo principal claimant, reviewer principal comprovadamente distinto de claimant e completer. Legado sem mapeamento inequívoco => bloquear review ou adjudicação legítima sem retroeditar. Ativo exige credencial válida/role/scope/project/actor/alias, reserva orchestrator, nenhum fallback qa_role. Enforcement Orchestrator/CLI/dryrun/APIs/replay. Testes ataque A aliases X/Y/Z, B completar A negado, alias legítimo de A pode completar, QA distinto legítimo aceita, aliases órfãos/credencial compartilhada/IDs duplicados/foreign project/orchestrator/assinatura inválida/replay determinismo + regressão. Boundary resolver auth/transições src/esaa/ tests/ a detalhar e coordenar antes de claim; evidence QA docs/qa/actor-registration/hotfix-canonical-identity/. Revisão independente obrigatória. Trust externo 002, signed replay 001, packaging excluídos. Sem bootstrap vivo/chaves reais/TCG.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/",
+        "tests/"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/",
+          "tests/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "ESAA-QA-ACTOR-PREACTIVATION-004",
+      "task_kind": "qa",
+      "title": "Regressão integrada e novo gate pré-ativação",
+      "description": "Contrato proprietário 2026-10-02: claim SOMENTE após três hotfixes e packaging done reais. Congelar patch, arquivos inclusive removidos, hashes anteriores protegidos, versões/Python/cryptography/CLI/Git dirty; baseline quatro ataques/433 testes são históricos, medir regressão atual e pacote wheel/sdist clean install. Matriz integral assinatura/epoch/chain recalculada/signer/projeto/nonce/scope; trust externo/checkpoint/substituição conjunta/rollback/crashes/recovery; principal canônico alias/orchestrator/escalada/QA distinto/dryrun; legacy válido, replay determinístico. Auditor independente dos implementadores/autoria testes/oracles com identidade/papel evidenciado, não alias ou qa_role como prova científica. Retomar scan existente cfe966df-2ad4-4d14-9f2d-c7354bf49a6d pelo skill sem alterar permissões amplamente ou criar substituto; bloqueio => BLOCKED_EVIDENCE/cobertura faltante, não READY. Verdict READY_FOR_OWNER_BOOTSTRAP somente todos gates comprovados, senão NO-GO_SECURITY/BLOCKED_EVIDENCE e issues. Evidências obrigatórias docs/qa/actor-registration/preactivation-v2/: README/input-manifest/inventory/attacker-model/negative-regression/legacy-compatibility/full-test-run/packaging-check/scan-status/independent-review/activation-readiness/protected-hashes/reproduction/hashes. Complete/review/done legítimos separados de ativação. Não editar códigos hotfix nessa QA, store/projeções, baseline histórico nem TCG; não chaves definitivas/bootstrap real.",
+      "status": "todo",
+      "depends_on": [
+        "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
+        "ESAA-HF-ACTOR-TRUST-ROLLBACK-002",
+        "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003",
+        "ESAA-CORE-ACTOR-PACKAGING-001"
+      ],
+      "targets": [
+        "docs/qa/actor-registration/preactivation-v2/"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/actor-registration/preactivation-v2/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-CALLERS-001",
+      "task_kind": "impl",
+      "title": "Integrar gate assinado nos callers e dry-run antes dos efeitos",
+      "description": "Integração auxiliar estritamente necessária ao contrato ESAA-HF-ACTOR-SIGNED-REPLAY-001; declarada após investigação de callers, sem edição prévia dos arquivos deste boundary. Issue base ISSUE-ESAA-ACTOR-REPLAY-AUTH-001. Boundary somente src/esaa/service_core.py e src/esaa/submission.py. Usar validate_identity_history do candidato 001 antes de materialize/candidate effects, na escrita, dry-run e _accept_agent_output. Signed replay 001 não pode ser aprovada sem esta integração publicada e validada. Nenhuma mudança de trust externo/principal/TCG/bootstrap/chaves reais. Revisão técnica por instância distinta, governança administrativa atual honesta. Publicação QA conjunta com 001, teste negativo APIs internas e dry-run, suíte completa e verify.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "src/esaa/service_core.py",
+        "src/esaa/submission.py"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/service_core.py",
+          "src/esaa/submission.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-03T00:06:53Z",
+      "verification": {
+        "checks": [
+          "Scratch integrated suite: 477 passed in 34.00s; line cap preserved",
+          "Internal caller, submission, dry-run broadened scope and forged registry event reject before effects",
+          "Independent technical review recorded, no independent administrative approval fabricated"
+        ]
+      },
+      "completed_at": "2026-10-15T12:39:53Z"
+    },
+    {
+      "task_id": "ESAA-SIGNED-REPLAY-EVIDENCE-001",
+      "task_kind": "qa",
+      "title": "Publicar evidências do hotfix de replay assinado",
+      "description": "Publicação auxiliar autorizada no contrato ESAA-HF-ACTOR-SIGNED-REPLAY-001 por boundary QA separado. Somente docs/qa/actor-registration/hotfix-signed-replay/; baseline/exploit antes-depois/version-policy/verification-matrix/regression/hashes/review-checklist/README. Não modifica código ou histórico; não significa aprovação do hotfix. Parecer independente e gaps honestos, incluindo callers registrados em tarefa separada. Reviewer legítimo distinto do claimant.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/qa/actor-registration/hotfix-signed-replay/"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/actor-registration/hotfix-signed-replay/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-03T00:13:35Z",
+      "verification": {
+        "checks": [
+          "477 testes reais PASS em 33.90s",
+          "9 hashes históricos before/after iguais",
+          "Código publicado via Orchestrator seq 910/914, verify ok",
+          "Witnesses e gaps preservados, reviewer request_changes declarado"
+        ]
+      },
+      "completed_at": "2026-10-15T12:39:54Z"
+    },
+    {
+      "task_id": "ESAA-OPS-ACTOR-SCAN-RECOVERY-001",
+      "task_kind": "qa",
+      "title": "Diagnosticar e recuperar armazenamento do scan de segurança existente",
+      "description": "Contrato proprietário pós-correção: issue ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001; preservar scanId cfe966df-2ad4-4d14-9f2d-c7354bf49a6d e snapshot anterior, sem apresentar como cobertura atual. Boundary docs/qa/actor-registration/security-scan-recovery/ e diagnóstico somente leitura; configurações externas ou permissões exigem concessão oficial/operador. Preflight skill instalada, namei/stat, menor recuperação suportada autorizada, retomar mesmo scan; não substituir silenciosamente nem shell-author canonical scan. Publicar baseline, permissão, gaps, coverage e status BLOCKED_STORAGE se persistir. Revisão distinta; done diagnóstico somente se critérios administrativos legítimos. Não bootstrap, chave real, TCG, src ou .roadmap manual.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/qa/actor-registration/security-scan-recovery/"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/actor-registration/security-scan-recovery/"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-03T00:42:01Z",
+      "verification": {
+        "checks": [
+          "Helper ready3pass, scanId original e snapshot preservados",
+          "namei e save persistent reproduzem erro sem modificar permissões",
+          "Inventário completo modified+untracked com SHA256; git diff name-status sem deleted",
+          "Gaps explícitos e nenhuma cobertura managed current alegada"
+        ]
+      },
+      "completed_at": "2026-10-15T12:39:54Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-001",
+      "task_kind": "spec",
+      "title": "Baseline e fronteiras de integração",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Baseline e fronteiras de integração. Dependências: nenhuma. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/grok-gaps/baseline.md. Critérios de aceite: Inventariar e preservar alterações preexistentes; executar baseline; documentar plano e exclusões. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/grok-gaps/baseline.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-10-24T12:29:31Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:30:35Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-002",
+      "task_kind": "impl",
+      "title": "Hotfix com grants explícitos e metadados corrigíveis",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Hotfix com grants explícitos e metadados corrigíveis. Dependências: ESAA-GROK-20261024-001. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/task_admin.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/events.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/projector.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/cli.py, /home/elzobrito/desenvolvimento/ESAA-Core/tests/test_grok_hotfix.py. Critérios de aceite: Hotfix alcança arquivo na raiz somente com grant explícito; amend só em todo; limites e replay preservados. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-001"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/events.py",
+          "src/esaa/projector.py",
+          "src/esaa/cli.py",
+          "tests/test_grok_hotfix.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:30:37Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:37:25Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-003",
+      "task_kind": "impl",
+      "title": "Consultas somente leitura de tarefas e atividade",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Consultas somente leitura de tarefas e atividade. Dependências: ESAA-GROK-20261024-001. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/queries.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/cli.py, /home/elzobrito/desenvolvimento/ESAA-Core/tests/test_grok_queries.py. Critérios de aceite: Listar tarefas persistidas e planejadas com filtros/paginação; consultar eventos e ocultar verify sem escrita. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-001"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/queries.py",
+          "src/esaa/cli.py",
+          "tests/test_grok_queries.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:32:31Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:39:10Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-004",
+      "task_kind": "impl",
+      "title": "Contrato e ativação de verificação executável opcional",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Contrato e ativação de verificação executável opcional. Dependências: ESAA-GROK-20261024-001. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_config.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_service.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/templates/agent_result.schema.json, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/templates/roadmap.schema.json, /home/elzobrito/desenvolvimento/ESAA-Core/tests/test_verification_config.py. Critérios de aceite: Catálogo autorizado e ativação explícita com dry-run; protocolo 0.4.2 preserva replay 0.4.1 e identidade assinada. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-001"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/verification_config.py",
+          "src/esaa/verification_service.py",
+          "src/esaa/templates/agent_result.schema.json",
+          "src/esaa/templates/roadmap.schema.json",
+          "tests/test_verification_config.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:34:43Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:45:10Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-005",
+      "task_kind": "impl",
+      "title": "Executor Docker isolado e evidências vinculadas",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Executor Docker isolado e evidências vinculadas. Dependências: ESAA-GROK-20261024-004. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_executor.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_candidate.py, /home/elzobrito/desenvolvimento/ESAA-Core/tests/test_verification_executor.py. Critérios de aceite: Cópia candidata sem rede, credenciais ou mounts do projeto; limites/timeout/cancelamento/limpeza; resultados e hashes reais. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-004"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/verification_executor.py",
+          "src/esaa/verification_candidate.py",
+          "tests/test_verification_executor.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:45:11Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:51:36Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-006",
+      "task_kind": "impl",
+      "title": "Gate de complete e invalidação de evidências",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Gate de complete e invalidação de evidências. Dependências: ESAA-GROK-20261024-005. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/submission.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_gate.py, /home/elzobrito/desenvolvimento/ESAA-Core/tests/test_verification_gate.py. Critérios de aceite: Complete recusa evidência ausente/falha/adulterada/desatualizada; revalida no commit; não executa em replay/dry-run; legado funciona. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-005"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/submission.py",
+          "src/esaa/verification_gate.py",
+          "tests/test_verification_gate.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:51:38Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:57:46Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-007",
+      "task_kind": "spec",
+      "title": "Guias PT EN e fluxo Grok Antigravity",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: Guias PT EN e fluxo Grok Antigravity. Dependências: ESAA-GROK-20261024-002, ESAA-GROK-20261024-003, ESAA-GROK-20261024-006. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/guides/esaa-grok-antigravity.md, /home/elzobrito/desenvolvimento/ESAA-Core/docs/guides/esaa-grok-antigravity.en.md. Critérios de aceite: Corrigir hotfix nos guias PT/EN; documentar interfaces novas, operação, telemetria e limites de prova. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-002",
+        "ESAA-GROK-20261024-003",
+        "ESAA-GROK-20261024-006",
+        "ESAA-GROK-20261024-009"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-grok-antigravity.md",
+          "docs/guides/esaa-grok-antigravity.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-10-24T13:03:42Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T13:10:36Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-008",
+      "task_kind": "qa",
+      "title": "QA integrada e candidato de distribuição",
+      "description": "Workspace: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: plano aprovado para lacunas do Grok no ESAA 0.5.0b19; ler /home/elzobrito/desenvolvimento/ESAA-Core/AGENTS.md e contratos ativos, além dos módulos e testes pertinentes. Objetivo: QA integrada e candidato de distribuição. Dependências: ESAA-GROK-20261024-007. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/grok-gaps/final.md. Critérios de aceite: Suíte completa, revisor independente, Docker real e ciclo Tetris sintético; wheel/sdist e instalação limpa fora do checkout; sem publicar. Limites: preservar diff anterior e identidade/replay assinado; candidato em /tmp/esaa-grok-ng2vtrjq/candidate; efeitos finais só por file_updates. Excluir publicação, instalação global, Tetris original, redução de verify e grants herdados.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-007"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/grok-gaps/final.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-24T13:10:38Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T13:28:29Z"
+    },
+    {
+      "task_id": "ESAA-GROK-20261024-009",
+      "task_kind": "impl",
+      "title": "Normalizar estilo e validar qualidade dos módulos novos",
+      "description": "Workspace absoluto: /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: integração das lacunas Grok; a inspeção Ruff dos módulos criados encontrou 128 problemas de estilo/imports. Dependência: ESAA-GROK-20261024-006. Saídas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/verification_*.py, queries.py, task_amend.py e testes novos correspondentes. Executar Ruff fix seguro e format exclusivamente nos arquivos novos deste trabalho, em candidato /tmp/esaa-grok-ng2vtrjq/candidate; preservar módulos e alterações anteriores de identidade. Aceite: Ruff zero erros nesses arquivos, formatação verificada e suíte pertinente passando. Efeitos finais via file_updates; sem instalação global, publicação, alteração de requisitos ou manipulação de projeções.",
+      "status": "done",
+      "depends_on": [
+        "ESAA-GROK-20261024-006",
+        "HF-ISS-ESAA-GROK-LEGACY-SCOPE"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/verification_gate.py",
+          "tests/test_verification_gate.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:59:31Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T13:03:40Z"
+    },
+    {
+      "task_id": "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-ESAA-GROK-LEGACY-SCOPE",
+      "description": "Apply a minimal hotfix to resolve issue ISS-ESAA-GROK-LEGACY-SCOPE without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-ESAA-GROK-LEGACY-SCOPE"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/boundary_paths.py",
+          "tests/test_grok_hotfix.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-ESAA-GROK-LEGACY-SCOPE",
+      "fixes": "ESAA-GROK-20261024-002",
+      "scope_patch": [
+        "src/esaa/boundary_paths.py",
+        "tests/test_grok_hotfix.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T12:57:39Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T12:59:29Z"
+    },
+    {
+      "task_id": "HF-ISS-ESAA-GROK-CHAIN-PROJECTION",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-ESAA-GROK-CHAIN-PROJECTION",
+      "description": "Apply a minimal hotfix to resolve issue ISS-ESAA-GROK-CHAIN-PROJECTION without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-ESAA-GROK-CHAIN-PROJECTION"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/store.py",
+          "tests/test_event_hash_chain.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-ESAA-GROK-CHAIN-PROJECTION",
+      "fixes": "ESAA-GROK-20261024-007",
+      "scope_patch": [
+        "src/esaa/store.py",
+        "tests/test_event_hash_chain.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T13:16:35Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T13:20:58Z"
+    },
+    {
+      "task_id": "HF-ISS-ESAA-GROK-POSITIONAL",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-ESAA-GROK-POSITIONAL",
+      "description": "Apply a minimal hotfix to resolve issue ISS-ESAA-GROK-POSITIONAL without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-ESAA-GROK-POSITIONAL"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/task_amend.py",
+          "tests/test_grok_hotfix.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-ESAA-GROK-POSITIONAL",
+      "fixes": "ESAA-GROK-20261024-002",
+      "scope_patch": [
+        "src/esaa/task_admin.py",
+        "src/esaa/task_amend.py",
+        "tests/test_grok_hotfix.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T13:20:57Z",
+      "verification": {
+        "checks": [
+          "Candidato validado pelos testes e evidências descritos em docs/qa/grok-gaps e no registro da execução.",
+          "Preservação do diff anterior e inspeção dos caminhos submetidos."
+        ]
+      },
+      "completed_at": "2026-10-24T13:23:50Z"
+    },
+    {
+      "task_id": "REL-0.5.0B20-PREP",
+      "task_kind": "impl",
+      "title": "Preparar release 0.5.0b20 e gates de qualidade",
+      "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Preparar release 0.5.0b20 e gates de qualidade. Dependências: tarefas Grok anteriores concluídas. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/constants.py, /home/elzobrito/desenvolvimento/ESAA-Core/src/esaa/service.py. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "src/esaa/service.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T13:30:39Z",
+      "verification": {
+        "checks": [
+          "Release candidate 0.5.0b20: 531 passed in 46.01s with ESAA_TEST_DOCKER=1; version tests plus service decomposition: 28 passed after import-only Black normalization.",
+          "CI lint scope ruff check and black --check passed for file_effects.py, service.py, constants.py; PyPI JSON latest b19 and b20 absent; git HEAD matches origin/main. Mypy advisory27 findings tracked for separate release maintenance."
+        ]
+      },
+      "completed_at": "2026-10-24T13:33:50Z"
+    },
+    {
+      "task_id": "REL-0.5.0B20-GUIDE",
+      "task_kind": "spec",
+      "title": "Documentar atualização Grok e Antigravity",
+      "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Documentar atualização Grok e Antigravity. Dependências: REL-0.5.0B20-PREP. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/guides/esaa-upgrade-0.5.0b20.md, /home/elzobrito/desenvolvimento/ESAA-Core/docs/guides/esaa-upgrade-0.5.0b20.en.md. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
+      "status": "done",
+      "depends_on": [
+        "REL-0.5.0B20-PREP",
+        "REL-0.5.0B20-TYPING"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-upgrade-0.5.0b20.md",
+          "docs/guides/esaa-upgrade-0.5.0b20.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-10-24T13:52:09Z",
+      "verification": {
+        "checks": [
+          "PT/EN upgrade guides cross-checked against esaa --version output, CLI help and esaa-grok-antigravity.md sections 1-7; links resolve to existing guides.",
+          "Covers commands, .roadmap backup, no-downgrade/migration limits and Grok runner flow; no token or credentials included."
+        ]
+      },
+      "completed_at": "2026-10-24T13:52:11Z"
+    },
+    {
+      "task_id": "REL-0.5.0B20-PUBLISH",
+      "task_kind": "qa",
+      "title": "Commit push e publicação PyPI autorizados",
+      "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Commit push e publicação PyPI autorizados. Dependências: REL-0.5.0B20-PREP, REL-0.5.0B20-GUIDE. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/publish.json. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
+      "status": "in_progress",
+      "depends_on": [
+        "REL-0.5.0B20-PREP",
+        "REL-0.5.0B20-GUIDE"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/releases/0.5.0b20/publish.json"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-24T13:53:56Z"
+    },
+    {
+      "task_id": "REL-0.5.0B20-INSTALL",
+      "task_kind": "qa",
+      "title": "Instalar release publicada e validar esta máquina",
+      "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Usuário autorizou commit/push, publicação PyPI com token em arquivo local e instalação da versão publicada nesta máquina; nunca exibir/copiar/commitar token. Contexto: ESAA-GROK-20261024-001..009 e três hotfixes done; 531 testes com Docker passam. Ler AGENTS.md, CONTRIBUTING.md, workflow CI e publicação, pyproject e guias pertinentes. Objetivo: Instalar release publicada e validar esta máquina. Dependências: REL-0.5.0B20-PUBLISH. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/install.json, /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/releases/0.5.0b20/final.md. Aceite: versão inédita 0.5.0b20, fonte única PACKAGE_VERSION, gates CI e testes reais; wheel e sdist verificáveis em instalação limpa; publicar somente bytes revisados e confirmar hashes no PyPI; instalar PyPI na CLI e Python locais já utilizados, verify em Core e home; texto PT/EN para Grok com comandos, backup e limites de migração. Para PUBLISH, evidenciar SHA Git remoto, CI, URL e hashes; para INSTALL, versão/import e smoke real sem PYTHONPATH. Preservar trabalho integrado de identidade necessário ao pacote e alterações alheias; não publicar token, não reescrever histórico nem editar projeções. Efeitos de arquivos por file_updates; comandos de publicação/instalação autorizados explicitamente pelo usuário. Candidatos/evidências em /tmp/esaa-release-b20-zdy97rhh.",
+      "status": "todo",
+      "depends_on": [
+        "REL-0.5.0B20-PUBLISH"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/releases/0.5.0b20/install.json",
+          "docs/qa/releases/0.5.0b20/final.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "REL-0.5.0B20-TYPING",
+      "task_kind": "impl",
+      "title": "Alinhar anotações de tipos da release",
+      "description": "Workspace /home/elzobrito/desenvolvimento/ESAA-Core. Contexto: release b20 autorizada; mypy advisory detectou27 erros em9 arquivos da integração. Ler AGENTS.md, CI e interfaces mixin. Alinhar stubs TYPE_CHECKING com callbacks transacionais reais; declarar atributos root e métodos em mixins novos; anotar containers e fazer casts sem mudar validação runtime. Saídas em src/esaa/actor_admin.py,execution.py,submission.py,task_admin.py,task_amend.py,verification_service.py,verification_candidate.py,verification_gate.py,identity_history.py. Candidatos /tmp/esaa-release-b20-zdy97rhh/candidate. Aceite mypy sem erros, mesmos531 testes com Docker, diff semanticamente restrito a tipagem/imports; preservar histórico, assinaturas, gates e dados. Efeitos finais viafile_updates, nunca token/publicação por esta tarefa.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/actor_admin.py",
+          "src/esaa/execution.py",
+          "src/esaa/submission.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/task_amend.py",
+          "src/esaa/verification_service.py",
+          "src/esaa/verification_candidate.py",
+          "src/esaa/verification_gate.py",
+          "src/esaa/identity_history.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T13:33:15Z",
+      "verification": {
+        "checks": [
+          "mypy src/esaa: Success, no issues found in 56 source files (box, candidate tree).",
+          "pytest: 526 passed, 5 skipped (box, no Docker; Docker-gated test skipped). Diff restricted to TYPE_CHECKING stubs, casts and annotations; reviewed by grok-bot."
+        ]
+      },
+      "completed_at": "2026-10-24T13:51:05Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 61
+      "done": 82,
+      "in_progress": 1,
+      "todo": 5
     },
     "by_kind": {
-      "impl": 33,
-      "qa": 10,
-      "spec": 18
+      "impl": 50,
+      "qa": 17,
+      "spec": 21
     }
   }
 }

@@ -114,7 +114,7 @@ esaa task create TASK_ID --kind {spec,impl,qa} --title TITLE
   [--acceptance-criterion TEXT]...
   [--required-review-mode MODE]
   [--supersedes TASK]...
-  [--boundary-grant FNMATCH] [--dry-run]
+  [--boundary-grant FNMATCH]... [--executable-check ID]... [--dry-run]
 ```
 
 Apenda um `task.create` do Orchestrator. `--boundary-grant` concede um padrão
@@ -274,7 +274,8 @@ permissões; ele apenas exige um grant explícito já existente.
 
 ```text
 esaa hotfix create --issue-id ISS --fixes TASK_ID \
-  [--scope-patch PREFIX ...] [--dry-run]
+  [--scope-patch PREFIX]... [--boundary-grant PATTERN]... [--output PATH]...
+  [--executable-check ID]... [--dry-run]
 ```
 
 Cria a tarefa de correção para defeito em task `done`: exige issue aberta,
@@ -612,3 +613,29 @@ runner.metrics registra latência, runner, modelo, superfície de comando, statu
 correlação e contagens reais conhecidas. Dados desconhecidos ficam ausentes ou null,
 sem inventar custos. Um CLI determinístico não elimina o julgamento de uma revisão.
 O vocabulário de erros do Core é centralizado em src/esaa/reject_codes.py.
+
+## Verificação opcional e consultas somente leitura
+
+```text
+verification enable --config CONFIG.json [--dry-run]
+verification show
+verification run TASK-ID --candidate COMPLETE.json --actor ACTOR [--dry-run]
+verification result RUN-ID
+
+task create TASK-ID ... [--executable-check ID]...
+task amend TASK-ID [--executable-check ID]...
+hotfix create --issue-id ISS --fixes TASK-ID [--scope-patch PATH]...
+  [--boundary-grant PATTERN]... [--output PATH]... [--executable-check ID]...
+task amend TASK-ID [--boundary-grant PATTERN]... | [--clear-boundary-grants]
+task amend HOTFIX-ID [--scope-patch PATH]...
+complete TASK-ID --actor ACTOR --check TEXT [--execution-id RUN-ID] ...
+
+task list [--status STATUS]... [--kind KIND] [--assigned-to ACTOR]
+  [--source event_store|planned|all] [--limit N] [--cursor TOKEN] [--format json|table]
+activity list [--task-id ID] [--action ACTION]... [--exclude-action ACTION]...
+  [--hide-verify] [--after-seq N] [--limit N] [--format json|jsonl|table]
+```
+
+Estas interfaces aditivas preservam tarefas declarativas. Ative o catálogo explicitamente antes de atribuir checks executáveis; complete exige execução aprovada e vinculada ao candidato atual. Alterações de grants/escopo exigem todo. Consultas não inicializam nem reescrevem o estado.
+
+[Fluxo completo e semântica](esaa-grok-antigravity.md).

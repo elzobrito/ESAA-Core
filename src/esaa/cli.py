@@ -9,7 +9,7 @@ from typing import Any
 
 from .adapters.http_llm import HttpLlmAdapter
 from .bootstrap import bootstrap_workspace
-from .constants import ESAA_VERSION, PACKAGE_VERSION, SCHEMA_VERSION
+from .constants import ESAA_VERSION, PACKAGE_VERSION, SCHEMA_VERSION, PROTOCOL_VERSION
 from .errors import ESAAError
 from .plugins import (
     activate_roadmap,
@@ -28,6 +28,7 @@ from .provenance import ENV_RUNNER_ID
 from .runner_inputs import register_commands_input, show_commands_input, validate_commands_input
 from .scenarios import run_hotfix_trace
 from .service import ESAAService
+from .queries import list_tasks, list_activity, format_query
 from .snapshot import compact_event_store, create_snapshot
 from .store import init_hash_chain, verify_hash_chain
 from .vocabulary import vocabulary_payload
@@ -36,6 +37,16 @@ from .vocabulary import vocabulary_payload
 def _read_json_arg(path_arg: str) -> object:
     raw = sys.stdin.read() if path_arg == "-" else Path(path_arg).read_text(encoding="utf-8")
     return json.loads(raw)
+
+
+def _read_authorization(path_arg: str | None) -> dict[str, Any] | None:
+    path = (path_arg or os.environ.get("ESAA_AUTHORIZATION") or "").strip()
+    if not path:
+        return None
+    payload = _read_json_arg(path)
+    if not isinstance(payload, dict):
+        raise ESAAError("ACTOR_AUTH_FAILED", "authorization must be a JSON object")
+    return payload
 
 
 def _read_file_updates(path_arg: str) -> list[dict[str, str]]:
@@ -146,7 +157,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"%(prog)s {PACKAGE_VERSION} (protocol {SCHEMA_VERSION}, esaa {ESAA_VERSION})",
+        version=f"%(prog)s {PACKAGE_VERSION} (protocol {PROTOCOL_VERSION}, storage protocol {SCHEMA_VERSION}, esaa {ESAA_VERSION})",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -189,6 +200,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "file", nargs="?", default="-", help="path to agent.result JSON file (default: stdin)"
     )
     cmd_submit.add_argument("--actor", required=True, help="agent identity (e.g. agent-spec, claude-code)")
+    cmd_submit.add_argument(
+        "--authorization",
+        default=None,
+        help="signed authorization JSON for privileged actions; or ESAA_AUTHORIZATION",
+    )
     cmd_submit.add_argument("--dry-run", action="store_true", help="validate without persisting")
 
     cmd_claim = sub.add_parser("claim", help="append a deterministic claim transition")
@@ -202,6 +218,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_complete.add_argument("task_id")
     cmd_complete.add_argument("--actor", required=True)
     cmd_complete.add_argument("--notes", default=None)
+    cmd_complete.add_argument("--execution-id", default=None)
     cmd_complete.add_argument("--check", action="append", dest="checks", required=True)
     cmd_complete.add_argument("--file-updates", default=None, help="JSON array file, or '-' for stdin")
     cmd_complete.add_argument("--issue-id", default=None)
@@ -226,8 +243,50 @@ def _build_parser() -> argparse.ArgumentParser:
         help="speak 'Task done' when review approve moves the task to done",
     )
     cmd_review.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
+    cmd_review.add_argument(
+        "--authorization",
+        default=None,
+        help="signed authorization JSON for review; or ESAA_AUTHORIZATION",
+    )
     cmd_review.add_argument("--dry-run", action="store_true")
 
+    cmd_actor = sub.add_parser("actor", help="authenticated actor registry commands")
+    actor_sub = cmd_actor.add_subparsers(dest="actor_command", required=True)
+    cmd_actor_bootstrap = actor_sub.add_parser(
+        "bootstrap", help="activate the protected public bootstrap authority"
+    )
+    cmd_actor_bootstrap.add_argument(
+        "--authorization",
+        required=True,
+        help="owner-signed authorization JSON (fixture keys in tests only)",
+    )
+    cmd_actor_bootstrap.add_argument("--dry-run", action="store_true")
+    cmd_actor_register = actor_sub.add_parser("register", help="register an actor through the Orchestrator")
+    cmd_actor_register.add_argument("--actor-id", required=True)
+    cmd_actor_register.add_argument(
+        "--role",
+        required=True,
+        choices=["qa", "specification", "implementation"],
+    )
+    cmd_actor_register.add_argument("--scope", action="append", dest="authorization_scope", required=True)
+    cmd_actor_register.add_argument("--actor-public-key", required=True, dest="actor_public_key_hex")
+    cmd_actor_register.add_argument("--authorization", required=True)
+    cmd_actor_register.add_argument("--dry-run", action="store_true")
+    actor_sub.add_parser("show", help="show the event-sourced actor registry")
+
+    cmd_verification = sub.add_parser("verification", help="operator-configured executable verification")
+    verification_sub = cmd_verification.add_subparsers(dest="verification_command", required=True)
+    cmd_enable = verification_sub.add_parser("enable", help="activate/update the operator check catalog and additive schemas")
+    cmd_enable.add_argument("--config", required=True)
+    cmd_enable.add_argument("--dry-run", action="store_true")
+    verification_sub.add_parser("show", help="show the active catalog from events")
+    cmd_vrun = verification_sub.add_parser("run", help="execute authorized checks on a candidate in Docker")
+    cmd_vrun.add_argument("task_id")
+    cmd_vrun.add_argument("--candidate", required=True)
+    cmd_vrun.add_argument("--actor", required=True)
+    cmd_vrun.add_argument("--dry-run", action="store_true")
+    cmd_vresult = verification_sub.add_parser("result", help="verify and inspect an execution result")
+    cmd_vresult.add_argument("run_id")
     cmd_state = sub.add_parser("state", help="show deterministic task state and expected action")
     cmd_state.add_argument("task_id")
 
@@ -251,6 +310,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     cmd_task = sub.add_parser("task", help="deterministic task commands")
     task_sub = cmd_task.add_subparsers(dest="task_command", required=True)
+    cmd_task_list = task_sub.add_parser("list", help="list all tasks without writing state")
+    cmd_task_list.add_argument("--status", action="append", dest="statuses", choices=["todo","in_progress","review","done"])
+    cmd_task_list.add_argument("--kind", choices=["spec","impl","qa"])
+    cmd_task_list.add_argument("--assigned-to")
+    cmd_task_list.add_argument("--source", choices=["event_store","planned","all"], default="all")
+    cmd_task_list.add_argument("--limit", type=int, default=100)
+    cmd_task_list.add_argument("--cursor")
+    cmd_task_list.add_argument("--format", choices=["json","table"], default="json")
     cmd_task_create = task_sub.add_parser("create", help="append an orchestrator task.create event")
     cmd_task_create.add_argument("task_id")
     cmd_task_create.add_argument("--kind", choices=["spec", "impl", "qa"], required=True)
@@ -292,9 +359,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="extra fnmatch write pattern granted to this task only (operator authority; T-2070)",
     )
+    cmd_task_create.add_argument("--executable-check", action="append", dest="executable_checks", default=None)
     cmd_task_create.add_argument("--dry-run", action="store_true")
     cmd_task_amend = task_sub.add_parser("amend", help="amend metadata of a todo task")
     cmd_task_amend.add_argument("task_id")
+    grant_group = cmd_task_amend.add_mutually_exclusive_group()
+    grant_group.add_argument("--boundary-grant", action="append", default=None)
+    grant_group.add_argument("--clear-boundary-grants", action="store_true")
+    cmd_task_amend.add_argument("--scope-patch", action="append", default=None)
     cmd_task_amend.add_argument("--description", default=None)
     cmd_task_amend.add_argument("--title", default=None)
     cmd_task_amend.add_argument("--kind", dest="task_kind", choices=["spec", "impl", "qa"], default=None)
@@ -326,6 +398,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="replace required verification items; repeat to add multiple",
     )
+    cmd_task_amend.add_argument("--executable-check", action="append", dest="executable_checks", default=None)
     cmd_task_amend.add_argument("--dry-run", action="store_true")
 
     cmd_issue = sub.add_parser("issue", help="deterministic issue commands")
@@ -339,7 +412,7 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_issue_report.add_argument("--title", required=True)
     cmd_issue_report.add_argument("--symptom", required=True)
     cmd_issue_report.add_argument("--repro-step", action="append", dest="repro_steps", required=True)
-    cmd_issue_report.add_argument("--fixes", default=None)
+    cmd_issue_report.add_argument("--fixes", default=None, help="also creates HF-<issue-id> with defaults; omit to use hotfix create with custom scope/grants")
     cmd_issue_report.add_argument("--dry-run", action="store_true")
 
     cmd_issue_resolve = issue_sub.add_parser("resolve", help="append an orchestrator issue.resolve event")
@@ -353,10 +426,21 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_hotfix_create.add_argument("--issue-id", required=True)
     cmd_hotfix_create.add_argument("--fixes", required=True)
     cmd_hotfix_create.add_argument("--scope-patch", action="append", dest="scope_patch", default=None)
+    cmd_hotfix_create.add_argument("--boundary-grant", action="append", default=None)
+    cmd_hotfix_create.add_argument("--output", action="append", dest="outputs", default=None)
+    cmd_hotfix_create.add_argument("--executable-check", action="append", dest="executable_checks", default=None)
     cmd_hotfix_create.add_argument("--dry-run", action="store_true")
 
     cmd_activity = sub.add_parser("activity", help="activity.jsonl administrative commands")
     activity_sub = cmd_activity.add_subparsers(dest="activity_command", required=True)
+    cmd_activity_list = activity_sub.add_parser("list", help="read/filter events without changing the store")
+    cmd_activity_list.add_argument("--task-id")
+    cmd_activity_list.add_argument("--action", action="append", dest="actions")
+    cmd_activity_list.add_argument("--exclude-action", action="append", dest="exclude_actions")
+    cmd_activity_list.add_argument("--hide-verify", action="store_true")
+    cmd_activity_list.add_argument("--after-seq", type=int, default=0)
+    cmd_activity_list.add_argument("--limit", type=int, default=100)
+    cmd_activity_list.add_argument("--format", choices=["json","jsonl","table"], default="json")
     cmd_activity_clear = activity_sub.add_parser("clear", help="backup and clear .roadmap/activity.jsonl")
     cmd_activity_clear.add_argument(
         "--force", action="store_true", help="required to truncate activity.jsonl"
@@ -545,7 +629,12 @@ def main(argv: list[str] | None = None) -> int:
             agent_output = _read_json_arg(args.file)
             if not isinstance(agent_output, dict):
                 raise ESAAError("SCHEMA_INVALID", "submit payload must be a JSON object")
-            result = service.submit(agent_output, actor=args.actor, dry_run=args.dry_run)
+            result = service.submit(
+                agent_output,
+                actor=args.actor,
+                dry_run=args.dry_run,
+                authorization=_read_authorization(getattr(args, "authorization", None)),
+            )
         elif args.command == "claim":
             result = service.claim_task(
                 args.task_id,
@@ -560,6 +649,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.task_id,
                 actor=args.actor,
                 checks=args.checks,
+                execution_id=args.execution_id,
                 notes=args.notes,
                 file_updates=file_updates,
                 issue_id=args.issue_id,
@@ -577,7 +667,27 @@ def main(argv: list[str] | None = None) -> int:
                 notify_completion=args.notify_completion,
                 notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
+                authorization=_read_authorization(getattr(args, "authorization", None)),
             )
+        elif args.command == "actor" and args.actor_command == "bootstrap":
+            authorization = _read_authorization(args.authorization)
+            if authorization is None:
+                raise ESAAError("ACTOR_AUTH_FAILED", "actor bootstrap requires --authorization")
+            result = service.bootstrap_actor_authority(authorization, dry_run=args.dry_run)
+        elif args.command == "actor" and args.actor_command == "register":
+            authorization = _read_authorization(args.authorization)
+            if authorization is None:
+                raise ESAAError("ACTOR_AUTH_FAILED", "actor register requires --authorization")
+            result = service.register_actor(
+                actor_id=args.actor_id,
+                role=args.role,
+                authorization_scope=args.authorization_scope,
+                actor_public_key_hex=args.actor_public_key_hex,
+                authorization=authorization,
+                dry_run=args.dry_run,
+            )
+        elif args.command == "actor" and args.actor_command == "show":
+            result = service.show_actor_registry()
         elif args.command == "state":
             result = service.task_state(args.task_id)
         elif args.command == "dispatch-context":
@@ -600,6 +710,20 @@ def main(argv: list[str] | None = None) -> int:
             result = service.onboard(answers, dry_run=args.dry_run)
         elif args.command == "profile" and args.profile_command == "show":
             result = service.show_project_profile()
+        elif args.command == "verification" and args.verification_command == "enable":
+            result = service.verification_enable(_read_json_arg(args.config), dry_run=args.dry_run)
+        elif args.command == "verification" and args.verification_command == "run":
+            result = service.verification_run(args.task_id, _read_json_arg(args.candidate), actor=args.actor, dry_run=args.dry_run)
+        elif args.command == "verification" and args.verification_command == "result":
+            result = service.verification_result(args.run_id)
+        elif args.command == "verification" and args.verification_command == "show":
+            result = service.verification_show()
+        elif args.command == "task" and args.task_command == "list":
+            result = list_tasks(root, statuses=args.statuses, kind=args.kind, assigned_to=args.assigned_to,
+                                source=args.source, limit=args.limit, cursor=args.cursor)
+        elif args.command == "activity" and args.activity_command == "list":
+            result = list_activity(root, task_id=args.task_id, actions=args.actions, exclude_actions=args.exclude_actions,
+                                   hide_verify=args.hide_verify, after_seq=args.after_seq, limit=args.limit)
         elif args.command == "task" and args.task_command == "create":
             result = service.create_task(
                 args.task_id,
@@ -614,6 +738,7 @@ def main(argv: list[str] | None = None) -> int:
                 acceptance_criteria=args.acceptance_criteria,
                 required_review_mode=args.required_review_mode,
                 supersedes=args.supersedes,
+                executable_checks=args.executable_checks,
                 dry_run=args.dry_run,
             )
         elif args.command == "task" and args.task_command == "amend":
@@ -628,6 +753,10 @@ def main(argv: list[str] | None = None) -> int:
                 outputs=args.outputs,
                 required_review_mode=args.required_review_mode,
                 required_verification=args.required_verification,
+                boundary_grant=args.boundary_grant,
+                executable_checks=args.executable_checks,
+                clear_boundary_grants=args.clear_boundary_grants,
+                scope_patch=args.scope_patch,
                 dry_run=args.dry_run,
             )
         elif args.command == "issue" and args.issue_command == "report":
@@ -652,7 +781,10 @@ def main(argv: list[str] | None = None) -> int:
             result = service.create_hotfix(
                 issue_id=args.issue_id,
                 fixes=args.fixes,
+                executable_checks=args.executable_checks,
                 scope_patch=args.scope_patch,
+                boundary_grant=args.boundary_grant,
+                outputs=args.outputs,
                 dry_run=args.dry_run,
             )
         elif args.command == "activity" and args.activity_command == "clear":
@@ -769,7 +901,9 @@ def main(argv: list[str] | None = None) -> int:
         else:
             raise ESAAError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 
-        print(json.dumps(result, ensure_ascii=True, indent=2))
+        print(format_query(result, getattr(args, "format", "json")))
+        if args.command == "verification" and args.verification_command == "run" and result.get("status") not in {"passed", "dry_run"}:
+            return 2
         verify_status = result.get("verify_status")
         if verify_status in {"mismatch", "corrupted"}:
             return 2

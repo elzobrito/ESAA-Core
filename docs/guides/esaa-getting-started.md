@@ -183,10 +183,11 @@ esaa issue report T-LOGIN-SPEC --actor agent-qa `
   --issue-id ISS-LOGIN-DONE --severity high `
   --title "Spec aprovada deixou lacuna" `
   --symptom "Fluxo de erro nao foi documentado" `
-  --repro-step "Comparar spec com teste de QA" `
-  --fixes T-LOGIN-SPEC
+  --repro-step "Comparar spec com teste de QA"
 esaa hotfix create --issue-id ISS-LOGIN-DONE --fixes T-LOGIN-SPEC `
-  --scope-patch src/hotfix/
+  --scope-patch docs/spec/login.md `
+  --boundary-grant docs/spec/login.md `
+  --output docs/spec/login.md
 
 # Output inválido de agente → rejeição explícita registrada
 esaa reject T-X --error-code ACTION_COLLAPSE --source-action complete --message "..."
@@ -203,9 +204,14 @@ esaa activity clear --force            # backup e reinício do event store
 esaa metrics                           # métricas estruturadas do runtime
 ```
 
+
+`issue report --fixes` já cria um hotfix com defaults. Omita `--fixes` ao usar o fluxo explícito com `hotfix create` acima. Grants são explícitos; `scope_patch` apenas restringe caminhos. Um hotfix ainda em `todo` pode ser corrigido com `task amend --scope-patch ... --boundary-grant ... --output ...`.
+
 ## Leia em seguida
 
 - [Cenários práticos (cookbook)](esaa-cenarios.md) — cada comando dentro de uma situação real
 - [Referência completa do CLI](esaa-cli-reference.md)
 - [Operando Codex e Claude Code como runners](esaa-runners-codex-claude-code.md)
 - [Por que usar o ESAA](esaa-why.md)
+
+[Grok e Antigravity: verificação executável e consultas](esaa-grok-antigravity.md).

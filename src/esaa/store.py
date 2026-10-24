@@ -202,29 +202,24 @@ def verify_hash_chain(root: Path) -> dict[str, Any]:
 
 
 def init_hash_chain(root: Path, force: bool = False) -> dict[str, Any]:
-    path = ensure_event_store(root)
-    events = parse_event_store(root)
-    if _find_anchor(events) is not None and not force:
-        raise ESAAError("CHAIN_ALREADY_ANCHORED", "event store already has chain.anchor")
-    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-    anchored_through = events[-1]["event_seq"] if events else 0
-    payload = {
-        "anchored_through_seq": anchored_through,
-        "anchor_sha256": _anchor_hash(lines, anchored_through),
-    }
-    event_seq = next_event_seq(events)
-    event = {
-        "schema_version": "0.4.1",
-        "event_id": f"EV-{event_seq:08d}",
-        "event_seq": event_seq,
-        "ts": utc_now_iso(),
-        "actor": "orchestrator",
-        "runner": resolve_runner(),
-        "action": "chain.anchor",
-        "payload": payload,
-    }
-    append_events(root, [event])
-    return {"status": "anchored", "event_id": event["event_id"], **payload}
+    """Anchor and project one consistent prefix under the append transaction lock."""
+    from .events import make_event
+
+    result: dict[str, Any] = {}
+
+    def build_anchor(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if _find_anchor(events) is not None and not force:
+            raise ESAAError("CHAIN_ALREADY_ANCHORED", "event store already has chain.anchor")
+        path = root / EVENT_STORE_PATH
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        through_seq = events[-1]["event_seq"] if events else 0
+        payload = {"anchored_through_seq": through_seq, "anchor_sha256": _anchor_hash(lines, through_seq)}
+        event = make_event(next_event_seq(events), "orchestrator", "chain.anchor", payload)
+        result.update(status="anchored", event_id=event["event_id"], **payload)
+        return [event]
+
+    append_transactional(root, build_anchor)
+    return result
 
 
 def parse_event_store(root: Path) -> list[dict[str, Any]]:
@@ -241,6 +236,8 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
         except json.JSONDecodeError as exc:
             raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at line {idx}: {exc}") from exc
 
+        from .identity_history import validate_identity_representation
+        validate_identity_representation(raw)
         event = normalize_legacy_event(raw)
 
         if not isinstance(event.get("event_seq"), int):
@@ -276,6 +273,8 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
         events.append(event)
 
     _validate_hash_chain(lines, events)
+    from .identity_history import validate_identity_history
+    validate_identity_history(root, events)
     return events
 
 
@@ -448,6 +447,8 @@ def append_events(
     try:
         current_events = parse_event_store(root)
         prepared = _prepare_events_for_append(current_events, events)
+        from .identity_history import validate_identity_history
+        validate_identity_history(root, current_events + prepared)
         serialized_lines = [
             json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in prepared
         ]
@@ -495,6 +496,7 @@ def append_transactional(
     expected_projection_hash: str | None = None,
     timeout: float = 30.0,
     lock_max_age: float = 120.0,
+    after_append=None,
 ):
     """FIX-1806 - Serializable append: parse + validate + decide seq + append + project
     sob o mesmo lock. Elimina TOCTOU entre leitura e write.
@@ -545,6 +547,8 @@ def append_transactional(
 
         # Validacao via materialize antes de persistir
         final_events = events + new_events
+        from .identity_history import validate_identity_history
+        validate_identity_history(root, final_events)
         final_roadmap, final_issues, final_lessons = materialize(final_events)
         final_project_profile = project_profile_view(final_events)
 
@@ -565,6 +569,8 @@ def append_transactional(
         save_issues(root, final_issues)
         save_lessons(root, final_lessons)
         save_project_profile(root, final_project_profile)
+        if after_append is not None:
+            after_append()
         return {
             "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],

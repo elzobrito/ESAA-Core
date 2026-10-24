@@ -1,0 +1,13 @@
+{
+  "algorithm": "SHA-256",
+  "inventory": [
+    "06ae360e2a058aeb34f72cd66aa58810f0838762f5a38f0bc160c0f9032c21b7  src/esaa/identity.py",
+    "4918699e808a64c3bc0eaf9e835199b80585f662e4afdc58f05b4c3d49525d86  src/esaa/identity_history.py",
+    "2d835a5e116cf78364c4097e05e755e86076ccbc07fb28425ed3f89e002ff2cb  src/esaa/store.py",
+    "895d91109c766d294e821d6222c03b0ad8453a45af1646eb5f76b00457e870f8  src/esaa/reject_codes.py",
+    "37ebcc0b1e3642ad3eb3786761edcf607e3d163c1e56c1f0b5647b959715a73c  src/esaa/service_core.py",
+    "8e48b4694a6119f8c2d82a6ec041c5041c67235b9946ed70dadd04c9574fb2e0  src/esaa/submission.py",
+    "cb54cf5ca75fb6fc0b33aeed9aa475a7a183b9d437355f840857895d2e446226  tests/test_signed_replay.py"
+  ],
+  "caller_task": "ESAA-HF-ACTOR-SIGNED-REPLAY-CALLERS-001"
+}

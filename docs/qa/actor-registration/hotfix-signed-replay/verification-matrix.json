@@ -1,0 +1,25 @@
+{
+  "full_suite": {
+    "passed": 477,
+    "seconds": 33.9,
+    "new_tests": 44
+  },
+  "checks": [
+    "bootstrap/register/review signature tampering with recomputed SHA chain",
+    "missing auth after activation",
+    "project operation scope nonce signer role context",
+    "duplicate nonce/bootstrap",
+    "unknown epoch, missing anchor",
+    "legacy signed invalid never fallback",
+    "discarded data/top metadata rejected before normalization",
+    "candidate append and internal dry-run gates",
+    "deterministic valid replay"
+  ],
+  "remaining": [
+    "protected external anchor/rollback",
+    "canonical claimant principal",
+    "post-correction independent approval",
+    "packaging clean install",
+    "managed scan current diff"
+  ]
+}

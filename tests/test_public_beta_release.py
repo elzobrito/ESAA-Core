@@ -39,6 +39,7 @@ ESSENTIAL_GOVERNANCE_FILES = (
 )
 
 INTENTIONAL_TEMPLATE_DIVERGENCES = {
+    "ORCHESTRATOR_CONTRACT.yaml": ("verification.configure", "verification.run"),
     "agent_result.schema.json": ("review_mode",),
     "roadmap.schema.json": ("task_type", "acceptance_criteria", "required_review_mode"),
     "lessons.schema.json": ("experimental", "require_boundary_grant"),
@@ -399,3 +400,13 @@ class pytest_raises_esaa:
         assert exc_type is ESAAError
         assert exc.code == self.code
         return True
+
+
+def test_optional_verification_preserves_orchestrator_contract(repo_root):
+    import yaml
+    active=yaml.safe_load((repo_root/'.roadmap/ORCHESTRATOR_CONTRACT.yaml').read_text())
+    packaged=yaml.safe_load((repo_root/'src/esaa/templates/ORCHESTRATOR_CONTRACT.yaml').read_text())
+    for action in ('verification.configure','verification.run'):
+        assert packaged['roles']['orchestrator']['reserved_actions'].count(action)==1
+        packaged['roles']['orchestrator']['reserved_actions'].remove(action)
+    assert packaged==active

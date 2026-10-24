@@ -1,0 +1,11 @@
+{
+  "immediate_parent": "/home/elzobrito/.codex/state/plugins/codex-security/scans/ESAA-Core",
+  "mode": "0775",
+  "owner": "elzobrito",
+  "group": "elzobrito",
+  "sticky": false,
+  "scan_directory_mode": "0700",
+  "scan_root_mode": "0700",
+  "permission_changed": false,
+  "error": "Scan output parent must not be group- or world-writable without the sticky bit."
+}

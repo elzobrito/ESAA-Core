@@ -114,7 +114,7 @@ esaa task create TASK_ID --kind {spec,impl,qa} --title TITLE
   [--acceptance-criterion TEXT]...
   [--required-review-mode MODE]
   [--supersedes TASK]...
-  [--boundary-grant FNMATCH] [--dry-run]
+  [--boundary-grant FNMATCH]... [--executable-check ID]... [--dry-run]
 ```
 
 Appends an Orchestrator `task.create`. `--boundary-grant` grants an extra write
@@ -276,7 +276,8 @@ requires an explicit grant that already exists.
 
 ```text
 esaa hotfix create --issue-id ISS --fixes TASK_ID \
-  [--scope-patch PREFIX ...] [--dry-run]
+  [--scope-patch PREFIX]... [--boundary-grant PATTERN]... [--output PATH]...
+  [--executable-check ID]... [--dry-run]
 ```
 
 Creates the corrective task for a defect in a `done` task: it requires an open
@@ -612,3 +613,29 @@ runner.metrics records latency, runner, model, command surface, status, correlat
 and known actual counts. Unknown data remains absent or null, without invented
 costs. A deterministic CLI does not eliminate review judgment.
 The Core error vocabulary is centralized in src/esaa/reject_codes.py.
+
+## Optional verification and read-only queries
+
+```text
+verification enable --config CONFIG.json [--dry-run]
+verification show
+verification run TASK-ID --candidate COMPLETE.json --actor ACTOR [--dry-run]
+verification result RUN-ID
+
+task create TASK-ID ... [--executable-check ID]...
+task amend TASK-ID [--executable-check ID]...
+hotfix create --issue-id ISS --fixes TASK-ID [--scope-patch PATH]...
+  [--boundary-grant PATTERN]... [--output PATH]... [--executable-check ID]...
+task amend TASK-ID [--boundary-grant PATTERN]... | [--clear-boundary-grants]
+task amend HOTFIX-ID [--scope-patch PATH]...
+complete TASK-ID --actor ACTOR --check TEXT [--execution-id RUN-ID] ...
+
+task list [--status STATUS]... [--kind KIND] [--assigned-to ACTOR]
+  [--source event_store|planned|all] [--limit N] [--cursor TOKEN] [--format json|table]
+activity list [--task-id ID] [--action ACTION]... [--exclude-action ACTION]...
+  [--hide-verify] [--after-seq N] [--limit N] [--format json|jsonl|table]
+```
+
+These additive interfaces preserve declarative tasks. Enable the catalog explicitly before assigning executable checks; complete requires an approved execution bound to the current candidate. Grant/scope amendments require todo. Queries never initialize or rewrite state.
+
+[Complete workflow and semantics](esaa-grok-antigravity.en.md).

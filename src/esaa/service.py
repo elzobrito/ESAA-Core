@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .actor_admin import ActorAdminMixin
 from .events import (
     build_hotfix_event,
     build_issue_resolve_event,
@@ -26,9 +27,20 @@ from .seeds import (
 from .service_core import ESAAServiceCore
 from .submission import SubmissionMixin
 from .task_admin import TaskAdminMixin
+from .task_amend import TaskAmendMixin
+from .verification_service import VerificationMixin
 
 
-class ESAAService(TaskAdminMixin, SubmissionMixin, ExecutionMixin, ProjectProfileMixin, ESAAServiceCore):
+class ESAAService(
+    VerificationMixin,
+    ActorAdminMixin,
+    TaskAmendMixin,
+    TaskAdminMixin,
+    SubmissionMixin,
+    ExecutionMixin,
+    ProjectProfileMixin,
+    ESAAServiceCore,
+):
     pass
 
 

@@ -42,6 +42,7 @@ class ExecutionMixin:
             self,
             base_events: list[dict[str, Any]],
             new_events: list[dict[str, Any]],
+            precommit: Any = None, postcommit: Any = None,
         ) -> dict[str, Any]: ...
 
         def _accept_agent_output(
@@ -418,8 +419,8 @@ class ExecutionMixin:
 
         if not dry_run:
             try:
-                self._append_events_transactionally(events, new_events)
-                commit_staged(self.root, staged_file_effects)
+                self._append_events_transactionally(events, new_events,
+                    postcommit=lambda: commit_staged(self.root, staged_file_effects))
             except Exception:
                 discard_staged(staged_file_effects)
                 raise

@@ -65,6 +65,9 @@ def validate_hotfix_scope_entries(scopes: list[str]) -> list[str]:
         if not isinstance(raw, str) or not raw.strip():
             raise ESAAError("HOTFIX_SCOPE_INVALID", "scope_patch entry must be non-empty")
         norm = normalize_rel_path(raw.strip())
+        local = norm.removeprefix("runtime://")
+        if not local or local.startswith("/") or ":" in local or (not norm.startswith("runtime://") and is_governed_state_path(norm)):
+            raise ESAAError("HOTFIX_SCOPE_INVALID", f"unsafe scope_patch: {raw}")
         if any(part == ".." for part in PurePosixPath(norm).parts):
             raise ESAAError("HOTFIX_SCOPE_INVALID", f"scope_patch forbids traversal: {raw}")
         if not norm.endswith("/"):

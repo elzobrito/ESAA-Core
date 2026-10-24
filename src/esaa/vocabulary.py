@@ -85,6 +85,22 @@ VOCABULARY_ROWS: list[dict[str, Any]] = [
     },
     {
         "profile": "core-v0.4.1",
+        "term": "actor.bootstrap",
+        "kind": "reserved_orchestrator_action",
+        "status": "canonical",
+        "maps_to": None,
+        "note": "activate the protected public bootstrap authority in the event store",
+    },
+    {
+        "profile": "core-v0.4.1",
+        "term": "actor.register",
+        "kind": "reserved_orchestrator_action",
+        "status": "canonical",
+        "maps_to": None,
+        "note": "register an actor with role, scope and public key; signed by bootstrap authority",
+    },
+    {
+        "profile": "core-v0.4.1",
         "term": "plugin.install",
         "kind": "reserved_orchestrator_action",
         "status": "canonical",

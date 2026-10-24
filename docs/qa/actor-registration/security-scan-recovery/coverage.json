@@ -1,0 +1,17 @@
+{
+  "type": "operational_storage_diagnostic",
+  "managed_security_coverage_current": false,
+  "covered": [
+    "scan identity/state read",
+    "skill preflight",
+    "storage permissions path diagnostic",
+    "persistent tool failure reproduced"
+  ],
+  "not_covered": [
+    "complete current-diff vulnerability scan",
+    "deleted-source scan (no tracked deleted files found)",
+    "current snapshot official scan ingestion",
+    "successful persistent-storage positive control"
+  ],
+  "manual_postfix_review": "separate fresh instance request_changes, not replacement for scan"
+}

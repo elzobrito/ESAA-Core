@@ -1,0 +1,1301 @@
+diff --git a/src/esaa/cli.py b/src/esaa/cli.py
+index 2c39863..1feba80 100644
+--- a/src/esaa/cli.py
++++ b/src/esaa/cli.py
+@@ -38,6 +38,16 @@ def _read_json_arg(path_arg: str) -> object:
+     return json.loads(raw)
+ 
+ 
++def _read_authorization(path_arg: str | None) -> dict[str, Any] | None:
++    path = (path_arg or os.environ.get("ESAA_AUTHORIZATION") or "").strip()
++    if not path:
++        return None
++    payload = _read_json_arg(path)
++    if not isinstance(payload, dict):
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization must be a JSON object")
++    return payload
++
++
+ def _read_file_updates(path_arg: str) -> list[dict[str, str]]:
+     payload = _read_json_arg(path_arg)
+     if not isinstance(payload, list):
+@@ -189,6 +199,11 @@ def _build_parser() -> argparse.ArgumentParser:
+         "file", nargs="?", default="-", help="path to agent.result JSON file (default: stdin)"
+     )
+     cmd_submit.add_argument("--actor", required=True, help="agent identity (e.g. agent-spec, claude-code)")
++    cmd_submit.add_argument(
++        "--authorization",
++        default=None,
++        help="signed authorization JSON for privileged actions; or ESAA_AUTHORIZATION",
++    )
+     cmd_submit.add_argument("--dry-run", action="store_true", help="validate without persisting")
+ 
+     cmd_claim = sub.add_parser("claim", help="append a deterministic claim transition")
+@@ -226,8 +241,37 @@ def _build_parser() -> argparse.ArgumentParser:
+         help="speak 'Task done' when review approve moves the task to done",
+     )
+     cmd_review.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
++    cmd_review.add_argument(
++        "--authorization",
++        default=None,
++        help="signed authorization JSON for review; or ESAA_AUTHORIZATION",
++    )
+     cmd_review.add_argument("--dry-run", action="store_true")
+ 
++    cmd_actor = sub.add_parser("actor", help="authenticated actor registry commands")
++    actor_sub = cmd_actor.add_subparsers(dest="actor_command", required=True)
++    cmd_actor_bootstrap = actor_sub.add_parser(
++        "bootstrap", help="activate the protected public bootstrap authority"
++    )
++    cmd_actor_bootstrap.add_argument(
++        "--authorization",
++        required=True,
++        help="owner-signed authorization JSON (fixture keys in tests only)",
++    )
++    cmd_actor_bootstrap.add_argument("--dry-run", action="store_true")
++    cmd_actor_register = actor_sub.add_parser("register", help="register an actor through the Orchestrator")
++    cmd_actor_register.add_argument("--actor-id", required=True)
++    cmd_actor_register.add_argument(
++        "--role",
++        required=True,
++        choices=["qa", "specification", "implementation"],
++    )
++    cmd_actor_register.add_argument("--scope", action="append", dest="authorization_scope", required=True)
++    cmd_actor_register.add_argument("--actor-public-key", required=True, dest="actor_public_key_hex")
++    cmd_actor_register.add_argument("--authorization", required=True)
++    cmd_actor_register.add_argument("--dry-run", action="store_true")
++    actor_sub.add_parser("show", help="show the event-sourced actor registry")
++
+     cmd_state = sub.add_parser("state", help="show deterministic task state and expected action")
+     cmd_state.add_argument("task_id")
+ 
+@@ -545,7 +589,12 @@ def main(argv: list[str] | None = None) -> int:
+             agent_output = _read_json_arg(args.file)
+             if not isinstance(agent_output, dict):
+                 raise ESAAError("SCHEMA_INVALID", "submit payload must be a JSON object")
+-            result = service.submit(agent_output, actor=args.actor, dry_run=args.dry_run)
++            result = service.submit(
++                agent_output,
++                actor=args.actor,
++                dry_run=args.dry_run,
++                authorization=_read_authorization(getattr(args, "authorization", None)),
++            )
+         elif args.command == "claim":
+             result = service.claim_task(
+                 args.task_id,
+@@ -577,7 +626,27 @@ def main(argv: list[str] | None = None) -> int:
+                 notify_completion=args.notify_completion,
+                 notify_transition=args.notify_transition,
+                 dry_run=args.dry_run,
++                authorization=_read_authorization(getattr(args, "authorization", None)),
++            )
++        elif args.command == "actor" and args.actor_command == "bootstrap":
++            authorization = _read_authorization(args.authorization)
++            if authorization is None:
++                raise ESAAError("ACTOR_AUTH_FAILED", "actor bootstrap requires --authorization")
++            result = service.bootstrap_actor_authority(authorization, dry_run=args.dry_run)
++        elif args.command == "actor" and args.actor_command == "register":
++            authorization = _read_authorization(args.authorization)
++            if authorization is None:
++                raise ESAAError("ACTOR_AUTH_FAILED", "actor register requires --authorization")
++            result = service.register_actor(
++                actor_id=args.actor_id,
++                role=args.role,
++                authorization_scope=args.authorization_scope,
++                actor_public_key_hex=args.actor_public_key_hex,
++                authorization=authorization,
++                dry_run=args.dry_run,
+             )
++        elif args.command == "actor" and args.actor_command == "show":
++            result = service.show_actor_registry()
+         elif args.command == "state":
+             result = service.task_state(args.task_id)
+         elif args.command == "dispatch-context":
+diff --git a/src/esaa/constants.py b/src/esaa/constants.py
+index ffa1e15..61e9861 100644
+--- a/src/esaa/constants.py
++++ b/src/esaa/constants.py
+@@ -30,6 +30,8 @@ CANONICAL_ACTIONS = {
+     "runner.metrics",
+     "project.profile.set",
+     "chain.anchor",
++    "actor.bootstrap",
++    "actor.register",
+     "output.rejected",
+     "orchestrator.file.write",
+     "orchestrator.view.mutate",
+diff --git a/src/esaa/projector.py b/src/esaa/projector.py
+index e4981f7..b177fcd 100644
+--- a/src/esaa/projector.py
++++ b/src/esaa/projector.py
+@@ -330,6 +330,8 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
+         "runner.metrics",
+         "project.profile.set",
+         "chain.anchor",
++        "actor.bootstrap",
++        "actor.register",
+         "verify.start",
+         "plugin.install",
+         "plugin.remove",
+diff --git a/src/esaa/reject_codes.py b/src/esaa/reject_codes.py
+index bf5f91b..dea81f5 100644
+--- a/src/esaa/reject_codes.py
++++ b/src/esaa/reject_codes.py
+@@ -29,6 +29,7 @@ IMMUTABLE_DONE_VIOLATION = "IMMUTABLE_DONE_VIOLATION"
+ REVIEW_ROLE_VIOLATION = "REVIEW_ROLE_VIOLATION"  # FIX-1807
+ REVIEW_MODE_REQUIRED = "REVIEW_MODE_REQUIRED"
+ REVIEW_MODE_MISMATCH = "REVIEW_MODE_MISMATCH"
++SELF_REVIEW_FORBIDDEN = "SELF_REVIEW_FORBIDDEN"
+ 
+ WORKFLOW_GATE_CODES = frozenset(
+     {
+@@ -43,6 +44,7 @@ WORKFLOW_GATE_CODES = frozenset(
+         REVIEW_ROLE_VIOLATION,
+         REVIEW_MODE_REQUIRED,
+         REVIEW_MODE_MISMATCH,
++        SELF_REVIEW_FORBIDDEN,
+     }
+ )
+ 
+@@ -118,6 +120,17 @@ CHAIN_NOT_ANCHORED = "CHAIN_NOT_ANCHORED"
+ # Stale-state codes do append_transactional (FIX-1806):
+ STALE_STATE_SEQ = "STALE_STATE_SEQ"
+ STALE_STATE_HASH = "STALE_STATE_HASH"
++ACTOR_AUTH_FAILED = "ACTOR_AUTH_FAILED"
++ACTOR_NOT_REGISTERED = "ACTOR_NOT_REGISTERED"
++ACTOR_DUPLICATE = "ACTOR_DUPLICATE"
++ACTOR_BOOTSTRAP_REQUIRED = "ACTOR_BOOTSTRAP_REQUIRED"
++ACTOR_BOOTSTRAP_EXISTS = "ACTOR_BOOTSTRAP_EXISTS"
++ACTOR_SELF_ELEVATION = "ACTOR_SELF_ELEVATION"
++AUTH_REPLAY = "AUTH_REPLAY"
++AUTH_SIGNATURE_INVALID = "AUTH_SIGNATURE_INVALID"
++ANCHOR_MISMATCH = "ANCHOR_MISMATCH"
++ANCHOR_MISSING = "ANCHOR_MISSING"
++ORCHESTRATOR_IMPERSONATION = "ORCHESTRATOR_IMPERSONATION"
+ 
+ OPERATIONAL_CODES = frozenset(
+     {
+@@ -187,6 +200,17 @@ OPERATIONAL_CODES = frozenset(
+         CHAIN_NOT_ANCHORED,
+         STALE_STATE_SEQ,
+         STALE_STATE_HASH,
++        ACTOR_AUTH_FAILED,
++        ACTOR_NOT_REGISTERED,
++        ACTOR_DUPLICATE,
++        ACTOR_BOOTSTRAP_REQUIRED,
++        ACTOR_BOOTSTRAP_EXISTS,
++        ACTOR_SELF_ELEVATION,
++        AUTH_REPLAY,
++        AUTH_SIGNATURE_INVALID,
++        ANCHOR_MISMATCH,
++        ANCHOR_MISSING,
++        ORCHESTRATOR_IMPERSONATION,
+     }
+ )
+ 
+@@ -234,6 +258,7 @@ __all__ = [
+     "REVIEW_ROLE_VIOLATION",
+     "REVIEW_MODE_REQUIRED",
+     "REVIEW_MODE_MISMATCH",
++    "SELF_REVIEW_FORBIDDEN",
+     # operational codes
+     "ADAPTER_EXECUTE_FAILED",
+     "BOUNDARY_VIOLATION",
+@@ -299,6 +324,17 @@ __all__ = [
+     "CHAIN_NOT_ANCHORED",
+     "STALE_STATE_SEQ",
+     "STALE_STATE_HASH",
++    "ACTOR_AUTH_FAILED",
++    "ACTOR_NOT_REGISTERED",
++    "ACTOR_DUPLICATE",
++    "ACTOR_BOOTSTRAP_REQUIRED",
++    "ACTOR_BOOTSTRAP_EXISTS",
++    "ACTOR_SELF_ELEVATION",
++    "AUTH_REPLAY",
++    "AUTH_SIGNATURE_INVALID",
++    "ANCHOR_MISMATCH",
++    "ANCHOR_MISSING",
++    "ORCHESTRATOR_IMPERSONATION",
+     # hotfix codes
+     "HOTFIX_INVALID",
+     "HOTFIX_ALREADY_EXISTS",
+diff --git a/src/esaa/service.py b/src/esaa/service.py
+index fd991c8..b5a7260 100644
+--- a/src/esaa/service.py
++++ b/src/esaa/service.py
+@@ -23,12 +23,15 @@ from .seeds import (
+     select_task_wave,
+     tasks_with_planned_plugins,
+ )
++from .actor_admin import ActorAdminMixin
+ from .service_core import ESAAServiceCore
+ from .submission import SubmissionMixin
+ from .task_admin import TaskAdminMixin
+ 
+ 
+-class ESAAService(TaskAdminMixin, SubmissionMixin, ExecutionMixin, ProjectProfileMixin, ESAAServiceCore):
++class ESAAService(
++    ActorAdminMixin, TaskAdminMixin, SubmissionMixin, ExecutionMixin, ProjectProfileMixin, ESAAServiceCore
++):
+     pass
+ 
+ 
+diff --git a/src/esaa/submission.py b/src/esaa/submission.py
+index d612e02..03d04e5 100644
+--- a/src/esaa/submission.py
++++ b/src/esaa/submission.py
+@@ -98,9 +98,10 @@ class SubmissionMixin:
+         actor: str,
+         task_id: str,
+         dry_run: bool,
++        authorization: dict[str, Any] | None = None,
+     ) -> dict[str, Any]:
+ 
+-        result = self.submit(output, actor=actor, dry_run=dry_run)
++        result = self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization)
+ 
+         if not dry_run:
+ 
+@@ -108,7 +109,13 @@ class SubmissionMixin:
+ 
+         return result
+ 
+-    def submit(self, agent_output: dict[str, Any], actor: str, dry_run: bool = False) -> dict[str, Any]:
++    def submit(
++        self,
++        agent_output: dict[str, Any],
++        actor: str,
++        dry_run: bool = False,
++        authorization: dict[str, Any] | None = None,
++    ) -> dict[str, Any]:
+ 
+         events = parse_event_store(self.root)
+ 
+@@ -169,24 +176,21 @@ class SubmissionMixin:
+             validate_file_update_resource_limits(file_updates, policy)
+             file_updates = resolve_external_file_updates(self.root, task, file_updates)
+             validate_resolved_file_boundaries(file_updates, contract, task)
+-            # FIX-1807: review_authorization=qa_role -> resolve role e injeta _reviewer_role no payload
++            # FIX-1807 + identity contract: review authorization before effects.
+             if validated_event["action"] == "review":
+-                from .runtime_policy import resolve_role, review_authorization_mode
+-
+-                mode = review_authorization_mode(policy)
+-
+-                role = resolve_role(actor, root=self.root)
+-
+-                if mode == "qa_role":
+-
+-                    if role not in {"qa", "orchestrator"}:
+-
+-                        raise ESAAError(
+-                            "REVIEW_ROLE_VIOLATION",
+-                            f"actor {actor} role={role} not authorized to review (qa_role mode)",
+-                        )
+-
+-                    validated_event["_reviewer_role"] = role
++                from .identity import authorize_review_event
++
++                validated_event.update(
++                    authorize_review_event(
++                        root=self.root,
++                        events=events,
++                        actor=actor,
++                        task=task,
++                        decision=str(validated_event.get("decision") or ""),
++                        authorization=authorization,
++                        policy=policy,
++                    )
++                )
+ 
+             agent_event = make_event(
+                 current_seq, actor=actor, action=validated_event["action"], payload=validated_event
+diff --git a/src/esaa/task_admin.py b/src/esaa/task_admin.py
+index dedc971..e5a1774 100644
+--- a/src/esaa/task_admin.py
++++ b/src/esaa/task_admin.py
+@@ -38,7 +38,7 @@ class TaskAdminMixin:
+         def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
+         def _commit_orchestrator_events(self, candidate_events: list[dict[str, Any]], dry_run: bool = False) -> dict[str, Any]: ...
+         def verify(self) -> dict[str, Any]: ...
+-        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool) -> dict[str, Any]: ...
++        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool, authorization: dict[str, Any] | None = None) -> dict[str, Any]: ...
+ 
+     def create_task(
+         self,
+@@ -330,6 +330,7 @@ class TaskAdminMixin:
+         notify_completion: bool | None = None,
+         notify_transition: bool | None = None,
+         dry_run: bool = False,
++        authorization: dict[str, Any] | None = None,
+     ) -> dict[str, Any]:
+ 
+         previous_status = self.task_state(task_id)["task"]["status"]
+@@ -344,7 +345,7 @@ class TaskAdminMixin:
+             activity_event["review_mode"] = review_mode
+ 
+         result = self._submit_command(
+-            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
++            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run, authorization=authorization
+         )
+         should_notify_transition = notify_transition
+         if should_notify_transition is None:
+diff --git a/src/esaa/vocabulary.py b/src/esaa/vocabulary.py
+index 5ab4aad..18d772c 100644
+--- a/src/esaa/vocabulary.py
++++ b/src/esaa/vocabulary.py
+@@ -83,6 +83,22 @@ VOCABULARY_ROWS: list[dict[str, Any]] = [
+         "maps_to": None,
+         "note": "fail-closed issue path",
+     },
++    {
++        "profile": "core-v0.4.1",
++        "term": "actor.bootstrap",
++        "kind": "reserved_orchestrator_action",
++        "status": "canonical",
++        "maps_to": None,
++        "note": "activate the protected public bootstrap authority in the event store",
++    },
++    {
++        "profile": "core-v0.4.1",
++        "term": "actor.register",
++        "kind": "reserved_orchestrator_action",
++        "status": "canonical",
++        "maps_to": None,
++        "note": "register an actor with role, scope and public key; signed by bootstrap authority",
++    },
+     {
+         "profile": "core-v0.4.1",
+         "term": "plugin.install",
+diff --git a/src/esaa/identity.py b/src/esaa/identity.py
+new file mode 100644
+index 0000000..61f42c9
+--- /dev/null
++++ b/src/esaa/identity.py
+@@ -0,0 +1,380 @@
++"""Authenticated actor registry and privileged-operation authorization.
++
++The identity contract is inactive until an `actor.bootstrap` event exists.
++Historical workspaces without that event keep the pre-contract review path.
++
++Private owner credentials are never generated or stored by this module.
++Tests mint fixture keys in temporary directories only.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from typing import Any
++
++from cryptography.exceptions import InvalidSignature
++from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
++
++from .errors import ESAAError
++from .utils import canonical_json_bytes
++
++ALG = "ed25519"
++ANCHOR_REL = ".roadmap/governance-anchor.json"
++RESERVED_ACTOR_IDS = frozenset({"orchestrator"})
++REGISTERABLE_ROLES = frozenset({"qa", "specification", "implementation"})
++REVIEW_ROLES = frozenset({"qa"})
++PRIVILEGED_OPERATIONS = frozenset({"actor.bootstrap", "actor.register", "review"})
++
++
++def public_key_fingerprint(public_key_hex: str) -> str:
++    raw = _parse_hex(public_key_hex, "public_key_hex")
++    return hashlib.sha256(raw).hexdigest()
++
++
++def load_anchor(root: Path) -> dict[str, str]:
++    path = root / ANCHOR_REL
++    if not path.is_file():
++        raise ESAAError("ANCHOR_MISSING", f"protected public anchor missing: {ANCHOR_REL}")
++    try:
++        data = json.loads(path.read_text(encoding="utf-8"))
++    except json.JSONDecodeError as exc:
++        raise ESAAError("ANCHOR_MISMATCH", "governance-anchor.json is not valid JSON") from exc
++    if not isinstance(data, dict):
++        raise ESAAError("ANCHOR_MISMATCH", "governance-anchor.json must be an object")
++    public_key_hex = str(data.get("public_key_hex") or "").strip().lower()
++    if not public_key_hex:
++        raise ESAAError("ANCHOR_MISMATCH", "governance-anchor.json missing public_key_hex")
++    fingerprint = public_key_fingerprint(public_key_hex)
++    declared = str(data.get("fingerprint_sha256") or "").strip().lower()
++    if declared and declared != fingerprint:
++        raise ESAAError("ANCHOR_MISMATCH", "governance-anchor fingerprint does not match public key")
++    alg = str(data.get("alg") or ALG).strip().lower()
++    if alg != ALG:
++        raise ESAAError("ANCHOR_MISMATCH", f"unsupported anchor alg: {alg}")
++    return {
++        "alg": ALG,
++        "public_key_hex": public_key_hex,
++        "fingerprint_sha256": fingerprint,
++        "path": ANCHOR_REL,
++    }
++
++
++def canonical_authorization_payload(
++    *,
++    operation: str,
++    project_id: str,
++    nonce: str,
++    scope: dict[str, Any],
++) -> dict[str, Any]:
++    if operation not in PRIVILEGED_OPERATIONS:
++        raise ESAAError("INVALID_ARGUMENT", f"unsupported authorization operation: {operation}")
++    nonce = nonce.strip().lower()
++    if len(nonce) < 32 or any(c not in "0123456789abcdef" for c in nonce):
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization nonce must be lowercase hex (>=16 bytes)")
++    return {
++        "alg": ALG,
++        "nonce": nonce,
++        "operation": operation,
++        "project_id": project_id.strip().lower(),
++        "scope": scope,
++    }
++
++
++def verify_signature(public_key_hex: str, payload: dict[str, Any], signature_hex: str) -> None:
++    public_raw = _parse_hex(public_key_hex, "public_key_hex")
++    signature = _parse_hex(signature_hex, "signature_hex")
++    try:
++        key = Ed25519PublicKey.from_public_bytes(public_raw)
++        key.verify(signature, canonical_json_bytes(payload))
++    except (ValueError, InvalidSignature) as exc:
++        raise ESAAError("AUTH_SIGNATURE_INVALID", "authorization signature is invalid") from exc
++
++
++def load_authorization(blob: Any) -> dict[str, Any]:
++    if not isinstance(blob, dict):
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization must be a JSON object")
++    payload = blob.get("payload")
++    signature_hex = str(blob.get("signature_hex") or "").strip().lower()
++    if not isinstance(payload, dict) or not signature_hex:
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization requires payload and signature_hex")
++    for field in ("alg", "nonce", "operation", "project_id", "scope"):
++        if field not in payload:
++            raise ESAAError("ACTOR_AUTH_FAILED", f"authorization payload missing {field}")
++    if not isinstance(payload["scope"], dict):
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization scope must be an object")
++    return {
++        "payload": {
++            "alg": str(payload["alg"]),
++            "nonce": str(payload["nonce"]).strip().lower(),
++            "operation": str(payload["operation"]),
++            "project_id": str(payload["project_id"]).strip().lower(),
++            "scope": payload["scope"],
++        },
++        "signature_hex": signature_hex,
++    }
++
++
++def project_registry(events: list[dict[str, Any]]) -> dict[str, Any]:
++    """Deterministic registry derived from the append-only event store."""
++    bootstrap: dict[str, Any] | None = None
++    actors: dict[str, dict[str, Any]] = {}
++    used_nonces: set[str] = set()
++    public_keys: dict[str, str] = {}
++    for event in events:
++        action = event.get("action")
++        payload = event.get("payload") or {}
++        auth = payload.get("authorization") or payload.get("_authorization")
++        if isinstance(auth, dict):
++            nonce = str((auth.get("payload") or {}).get("nonce") or payload.get("nonce") or "").strip().lower()
++            if nonce:
++                used_nonces.add(nonce)
++        if action == "actor.bootstrap":
++            bootstrap = {
++                "alg": ALG,
++                "public_key_hex": str(payload["public_key_hex"]).strip().lower(),
++                "fingerprint_sha256": str(payload["fingerprint_sha256"]).strip().lower(),
++                "event_seq": event.get("event_seq"),
++            }
++        elif action == "actor.register":
++            actor_id = str(payload["actor_id"])
++            public_key_hex = str(payload.get("actor_public_key_hex") or "").strip().lower()
++            actors[actor_id] = {
++                "actor_id": actor_id,
++                "role": _normalize_role(str(payload["role"])),
++                "authorization_scope": list(payload.get("authorization_scope") or []),
++                "actor_public_key_hex": public_key_hex,
++                "event_seq": event.get("event_seq"),
++            }
++            if public_key_hex:
++                public_keys[public_key_hex] = actor_id
++    return {
++        "active": bootstrap is not None,
++        "bootstrap": bootstrap,
++        "actors": actors,
++        "used_nonces": used_nonces,
++        "public_keys": public_keys,
++    }
++
++
++def require_active_registry(events: list[dict[str, Any]]) -> dict[str, Any]:
++    registry = project_registry(events)
++    if not registry["active"]:
++        raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "identity contract is not bootstrapped")
++    return registry
++
++
++def assert_anchor_matches_registry(root: Path, registry: dict[str, Any]) -> dict[str, str]:
++    anchor = load_anchor(root)
++    bootstrap = registry["bootstrap"]
++    if (
++        anchor["public_key_hex"] != bootstrap["public_key_hex"]
++        or anchor["fingerprint_sha256"] != bootstrap["fingerprint_sha256"]
++    ):
++        raise ESAAError("ANCHOR_MISMATCH", "protected public anchor does not match bootstrapped authority")
++    return anchor
++
++
++def consume_nonce(registry: dict[str, Any], nonce: str) -> None:
++    nonce = nonce.strip().lower()
++    if nonce in registry["used_nonces"]:
++        raise ESAAError("AUTH_REPLAY", "authorization nonce was already consumed")
++
++
++def reject_orchestrator_impersonation(actor: str) -> None:
++    if actor.strip() in RESERVED_ACTOR_IDS:
++        raise ESAAError("ORCHESTRATOR_IMPERSONATION", "actor=orchestrator is reserved to the Orchestrator")
++
++
++def verify_privileged_authorization(
++    *,
++    root: Path,
++    events: list[dict[str, Any]],
++    authorization: Any,
++    operation: str,
++    expected_scope: dict[str, Any],
++    signer_public_key_hex: str | None = None,
++) -> dict[str, Any]:
++    auth = load_authorization(authorization)
++    payload = auth["payload"]
++    if payload["operation"] != operation:
++        raise ESAAError("ACTOR_AUTH_FAILED", f"authorization operation mismatch: {payload['operation']}")
++    if payload["alg"] != ALG:
++        raise ESAAError("ACTOR_AUTH_FAILED", f"unsupported authorization alg: {payload['alg']}")
++    if payload["scope"] != expected_scope:
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization scope does not match the requested operation")
++
++    registry = project_registry(events)
++    if operation == "actor.bootstrap":
++        if registry["active"]:
++            raise ESAAError("ACTOR_BOOTSTRAP_EXISTS", "bootstrap authority is already established")
++        anchor = load_anchor(root)
++        if payload["project_id"] != anchor["fingerprint_sha256"]:
++            raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match the public anchor")
++        verify_signature(anchor["public_key_hex"], payload, auth["signature_hex"])
++        consume_nonce(registry, payload["nonce"])
++        return {"anchor": anchor, "registry": registry, "authorization": auth}
++
++    registry = require_active_registry(events)
++    anchor = assert_anchor_matches_registry(root, registry)
++    if payload["project_id"] != registry["bootstrap"]["fingerprint_sha256"]:
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match bootstrapped authority")
++    consume_nonce(registry, payload["nonce"])
++    key = signer_public_key_hex or registry["bootstrap"]["public_key_hex"]
++    verify_signature(key, payload, auth["signature_hex"])
++    return {"anchor": anchor, "registry": registry, "authorization": auth}
++
++
++def prepare_register_scope(
++    *,
++    actor_id: str,
++    role: str,
++    authorization_scope: list[str],
++    actor_public_key_hex: str,
++) -> dict[str, Any]:
++    actor_id = actor_id.strip()
++    if not actor_id:
++        raise ESAAError("INVALID_ARGUMENT", "actor_id is required")
++    reject_orchestrator_impersonation(actor_id)
++    role = _normalize_role(role)
++    if role not in REGISTERABLE_ROLES:
++        raise ESAAError("ACTOR_SELF_ELEVATION", f"role {role} cannot be registered")
++    public_key_hex = actor_public_key_hex.strip().lower()
++    _parse_hex(public_key_hex, "actor_public_key_hex")
++    scopes = [item.strip() for item in authorization_scope if item.strip()]
++    if not scopes:
++        raise ESAAError("INVALID_ARGUMENT", "authorization_scope is required")
++    return {
++        "actor_id": actor_id,
++        "role": role,
++        "authorization_scope": scopes,
++        "actor_public_key_hex": public_key_hex,
++    }
++
++
++def assert_registerable(registry: dict[str, Any], scope: dict[str, Any]) -> None:
++    actor_id = scope["actor_id"]
++    public_key_hex = scope["actor_public_key_hex"]
++    existing = registry["actors"].get(actor_id)
++    if existing:
++        if (
++            existing["role"] != scope["role"]
++            or existing["actor_public_key_hex"] != public_key_hex
++            or existing["authorization_scope"] != scope["authorization_scope"]
++        ):
++            raise ESAAError("ACTOR_DUPLICATE", f"incompatible registration already exists for {actor_id}")
++        raise ESAAError("ACTOR_DUPLICATE", f"actor already registered: {actor_id}")
++    owner = registry["public_keys"].get(public_key_hex)
++    if owner and owner != actor_id:
++        raise ESAAError("ACTOR_DUPLICATE", f"public key already bound to actor {owner}")
++    if public_key_hex == registry["bootstrap"]["public_key_hex"]:
++        raise ESAAError(
++            "ACTOR_SELF_ELEVATION",
++            "bootstrap public key cannot be reused as a registered actor identity",
++        )
++
++
++def assert_review_identity(
++    *,
++    registry: dict[str, Any],
++    actor: str,
++    task: dict[str, Any],
++    decision: str,
++    authorization: Any,
++) -> dict[str, Any]:
++    reject_orchestrator_impersonation(actor)
++    recorded = registry["actors"].get(actor)
++    if recorded is None:
++        raise ESAAError("ACTOR_NOT_REGISTERED", f"actor is not registered: {actor}")
++    if recorded["role"] not in REVIEW_ROLES:
++        raise ESAAError("REVIEW_ROLE_VIOLATION", f"actor {actor} role={recorded['role']} cannot review")
++    claimant = str(task.get("assigned_to") or "")
++    if actor == claimant:
++        raise ESAAError("SELF_REVIEW_FORBIDDEN", "claimant cannot review their own task")
++    if "review" not in recorded["authorization_scope"]:
++        raise ESAAError("REVIEW_ROLE_VIOLATION", f"actor {actor} is not authorized for review")
++    expected_scope = {
++        "actor_id": actor,
++        "task_id": task["task_id"],
++        "decision": decision,
++    }
++    auth = load_authorization(authorization)
++    if auth["payload"]["operation"] != "review":
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization operation must be review")
++    if auth["payload"]["scope"] != expected_scope:
++        raise ESAAError("ACTOR_AUTH_FAILED", "review authorization scope does not match the request")
++    if auth["payload"]["project_id"] != registry["bootstrap"]["fingerprint_sha256"]:
++        raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match bootstrapped authority")
++    consume_nonce(registry, auth["payload"]["nonce"])
++    verify_signature(recorded["actor_public_key_hex"], auth["payload"], auth["signature_hex"])
++    return auth
++
++
++def authorize_review_event(
++    *,
++    root: Path,
++    events: list[dict[str, Any]],
++    actor: str,
++    task: dict[str, Any],
++    decision: str,
++    authorization: Any,
++    policy: dict[str, Any],
++) -> dict[str, Any]:
++    """Return payload extras for a review event. Dry-run uses the same path."""
++    from .runtime_policy import resolve_role, review_authorization_mode
++
++    reject_orchestrator_impersonation(actor)
++    registry = project_registry(events)
++    if registry["active"]:
++        if authorization is None:
++            raise ESAAError(
++                "ACTOR_AUTH_FAILED",
++                "review requires a signed authorization when the identity contract is active",
++            )
++        assert_anchor_matches_registry(root, registry)
++        auth = assert_review_identity(
++            registry=registry,
++            actor=actor,
++            task=task,
++            decision=decision,
++            authorization=authorization,
++        )
++        return {
++            "_reviewer_role": registry["actors"][actor]["role"],
++            "_authorization": auth,
++        }
++
++    extras: dict[str, Any] = {}
++    mode = review_authorization_mode(policy)
++    role = resolve_role(actor, root=root)
++    if mode == "qa_role":
++        if role not in {"qa", "orchestrator"}:
++            raise ESAAError(
++                "REVIEW_ROLE_VIOLATION",
++                f"actor {actor} role={role} not authorized to review (qa_role mode)",
++            )
++        extras["_reviewer_role"] = role
++    return extras
++
++
++def _normalize_role(role: str) -> str:
++    value = role.strip()
++    if value == "quality":
++        return "qa"
++    return value
++
++
++def _parse_hex(value: str, field: str) -> bytes:
++    text = value.strip().lower()
++    if len(text) % 2 != 0 or any(c not in "0123456789abcdef" for c in text):
++        raise ESAAError("ACTOR_AUTH_FAILED", f"{field} must be lowercase hex")
++    try:
++        raw = bytes.fromhex(text)
++    except ValueError as exc:
++        raise ESAAError("ACTOR_AUTH_FAILED", f"{field} must be lowercase hex") from exc
++    if field in {"public_key_hex", "actor_public_key_hex"} and len(raw) != 32:
++        raise ESAAError("ACTOR_AUTH_FAILED", f"{field} must be a 32-byte Ed25519 public key")
++    if field == "signature_hex" and len(raw) != 64:
++        raise ESAAError("ACTOR_AUTH_FAILED", "signature_hex must be a 64-byte Ed25519 signature")
++    return raw
+diff --git a/src/esaa/actor_admin.py b/src/esaa/actor_admin.py
+new file mode 100644
+index 0000000..09d2d81
+--- /dev/null
++++ b/src/esaa/actor_admin.py
+@@ -0,0 +1,115 @@
++"""Orchestrator-mediated actor bootstrap and registration."""
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++from .errors import ESAAError
++from .events import make_event
++from .identity import (
++    ALG,
++    assert_anchor_matches_registry,
++    assert_registerable,
++    load_anchor,
++    prepare_register_scope,
++    project_registry,
++    verify_privileged_authorization,
++)
++from .store import next_event_seq, parse_event_store
++
++if TYPE_CHECKING:
++    from pathlib import Path
++
++
++class ActorAdminMixin:
++    if TYPE_CHECKING:
++        root: Path
++
++        def _commit_orchestrator_events(
++            self, candidate_events: list[dict[str, Any]], dry_run: bool = False
++        ) -> dict[str, Any]: ...
++
++    def bootstrap_actor_authority(
++        self,
++        authorization: dict[str, Any],
++        dry_run: bool = False,
++    ) -> dict[str, Any]:
++        events = parse_event_store(self.root)
++        anchor = load_anchor(self.root)
++        expected_scope = {
++            "public_key_hex": anchor["public_key_hex"],
++            "fingerprint_sha256": anchor["fingerprint_sha256"],
++        }
++        verified = verify_privileged_authorization(
++            root=self.root,
++            events=events,
++            authorization=authorization,
++            operation="actor.bootstrap",
++            expected_scope=expected_scope,
++            signer_public_key_hex=anchor["public_key_hex"],
++        )
++        payload = {
++            "alg": ALG,
++            "public_key_hex": anchor["public_key_hex"],
++            "fingerprint_sha256": anchor["fingerprint_sha256"],
++            "authorization": verified["authorization"],
++        }
++        event = make_event(
++            next_event_seq(events), actor="orchestrator", action="actor.bootstrap", payload=payload
++        )
++        result = self._commit_orchestrator_events([event], dry_run=dry_run)
++        result["identity_contract"] = "active"
++        result["fingerprint_sha256"] = anchor["fingerprint_sha256"]
++        return result
++
++    def register_actor(
++        self,
++        *,
++        actor_id: str,
++        role: str,
++        authorization_scope: list[str],
++        actor_public_key_hex: str,
++        authorization: dict[str, Any],
++        dry_run: bool = False,
++    ) -> dict[str, Any]:
++        events = parse_event_store(self.root)
++        registry = project_registry(events)
++        if not registry["active"]:
++            raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "identity contract is not bootstrapped")
++        assert_anchor_matches_registry(self.root, registry)
++        scope = prepare_register_scope(
++            actor_id=actor_id,
++            role=role,
++            authorization_scope=authorization_scope,
++            actor_public_key_hex=actor_public_key_hex,
++        )
++        verified = verify_privileged_authorization(
++            root=self.root,
++            events=events,
++            authorization=authorization,
++            operation="actor.register",
++            expected_scope=scope,
++            signer_public_key_hex=registry["bootstrap"]["public_key_hex"],
++        )
++        assert_registerable(verified["registry"], scope)
++        payload = {
++            **scope,
++            "authorization": verified["authorization"],
++        }
++        event = make_event(
++            next_event_seq(events), actor="orchestrator", action="actor.register", payload=payload
++        )
++        result = self._commit_orchestrator_events([event], dry_run=dry_run)
++        result["actor_id"] = scope["actor_id"]
++        result["role"] = scope["role"]
++        return result
++
++    def show_actor_registry(self) -> dict[str, Any]:
++        events = parse_event_store(self.root)
++        registry = project_registry(events)
++        return {
++            "identity_contract": "active" if registry["active"] else "inactive",
++            "bootstrap": registry["bootstrap"],
++            "actors": sorted(registry["actors"].values(), key=lambda item: item["actor_id"]),
++            "used_nonce_count": len(registry["used_nonces"]),
++        }
+diff --git a/tests/test_actor_registration.py b/tests/test_actor_registration.py
+new file mode 100644
+index 0000000..102074d
+--- /dev/null
++++ b/tests/test_actor_registration.py
+@@ -0,0 +1,419 @@
++"""Authenticated actor registry: bootstrap, register, review, negative cases."""
++
++from __future__ import annotations
++
++import json
++import os
++import shutil
++from pathlib import Path
++
++import pytest
++from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
++
++from esaa.cli import main
++from esaa.errors import ESAAError
++from esaa.identity import ALG, canonical_authorization_payload, public_key_fingerprint
++from esaa.service import ESAAService
++from esaa.store import parse_event_store
++from esaa.utils import canonical_json_bytes
++
++
++def _copy_runtime(root: Path, repo_root: Path) -> None:
++    roadmap = root / ".roadmap"
++    roadmap.mkdir(parents=True, exist_ok=True)
++    for name in (
++        "AGENT_CONTRACT.yaml",
++        "ORCHESTRATOR_CONTRACT.yaml",
++        "agent_result.schema.json",
++        "roadmap.schema.json",
++        "issues.schema.json",
++        "lessons.schema.json",
++        "RUNTIME_POLICY.yaml",
++        "agents_swarm.yaml",
++    ):
++        source = repo_root / ".roadmap" / name
++        if source.exists():
++            shutil.copy2(source, roadmap / name)
++
++
++def _key() -> tuple[Ed25519PrivateKey, str]:
++    private = Ed25519PrivateKey.generate()
++    public_hex = private.public_key().public_bytes_raw().hex()
++    return private, public_hex
++
++
++def _sign(private: Ed25519PrivateKey, payload: dict) -> dict:
++    signature_hex = private.sign(canonical_json_bytes(payload)).hex()
++    return {"payload": payload, "signature_hex": signature_hex}
++
++
++def _write_anchor(root: Path, public_hex: str) -> dict[str, str]:
++    fingerprint = public_key_fingerprint(public_hex)
++    payload = {
++        "schema_version": "esaa.identity.anchor.v1",
++        "alg": ALG,
++        "public_key_hex": public_hex,
++        "fingerprint_sha256": fingerprint,
++    }
++    path = root / ".roadmap" / "governance-anchor.json"
++    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
++    return payload
++
++
++def _bootstrap_auth(owner: Ed25519PrivateKey, public_hex: str, nonce: str) -> dict:
++    fingerprint = public_key_fingerprint(public_hex)
++    payload = canonical_authorization_payload(
++        operation="actor.bootstrap",
++        project_id=fingerprint,
++        nonce=nonce,
++        scope={"public_key_hex": public_hex, "fingerprint_sha256": fingerprint},
++    )
++    return _sign(owner, payload)
++
++
++def _register_auth(
++    owner: Ed25519PrivateKey,
++    project_id: str,
++    nonce: str,
++    actor_id: str,
++    role: str,
++    actor_public_hex: str,
++    scope: list[str] | None = None,
++) -> dict:
++    payload = canonical_authorization_payload(
++        operation="actor.register",
++        project_id=project_id,
++        nonce=nonce,
++        scope={
++            "actor_id": actor_id,
++            "role": role,
++            "authorization_scope": scope or ["review"],
++            "actor_public_key_hex": actor_public_hex,
++        },
++    )
++    return _sign(owner, payload)
++
++
++def _review_auth(
++    actor_key: Ed25519PrivateKey,
++    project_id: str,
++    nonce: str,
++    actor_id: str,
++    task_id: str,
++    decision: str,
++) -> dict:
++    payload = canonical_authorization_payload(
++        operation="review",
++        project_id=project_id,
++        nonce=nonce,
++        scope={"actor_id": actor_id, "task_id": task_id, "decision": decision},
++    )
++    return _sign(actor_key, payload)
++
++
++def _ready_task(svc: ESAAService, actor: str = "agent-spec") -> None:
++    svc.submit(
++        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
++        actor=actor,
++    )
++    svc.submit(
++        {
++            "activity_event": {
++                "action": "complete",
++                "task_id": "T-1000",
++                "prior_status": "in_progress",
++                "verification": {"checks": ["ok"]},
++            },
++            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "ok\n"}],
++        },
++        actor=actor,
++    )
++
++
++def _activated(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, object]]:
++    _copy_runtime(tmp_path, repo_root)
++    svc = ESAAService(tmp_path)
++    svc.init(force=True, with_demo_tasks=True)
++    owner, owner_pub = _key()
++    reviewer, reviewer_pub = _key()
++    anchor = _write_anchor(tmp_path, owner_pub)
++    svc.bootstrap_actor_authority(_bootstrap_auth(owner, owner_pub, "aa" * 16))
++    svc.register_actor(
++        actor_id="reviewer-qa",
++        role="qa",
++        authorization_scope=["review"],
++        actor_public_key_hex=reviewer_pub,
++        authorization=_register_auth(owner, anchor["fingerprint_sha256"], "bb" * 16, "reviewer-qa", "qa", reviewer_pub),
++    )
++    return svc, {
++        "owner": owner,
++        "owner_pub": owner_pub,
++        "reviewer": reviewer,
++        "reviewer_pub": reviewer_pub,
++        "project_id": anchor["fingerprint_sha256"],
++    }
++
++
++def test_history_without_bootstrap_keeps_qa_role_review(tmp_path: Path, repo_root: Path) -> None:
++    _copy_runtime(tmp_path, repo_root)
++    svc = ESAAService(tmp_path)
++    svc.init(force=True, with_demo_tasks=True)
++    _ready_task(svc)
++    result = svc.review_task("T-1000", actor="agent-qa", decision="approve")
++    assert result["status"] == "accepted"
++    assert result["task"]["status"] == "done"
++
++
++def test_bootstrap_and_independent_review(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    auth = _review_auth(
++        keys["reviewer"], keys["project_id"], "cc" * 16, "reviewer-qa", "T-1000", "approve"
++    )
++    result = svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth)
++    assert result["status"] == "accepted"
++    assert result["task"]["status"] == "done"
++    events = parse_event_store(tmp_path)
++    assert any(event["action"] == "actor.bootstrap" for event in events)
++    assert any(event["action"] == "actor.register" for event in events)
++    replayed = ESAAService(tmp_path).show_actor_registry()
++    assert replayed["identity_contract"] == "active"
++    assert replayed["actors"][0]["actor_id"] == "reviewer-qa"
++
++
++def test_unregistered_actor_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    unknown, _ = _key()
++    auth = _review_auth(unknown, keys["project_id"], "dd" * 16, "agent-qa-unregistered", "T-1000", "approve")
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="agent-qa-unregistered", decision="approve", authorization=auth)
++    assert exc.value.code == "ACTOR_NOT_REGISTERED"
++
++
++def test_invalid_signature_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    other, _ = _key()
++    auth = _review_auth(other, keys["project_id"], "ee" * 16, "reviewer-qa", "T-1000", "approve")
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth)
++    assert exc.value.code == "AUTH_SIGNATURE_INVALID"
++
++
++def test_authorization_replay_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    auth = _review_auth(
++        keys["reviewer"], keys["project_id"], "ff" * 16, "reviewer-qa", "T-1000", "request_changes"
++    )
++    first = svc.review_task("T-1000", actor="reviewer-qa", decision="request_changes", authorization=auth)
++    assert first["status"] == "accepted"
++    svc.submit(
++        {
++            "activity_event": {
++                "action": "complete",
++                "task_id": "T-1000",
++                "prior_status": "in_progress",
++                "verification": {"checks": ["ok-again"]},
++            },
++            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "ok2\n"}],
++        },
++        actor="agent-spec",
++    )
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="reviewer-qa", decision="request_changes", authorization=auth)
++    assert exc.value.code == "AUTH_REPLAY"
++
++
++def test_anchor_substitution_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    attacker, attacker_pub = _key()
++    _write_anchor(tmp_path, attacker_pub)
++    auth = _review_auth(
++        keys["reviewer"], keys["project_id"], "11" * 16, "reviewer-qa", "T-1000", "approve"
++    )
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth)
++    assert exc.value.code == "ANCHOR_MISMATCH"
++    _ = attacker
++
++
++def test_self_review_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    owner = keys["owner"]
++    claimant_key, claimant_pub = _key()
++    svc.register_actor(
++        actor_id="agent-impl",
++        role="implementation",
++        authorization_scope=["review"],
++        actor_public_key_hex=claimant_pub,
++        authorization=_register_auth(
++            owner, keys["project_id"], "22" * 16, "agent-impl", "implementation", claimant_pub, ["review"]
++        ),
++    )
++    _ready_task(svc, actor="agent-impl")
++    auth = _review_auth(claimant_key, keys["project_id"], "33" * 16, "agent-impl", "T-1000", "approve")
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="agent-impl", decision="approve", authorization=auth)
++    assert exc.value.code in {"SELF_REVIEW_FORBIDDEN", "REVIEW_ROLE_VIOLATION"}
++
++
++def test_claimant_qa_cannot_self_approve(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    owner = keys["owner"]
++    qa_key, qa_pub = _key()
++    svc.register_actor(
++        actor_id="agent-qa",
++        role="qa",
++        authorization_scope=["review"],
++        actor_public_key_hex=qa_pub,
++        authorization=_register_auth(owner, keys["project_id"], "44" * 16, "agent-qa", "qa", qa_pub),
++    )
++    _ready_task(svc, actor="agent-qa")
++    auth = _review_auth(qa_key, keys["project_id"], "55" * 16, "agent-qa", "T-1000", "approve")
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="agent-qa", decision="approve", authorization=auth)
++    assert exc.value.code == "SELF_REVIEW_FORBIDDEN"
++
++
++def test_orchestrator_impersonation_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    auth = _review_auth(
++        keys["reviewer"], keys["project_id"], "66" * 16, "orchestrator", "T-1000", "approve"
++    )
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="orchestrator", decision="approve", authorization=auth)
++    assert exc.value.code == "ORCHESTRATOR_IMPERSONATION"
++
++
++def test_duplicate_public_key_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    with pytest.raises(ESAAError) as exc:
++        svc.register_actor(
++            actor_id="reviewer-qa-alias",
++            role="qa",
++            authorization_scope=["review"],
++            actor_public_key_hex=keys["reviewer_pub"],
++            authorization=_register_auth(
++                keys["owner"],
++                keys["project_id"],
++                "77" * 16,
++                "reviewer-qa-alias",
++                "qa",
++                keys["reviewer_pub"],
++            ),
++        )
++    assert exc.value.code == "ACTOR_DUPLICATE"
++
++
++def test_bootstrap_key_cannot_be_registered_as_actor(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    with pytest.raises(ESAAError) as exc:
++        svc.register_actor(
++            actor_id="owner-as-qa",
++            role="qa",
++            authorization_scope=["review"],
++            actor_public_key_hex=keys["owner_pub"],
++            authorization=_register_auth(
++                keys["owner"], keys["project_id"], "88" * 16, "owner-as-qa", "qa", keys["owner_pub"]
++            ),
++        )
++    assert exc.value.code == "ACTOR_SELF_ELEVATION"
++
++
++def test_second_bootstrap_rejected(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    with pytest.raises(ESAAError) as exc:
++        svc.bootstrap_actor_authority(_bootstrap_auth(keys["owner"], keys["owner_pub"], "99" * 16))
++    assert exc.value.code == "ACTOR_BOOTSTRAP_EXISTS"
++
++
++def test_dry_run_review_validates_identity(tmp_path: Path, repo_root: Path) -> None:
++    svc, keys = _activated(tmp_path, repo_root)
++    _ready_task(svc)
++    before = len(parse_event_store(tmp_path))
++    with pytest.raises(ESAAError) as exc:
++        svc.review_task("T-1000", actor="reviewer-qa", decision="approve", dry_run=True)
++    assert exc.value.code == "ACTOR_AUTH_FAILED"
++    auth = _review_auth(
++        keys["reviewer"], keys["project_id"], "ab" * 16, "reviewer-qa", "T-1000", "approve"
++    )
++    result = svc.review_task(
++        "T-1000", actor="reviewer-qa", decision="approve", authorization=auth, dry_run=True
++    )
++    assert result["status"] == "dry_run"
++    assert len(parse_event_store(tmp_path)) == before
++
++
++def test_cli_actor_register_exists_and_bootstrap_roundtrip(tmp_path: Path, repo_root: Path, monkeypatch) -> None:
++    _copy_runtime(tmp_path, repo_root)
++    monkeypatch.chdir(tmp_path)
++    monkeypatch.setenv("ESAA_RUNNER_ID", "grok")
++    svc = ESAAService(tmp_path)
++    svc.init(force=True, with_demo_tasks=True)
++    owner, owner_pub = _key()
++    reviewer, reviewer_pub = _key()
++    anchor = _write_anchor(tmp_path, owner_pub)
++    bootstrap_path = tmp_path / "bootstrap.json"
++    bootstrap_path.write_text(json.dumps(_bootstrap_auth(owner, owner_pub, "ac" * 16)), encoding="utf-8")
++    assert main(["--root", str(tmp_path), "actor", "bootstrap", "--authorization", str(bootstrap_path)]) == 0
++    register_path = tmp_path / "register.json"
++    register_path.write_text(
++        json.dumps(
++            _register_auth(owner, anchor["fingerprint_sha256"], "ad" * 16, "reviewer-qa", "qa", reviewer_pub)
++        ),
++        encoding="utf-8",
++    )
++    assert (
++        main(
++            [
++                "--root",
++                str(tmp_path),
++                "actor",
++                "register",
++                "--actor-id",
++                "reviewer-qa",
++                "--role",
++                "qa",
++                "--scope",
++                "review",
++                "--actor-public-key",
++                reviewer_pub,
++                "--authorization",
++                str(register_path),
++            ]
++        )
++        == 0
++    )
++    _ = reviewer
++    shown = ESAAService(tmp_path).show_actor_registry()
++    assert shown["identity_contract"] == "active"
++    assert shown["actors"][0]["actor_id"] == "reviewer-qa"
++
++
++def test_register_without_bootstrap_rejected(tmp_path: Path, repo_root: Path) -> None:
++    _copy_runtime(tmp_path, repo_root)
++    svc = ESAAService(tmp_path)
++    svc.init(force=True, with_demo_tasks=True)
++    owner, _owner_pub = _key()
++    _reviewer, reviewer_pub = _key()
++    anchor = _write_anchor(tmp_path, _owner_pub)
++    with pytest.raises(ESAAError) as exc:
++        svc.register_actor(
++            actor_id="reviewer-qa",
++            role="qa",
++            authorization_scope=["review"],
++            actor_public_key_hex=reviewer_pub,
++            authorization=_register_auth(
++                owner, anchor["fingerprint_sha256"], "ae" * 16, "reviewer-qa", "qa", reviewer_pub
++            ),
++        )
++    assert exc.value.code == "ACTOR_BOOTSTRAP_REQUIRED"
++
++
++def test_cli_unknown_actor_command_was_replaced() -> None:
++    with pytest.raises(SystemExit):
++        main(["actor", "not-a-command"])

@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-24",
+  "workspace": "/home/elzobrito/desenvolvimento/ESAA-Core",
+  "baseline": {
+    "passed": 477,
+    "seconds": 42.26
+  },
+  "final_suite": {
+    "passed": 531,
+    "seconds": 48.69,
+    "docker_enabled": true,
+    "command": "ESAA_TEST_DOCKER=1 PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider"
+  },
+  "packages_sha256": {
+    "esaa_core-0.5.0b19-py3-none-any.whl": "41c84468fa05b194e527a50de3be57b0996f133c01f8b2151d5ae367cc4a11f6",
+    "esaa_core-0.5.0b19.tar.gz": "6a92edd0782a091b5d2f099e164b9120569a2455b9b0c3d1f0144938f86e8c9f"
+  },
+  "installations": {
+    "wheel": {
+      "label": "wheel",
+      "workspace": "/tmp/esaa-distribution-smoke-o5rdt0v2",
+      "python": "/tmp/esaa-grok-ng2vtrjq/clean-wheel/bin/python",
+      "package": "/tmp/esaa-grok-ng2vtrjq/clean-wheel/lib/python3.14/site-packages/esaa/__init__.py",
+      "version": "0.5.0b19",
+      "cryptography": "50.0.2",
+      "protocol": "0.4.2",
+      "tasks_done": [
+        "T-SMOKE",
+        "HF-ISS-SMOKE"
+      ],
+      "issue_resolved": true,
+      "negative_controls": [
+        "VERIFICATION_REQUIRED",
+        "VERIFICATION_STALE"
+      ],
+      "executed_checks": 3,
+      "queries_read_only": true,
+      "verify": {
+        "verify_status": "ok",
+        "last_event_seq": 48,
+        "projection_hash_sha256": "366703a2bc32fa185540be5a6f640e48cb62c1bcc2584d3dd922ebb25e698c78",
+        "project_profile": false
+      },
+      "chain": {
+        "chain_status": "ok",
+        "anchored_through_seq": 4,
+        "anchor_sha256": "49f9074af87041c70f5ea47bd869f660cf95909ac3db6d35b83b19d43a2a02ae",
+        "last_event_seq": 48
+      },
+      "boundary": "Synthetic fixture only; no original Tetris or GUI was executed."
+    },
+    "sdist": {
+      "label": "sdist",
+      "workspace": "/tmp/esaa-distribution-smoke-rj0t36tp",
+      "python": "/tmp/esaa-grok-ng2vtrjq/clean-sdist/bin/python",
+      "package": "/tmp/esaa-grok-ng2vtrjq/clean-sdist/lib/python3.14/site-packages/esaa/__init__.py",
+      "version": "0.5.0b19",
+      "cryptography": "50.0.2",
+      "protocol": "0.4.2",
+      "tasks_done": [
+        "T-SMOKE",
+        "HF-ISS-SMOKE"
+      ],
+      "issue_resolved": true,
+      "negative_controls": [
+        "VERIFICATION_REQUIRED",
+        "VERIFICATION_STALE"
+      ],
+      "executed_checks": 3,
+      "queries_read_only": true,
+      "verify": {
+        "verify_status": "ok",
+        "last_event_seq": 48,
+        "projection_hash_sha256": "1dc11d51c97312ef075e8545449fe515bf7d1a5da0798ffa1c267cc7f37b7320",
+        "project_profile": false
+      },
+      "chain": {
+        "chain_status": "ok",
+        "anchored_through_seq": 4,
+        "anchor_sha256": "49f9074af87041c70f5ea47bd869f660cf95909ac3db6d35b83b19d43a2a02ae",
+        "last_event_seq": 48
+      },
+      "boundary": "Synthetic fixture only; no original Tetris or GUI was executed."
+    }
+  },
+  "source_parity": {
+    "files_compared": 181,
+    "mismatches": [],
+    "protected_files_unchanged": [
+      "pyproject.toml",
+      "src/esaa/actor_admin.py",
+      "src/esaa/identity.py",
+      "src/esaa/plugins.py",
+      "src/esaa/vocabulary.py",
+      "tests/test_actor_registration.py",
+      "tests/test_signed_replay.py",
+      "tests/test_plugin_manager.py"
+    ],
+    "excluded_generated": [
+      "__pycache__",
+      "*.egg-info"
+    ]
+  },
+  "documentation_demo": {
+    "root": "/tmp/esaa-documentation-demo-j89j1mzt",
+    "task": "done",
+    "verify": {
+      "verify_status": "ok",
+      "last_event_seq": 25,
+      "projection_hash_sha256": "35b9845edb2821f436d4e9bfef9a538d68fb6fa54820436fffca790c81351a60",
+      "project_profile": false
+    },
+    "chain": {
+      "chain_status": "ok",
+      "anchored_through_seq": 4,
+      "anchor_sha256": "2ce492a51185a2109ac842a68573c51a204219d2d64cc308840eb4553a0a0e51",
+      "last_event_seq": 25
+    }
+  },
+  "tasks": [
+    "ESAA-GROK-20261024-001",
+    "ESAA-GROK-20261024-002",
+    "ESAA-GROK-20261024-003",
+    "ESAA-GROK-20261024-004",
+    "ESAA-GROK-20261024-005",
+    "ESAA-GROK-20261024-006",
+    "ESAA-GROK-20261024-007",
+    "ESAA-GROK-20261024-008",
+    "ESAA-GROK-20261024-009",
+    "HF-ISS-ESAA-GROK-LEGACY-SCOPE",
+    "HF-ISS-ESAA-GROK-CHAIN-PROJECTION",
+    "HF-ISS-ESAA-GROK-POSITIONAL"
+  ],
+  "boundaries": [
+    "No publication or global installation",
+    "No changes to original Tetris",
+    "Synthetic CLI/runtime validation, no GUI acceptance",
+    "Existing identity work preserved",
+    "Package version unchanged: local candidate 0.5.0b19, optional protocol 0.4.2; base storage schema 0.4.1"
+  ],
+  "raw_evidence_directory": "/tmp/esaa-grok-ng2vtrjq"
+}

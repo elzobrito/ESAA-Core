@@ -1,0 +1,8 @@
+{
+  "scanId": "cfe966df-2ad4-4d14-9f2d-c7354bf49a6d",
+  "state": "PENDING_STORAGE_BLOCKED",
+  "error": "Scan output parent must not be group- or world-writable without the sticky bit.",
+  "snapshot": "codex-security-snapshot/v1:sha256:a690f5e6a2756e17aafe71aa1ac2feed4e36b13528012d19bd187777445b1d2b",
+  "current_patch_covered": false,
+  "permission_changes": false
+}

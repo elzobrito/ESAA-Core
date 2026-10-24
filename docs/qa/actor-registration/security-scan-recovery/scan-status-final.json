@@ -1,0 +1,10 @@
+{
+  "status": "BLOCKED_STORAGE",
+  "scanId": "cfe966df-2ad4-4d14-9f2d-c7354bf49a6d",
+  "managed_status": "running",
+  "phase": "discovery",
+  "reportAvailable": false,
+  "current_patch_covered": false,
+  "diff_refresh": "NOT_AVAILABLE_ON_EXPOSED_TOOLS",
+  "permission_remediation": "NOT_AUTHORIZED_OUTSIDE_TASK_BOUNDARY"
+}

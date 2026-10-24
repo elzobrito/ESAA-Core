@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 from .activity_admin import apply_activity_clear, plan_activity_clear
 from .errors import ESAAError
+from .boundary_paths import validate_hotfix_scope_entries
+from .validator import validate_boundary_grant
 from .events import build_hotfix_event, make_event
 from .notifications import (
     completion_alarm_enabled_from_env,
@@ -36,9 +38,9 @@ class TaskAdminMixin:
     if TYPE_CHECKING:
         root: Path
         def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
-        def _commit_orchestrator_events(self, candidate_events: list[dict[str, Any]], dry_run: bool = False) -> dict[str, Any]: ...
+        def _commit_orchestrator_events(self, candidate_events: list[dict[str, Any]], dry_run: bool = False, precommit: Any = None, postcommit: Any = None) -> dict[str, Any]: ...
         def verify(self) -> dict[str, Any]: ...
-        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool) -> dict[str, Any]: ...
+        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool, authorization: dict[str, Any] | None = None) -> dict[str, Any]: ...
 
     def create_task(
         self,
@@ -55,6 +57,8 @@ class TaskAdminMixin:
         required_review_mode: str | None = None,
         supersedes: list[str] | None = None,
         dry_run: bool = False,
+        *,
+        executable_checks: list[str] | None = None,
     ) -> dict[str, Any]:
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
@@ -79,6 +83,10 @@ class TaskAdminMixin:
             existing_task_ids={task["task_id"] for task in tasks},
         )
 
+        if executable_checks is not None:
+            from .verification_config import validate_check_ids
+            payload["executable_checks"] = validate_check_ids(executable_checks, events)
+
         event = make_event(
             next_event_seq(events), actor="orchestrator", action="task.create", payload=payload
         )
@@ -91,60 +99,6 @@ class TaskAdminMixin:
 
         result["schema_validated"] = ".roadmap/roadmap.schema.json"
 
-        return result
-
-    def amend_task(
-        self,
-        task_id: str,
-        description: str | None = None,
-        title: str | None = None,
-        acceptance_criteria: list[str] | None = None,
-        task_kind: str | None = None,
-        task_type: str | None = None,
-        depends_on: list[str] | None = None,
-        outputs: list[str] | None = None,
-        required_review_mode: str | None = None,
-        required_verification: list[str] | None = None,
-        dry_run: bool = False,
-    ) -> dict[str, Any]:
-        events = parse_event_store(self.root)
-        roadmap, _, _ = materialize(events)
-        task = require_task(roadmap, task_id)
-        if task["status"] != "todo":
-            raise ESAAError("INVALID_TRANSITION", f"task.amend only allowed for todo tasks: {task_id}")
-
-        payload: dict[str, Any] = {"task_id": task_id}
-        if description is not None:
-            payload["description"] = description.strip()
-        if title is not None:
-            payload["title"] = title.strip()
-        if acceptance_criteria is not None:
-            payload["acceptance_criteria"] = [item.strip() for item in acceptance_criteria if item.strip()]
-        if task_kind is not None:
-            payload["task_kind"] = task_kind.strip()
-        if task_type is not None:
-            payload["task_type"] = task_type.strip()
-        if depends_on is not None:
-            payload["depends_on"] = [item.strip() for item in depends_on if item.strip()]
-        if outputs is not None:
-            payload["outputs"] = {"files": [item.strip() for item in outputs if item.strip()]}
-        if required_review_mode is not None:
-            payload["required_review_mode"] = required_review_mode.strip()
-        if required_verification is not None:
-            payload["required_verification"] = [
-                item.strip() for item in required_verification if item.strip()
-            ]
-        if len(payload) == 1:
-            raise ESAAError("INVALID_ARGUMENT", "task.amend requires at least one field to update")
-
-        event = make_event(
-            next_event_seq(events), actor="orchestrator", action="task.amend", payload=payload
-        )
-        preview_roadmap, _, _ = materialize(events + [event])
-        self._validate_roadmap_projection_schema(preview_roadmap)
-        result = self._commit_orchestrator_events([event], dry_run=dry_run)
-        result["schema_validated"] = ".roadmap/roadmap.schema.json"
-        result["task_id"] = task_id
         return result
 
     def clear_activity(
@@ -282,6 +236,7 @@ class TaskAdminMixin:
         fixes: str | None = None,
         notify_transition: bool | None = None,
         dry_run: bool = False,
+        execution_id: str | None = None,
     ) -> dict[str, Any]:
 
         if not checks:
@@ -296,6 +251,9 @@ class TaskAdminMixin:
             "notes": notes or f"Deterministic complete for {task_id}",
             "verification": {"checks": checks},
         }
+
+        if execution_id is not None:
+            activity_event["verification"]["execution_id"] = execution_id
 
         resolved_issue_id = issue_id or task.get("issue_id")
 
@@ -330,6 +288,7 @@ class TaskAdminMixin:
         notify_completion: bool | None = None,
         notify_transition: bool | None = None,
         dry_run: bool = False,
+        authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
         previous_status = self.task_state(task_id)["task"]["status"]
@@ -344,7 +303,7 @@ class TaskAdminMixin:
             activity_event["review_mode"] = review_mode
 
         result = self._submit_command(
-            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
+            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run, authorization=authorization
         )
         should_notify_transition = notify_transition
         if should_notify_transition is None:
@@ -433,9 +392,16 @@ class TaskAdminMixin:
         fixes: str,
         scope_patch: list[str] | None = None,
         dry_run: bool = False,
+        *,
+        boundary_grant: list[str] | None = None,
+        outputs: list[str] | None = None,
+        executable_checks: list[str] | None = None,
     ) -> dict[str, Any]:
 
         events = parse_event_store(self.root)
+        if executable_checks is not None:
+            from .verification_config import validate_check_ids
+            executable_checks = validate_check_ids(executable_checks, events)
 
         # M-03: validacao agora ocorre dentro de build_hotfix_event.
         event = build_hotfix_event(
@@ -443,12 +409,15 @@ class TaskAdminMixin:
             {
                 "issue_id": issue_id,
                 "fixes": fixes,
-                "scope_patch": scope_patch or ["src/hotfix/"],
+                "scope_patch": ["src/hotfix/"] if scope_patch is None else scope_patch,
+                "boundary_grant": validate_boundary_grant(boundary_grant or []),
+                **({"outputs": {"files": outputs}} if outputs is not None else {}),
+                **({"executable_checks": executable_checks} if executable_checks is not None else {}),
             },
         )
 
         if event is None:
-            raise ESAAError("HOTFIX_ALREADY_EXISTS", f"hotfix already exists for issue {issue_id}")
+            raise ESAAError("HOTFIX_ALREADY_EXISTS", f"HF-{issue_id} already exists; use state and task amend while todo")
 
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 

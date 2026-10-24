@@ -138,3 +138,29 @@ def test_review_role_is_top_level_and_hash_protected(contract_bundle: Path) -> N
     with pytest.raises(CorruptedStoreError) as excinfo:
         parse_event_store(contract_bundle)
     assert excinfo.value.code == "CHAIN_BROKEN"
+
+
+def test_chain_init_immediately_preserves_projection_consistency(contract_bundle: Path) -> None:
+    svc = ESAAService(contract_bundle)
+    svc.init(with_demo_tasks=True)
+    init_hash_chain(contract_bundle)
+    assert svc.verify()["verify_status"] == "ok"
+    assert svc.verify()["last_event_seq"] == parse_event_store(contract_bundle)[-1]["event_seq"]
+    assert verify_hash_chain(contract_bundle)["chain_status"] == "ok"
+
+
+def test_chain_anchor_hash_is_computed_under_lock(contract_bundle: Path, monkeypatch) -> None:
+    import esaa.store as store
+    svc = ESAAService(contract_bundle)
+    svc.init()
+    original = store._anchor_hash
+    observed = []
+    def checked(lines, seq):
+        assert (contract_bundle / ".roadmap/activity.jsonl.lock").exists()
+        observed.append(seq)
+        return original(lines, seq)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "_anchor_hash", checked)
+        init_hash_chain(contract_bundle)
+    assert observed
+    assert svc.verify()["verify_status"] == "ok"
