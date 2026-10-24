@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1264,
-      "projection_hash_sha256": "01979defc927944b0d4f1a895bfea261b7d0b399950a0e56fcd8351779b35902",
+      "last_event_seq": 1277,
+      "projection_hash_sha256": "01e92fc43d6b651d3c10553bd91f039bce7e2b6f24aafd8ef0f8a6bfc396d115",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-24T14:13:24Z"
+    "updated_at": "2026-10-24T14:35:57Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3018,17 +3018,47 @@
         ]
       },
       "completed_at": "2026-10-24T14:08:29Z"
+    },
+    {
+      "task_id": "ESAA-DOCS-UPGRADE-B21-001",
+      "task_kind": "spec",
+      "title": "Atualizar guia de upgrade 0.4.2 para 0.5.0b21 e pular a b20",
+      "description": "O guia docs/guides/esaa-upgrade-0.5.0b20.md (e o .en.md) ainda manda instalar esaa-core==0.5.0b20 e mostra a saída 0.5.0b20. A b20 quebra esaa verify em stores com scope_patch absoluto legado (HOTFIX_SCOPE_INVALID); a correção é 0.5.0b21. Atualizar instalação para 0.5.0b21 ou superior, versão no exemplo, e nota explícita para pular a b20 (ISS-ESAA-B21-LEGACY-ABS-SCOPE). Escopo só os dois guias. Sem CHANGELOG, sem pyproject, sem código. Aceite: pip install aponta esaa-core>=0.5.0b21 ou pin ==0.5.0b21 e não pinna ==0.5.0b20; exemplo de esaa --version mostra 0.5.0b21; nota explica pular b20 por HOTFIX_SCOPE_INVALID; PT e EN sincronizados.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/guides/esaa-upgrade-0.5.0b20.md",
+        "docs/guides/esaa-upgrade-0.5.0b20.en.md"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-upgrade-0.5.0b20.md",
+          "docs/guides/esaa-upgrade-0.5.0b20.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-10-24T14:35:23Z",
+      "verification": {
+        "checks": [
+          "pip install nos dois guias usa esaa-core>=0.5.0b21 e permite pin ==0.5.0b21; nenhum comando de instalação usa ==0.5.0b20",
+          "exemplo de esaa --version mostra 0.5.0b21; seção explica pular b20 por HOTFIX_SCOPE_INVALID e ISS-ESAA-B21-LEGACY-ABS-SCOPE; PT e EN sincronizados"
+        ]
+      },
+      "completed_at": "2026-10-24T14:35:57Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 87,
+      "done": 88,
       "todo": 4
     },
     "by_kind": {
       "impl": 53,
       "qa": 17,
-      "spec": 21
+      "spec": 22
     }
   }
 }

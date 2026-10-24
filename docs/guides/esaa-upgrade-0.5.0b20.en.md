@@ -1,15 +1,19 @@
-# Upgrading to esaa-core 0.5.0b20
+# Upgrading to esaa-core 0.5.0b21
 
 🌐 [Português](esaa-upgrade-0.5.0b20.md) · **English**
 
 ## 1. What changes
 
-0.5.0b20 announces protocol **0.4.2**, which adds an **optional** executable verification extension. Storage and projections remain on schema **0.4.1**; a project that does not enable the extension keeps working as on 0.5.0b19. Check with:
+0.5.0b20 announced protocol **0.4.2**, which adds an **optional** executable verification extension. Install **0.5.0b21 or later**: b20 breaks `esaa verify` on workspaces that already have legacy absolute `scope_patch` entries. Storage and projections remain on schema **0.4.1**; a project that does not enable the extension keeps working as on 0.5.0b19. Check with:
 
 ```bash
 esaa --version
-# esaa 0.5.0b20 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)
+# esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)
 ```
+
+### Why skip 0.5.0b20
+
+Do not install `esaa-core==0.5.0b20`. In that release, strict `scope_patch` validation also ran during replay. Workspaces whose event store already contained absolute entries (for example the home store) fail `esaa verify` with `HOTFIX_SCOPE_INVALID`. 0.5.0b21 fixes replay (ISS-ESAA-B21-LEGACY-ABS-SCOPE / HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE): new commands still reject unsafe scopes; legacy history verifies with warning `LEGACY_SCOPE_PATCH_UNSAFE`. Anyone on b19 (or already on b20) should go straight to **0.5.0b21 or later**.
 
 Relevant changes for Grok, Antigravity and other runners:
 
@@ -31,13 +35,17 @@ esaa verify --chain        # if the chain is anchored
 cp -a .roadmap ".roadmap.bak-$(date +%Y%m%d%H%M%S)"
 ```
 
+On b20, `esaa verify` may fail with `HOTFIX_SCOPE_INVALID` before the backup looks “clean”. Copy `.roadmap/` anyway and install 0.5.0b21; verify should then pass with the legacy warning, without rewriting history.
+
 ## 3. Upgrade
 
 ```bash
-python -m pip install --user --upgrade --pre esaa-core==0.5.0b20
+python -m pip install --user --upgrade --pre 'esaa-core>=0.5.0b21'
 esaa --version
 esaa verify
 ```
+
+For an exact pin use `esaa-core==0.5.0b21`. Do not pin `esaa-core==0.5.0b20`.
 
 Use the same Python/CLI the runner already uses; updating a checkout's source does not update a global install, and vice versa. For isolated environments, install into a venv and call `python -m esaa`.
 
@@ -61,7 +69,7 @@ The full walkthrough and a reproducible synthetic demo are in [Grok and Antigrav
 
 ## 5. Migration limits and compatibility
 
-- **No downgrade after enabling.** Once `verification.configure`/`verification.run` are recorded, runtimes older than 0.5.0b20 may reject those actions on replay. Keep every reader of the project on b20 or later.
+- **No downgrade after enabling.** Once `verification.configure`/`verification.run` are recorded, runtimes older than 0.5.0b20 may reject those actions on replay. Keep every reader of the project on the 0.4.2 line, in practice **0.5.0b21 or later** (not b20).
 - Re-enabling the catalog invalidates earlier evidence; `request_changes` starts a new cycle and requires a new run.
 - Tasks without `executable_checks` still accept declarative checks (minimum 1; hotfix, 2).
 - Grants are explicit, never inherited, and do not override prohibitions or safe-path. Grants/scope change only in `todo`; status never goes back.
