@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1277,
-      "projection_hash_sha256": "01e92fc43d6b651d3c10553bd91f039bce7e2b6f24aafd8ef0f8a6bfc396d115",
+      "last_event_seq": 1291,
+      "projection_hash_sha256": "4becd392b3a81324234446ab855dc1fc6283c34c0e3fa0a99158a77df8b6962d",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-24T14:35:57Z"
+    "updated_at": "2026-10-24T15:45:40Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2210,7 +2210,7 @@
       "task_kind": "impl",
       "title": "Proteger trust root externo e detectar rollback",
       "description": "Issue vinculada ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001. Contrato proprietário 2026-10-02: depends_on 001 done obrigatório antes de claim. Pin público project_id/epoch/autoridade e checkpoint monotônico seq/hash fora do domínio agente/projeto; não autoenrollment de bytes locais. Verify/replay/operações/dry-run rejeitam troca conjunta anchor/histórico com chain recalculada, rollback prébootstrap, perdas/config downgrade e divergências seq/hash/project. Ordem append/checkpoint, crash recovery fail-closed e recuperação/import autorizado do owner explicitados e testados, keys só fixtures; ambient trust real ausente => BLOCKED_ENVIRONMENT ativação. Boundary a detalhar oficialmente antes de claim após inspeção e 001 done, coordenar módulos compartilhados. Evidência QA docs/qa/actor-registration/hotfix-trust-rollback/; review distinto segurança/governance conforme schema. Não IAM amplo, bootstrap/chaves definitivas, packaging, TCG ou provas antigas.",
-      "status": "todo",
+      "status": "review",
       "depends_on": [
         "ESAA-HF-ACTOR-SIGNED-REPLAY-001"
       ],
@@ -2226,14 +2226,24 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T15:05:21Z",
+      "verification": {
+        "checks": [
+          "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider => 550 passed, 4 skipped",
+          "tests/test_trust_rollback.py: joint swap TRUST_MISMATCH, prebootstrap/seq rollback TRUST_ROLLBACK, missing pin BLOCKED_ENVIRONMENT, no autoenrollment of governance-anchor.json, dry-run does not advance checkpoint, verify catch-up of store-ahead pin"
+        ]
+      },
+      "issue_id": "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
+      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001"
     },
     {
       "task_id": "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003",
       "task_kind": "impl",
       "title": "Vincular governança ao principal canônico e rejeitar alias self-review",
       "description": "Issue vinculada ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001; base implementação registration 001 em review, sem dependência funcional 002. Contrato proprietário 2026-10-02: principal estável provado por credencial autorizada e aliases explicitamente vinculados, não actor/runner/prefixo/PID/env/key autopublicada. Metadados canônicos versionados claim/complete/review, completer mesmo principal claimant, reviewer principal comprovadamente distinto de claimant e completer. Legado sem mapeamento inequívoco => bloquear review ou adjudicação legítima sem retroeditar. Ativo exige credencial válida/role/scope/project/actor/alias, reserva orchestrator, nenhum fallback qa_role. Enforcement Orchestrator/CLI/dryrun/APIs/replay. Testes ataque A aliases X/Y/Z, B completar A negado, alias legítimo de A pode completar, QA distinto legítimo aceita, aliases órfãos/credencial compartilhada/IDs duplicados/foreign project/orchestrator/assinatura inválida/replay determinismo + regressão. Boundary resolver auth/transições src/esaa/ tests/ a detalhar e coordenar antes de claim; evidence QA docs/qa/actor-registration/hotfix-canonical-identity/. Revisão independente obrigatória. Trust externo 002, signed replay 001, packaging excluídos. Sem bootstrap vivo/chaves reais/TCG.",
-      "status": "todo",
+      "status": "review",
       "depends_on": [],
       "targets": [
         "src/esaa/",
@@ -2247,7 +2257,17 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-10-24T15:31:04Z",
+      "verification": {
+        "checks": [
+          "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider => 567 passed, 4 skipped",
+          "tests/test_canonical_identity.py: A aliases X/Y/Z complete by principal, B complete denied LOCK_VIOLATION, QA alias self-review SELF_REVIEW_FORBIDDEN, unsigned post-bootstrap ACTOR_AUTH_FAILED, legacy unsigned after activation PRINCIPAL_UNBOUND, orphan/shared/duplicate/foreign/orchestrator/bad-sig/replay, CLI bind-alias, inactive qa_role preserved"
+        ]
+      },
+      "issue_id": "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
+      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001"
     },
     {
       "task_id": "ESAA-QA-ACTOR-PREACTIVATION-004",
@@ -3053,7 +3073,8 @@
   "indexes": {
     "by_status": {
       "done": 88,
-      "todo": 4
+      "review": 2,
+      "todo": 2
     },
     "by_kind": {
       "impl": 53,

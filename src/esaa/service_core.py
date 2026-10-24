@@ -217,16 +217,11 @@ class ESAAServiceCore:
         }
 
     def verify(self) -> dict[str, Any]:
-
         try:
-
             events = parse_event_store(self.root)
-
             projected, _, _ = materialize(events)
             projected_profile = project_profile_view(events)
-
         except CorruptedStoreError as exc:
-
             return {
                 "verify_status": "corrupted",
                 "error_code": exc.code,
@@ -234,31 +229,25 @@ class ESAAServiceCore:
                 "last_event_seq": None,
                 "projection_hash_sha256": None,
             }
-
+        computed_hash = projected["meta"]["run"]["projection_hash_sha256"]
+        from .trust_root import catch_up_checkpoint
+        caught = catch_up_checkpoint(self.root, events, computed_hash)
+        if caught:
+            return caught
         stored = load_roadmap(self.root)
-
         if stored is None:
-
             return {
                 "verify_status": "mismatch",
                 "reason": "roadmap_missing",
                 "last_event_seq": projected["meta"]["run"]["last_event_seq"],
                 "projection_hash_sha256": projected["meta"]["run"]["projection_hash_sha256"],
             }
-
-        computed_hash = projected["meta"]["run"]["projection_hash_sha256"]
-
         stored_hash = stored.get("meta", {}).get("run", {}).get("projection_hash_sha256")
-
         computed_seq = projected["meta"]["run"]["last_event_seq"]
-
         stored_seq = stored.get("meta", {}).get("run", {}).get("last_event_seq")
-
         stored_profile = load_project_profile(self.root)
         profile_matches = projected_profile == stored_profile
-
         if computed_hash == stored_hash and computed_seq == stored_seq and profile_matches:
-
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
@@ -266,7 +255,6 @@ class ESAAServiceCore:
                 "project_profile": projected_profile is not None,
                 **legacy_scope_warnings(projected.get("tasks", [])),
             }
-
         return {
             "verify_status": "mismatch",
             "last_event_seq": computed_seq,

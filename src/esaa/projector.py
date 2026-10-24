@@ -96,6 +96,7 @@ def _empty_state(project_name: str) -> dict[str, Any]:
         "indexes": {"by_status": {}, "by_kind": {}},
         "_issues": {},
         "_lessons": [],
+        "_principals": {},
     }
 
 
@@ -199,12 +200,27 @@ def _apply_claim(state: dict[str, Any], event: dict[str, Any]) -> None:
     task["status"] = "in_progress"
     task["assigned_to"] = event["actor"]
     task["started_at"] = event["ts"]
+    principal = (event.get("payload") or {}).get("_principal_id")
+    if principal:
+        state.setdefault("_principals", {})[task["task_id"]] = {
+            "claimant": str(principal),
+            "claim_actor": event["actor"],
+        }
 
 
 def _apply_complete(state: dict[str, Any], event: dict[str, Any]) -> None:
     task = _task_by_id(state, event["payload"]["task_id"])
     _check_transition(task, "complete")
-    _ensure_owner(task, event["actor"])
+    payload = event.get("payload") or {}
+    principal = payload.get("_principal_id")
+    claimed = (state.get("_principals") or {}).get(task["task_id"])
+    if principal and claimed and claimed.get("claimant"):
+        if str(principal) != claimed["claimant"]:
+            raise ESAAError(REJECT_LOCK, f"actor {event['actor']} principal does not own lock")
+        claimed["completer"] = str(principal)
+        claimed["complete_actor"] = event["actor"]
+    else:
+        _ensure_owner(task, event["actor"])
     task["status"] = "review"
     verification = event["payload"].get("verification")
     if verification:
@@ -358,6 +374,7 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         "chain.anchor",
         "actor.bootstrap",
         "actor.register",
+        "actor.bind_alias",
         "verify.start",
         "plugin.install",
         "plugin.remove",

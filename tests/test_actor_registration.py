@@ -15,6 +15,7 @@ from esaa.errors import ESAAError
 from esaa.identity import ALG, canonical_authorization_payload, public_key_fingerprint
 from esaa.service import ESAAService
 from esaa.store import parse_event_store
+from esaa.trust_root import ENV_TRUST_ROOT, import_trust_pin, make_pin
 from esaa.utils import canonical_json_bytes
 
 
@@ -45,6 +46,18 @@ def _key() -> tuple[Ed25519PrivateKey, str]:
 def _sign(private: Ed25519PrivateKey, payload: dict) -> dict:
     signature_hex = private.sign(canonical_json_bytes(payload)).hex()
     return {"payload": payload, "signature_hex": signature_hex}
+
+
+def _bind_trust_root(root: Path) -> Path:
+    trust = root.parent / f"esaa-trust-{root.name}"
+    trust.mkdir(parents=True, exist_ok=True)
+    os.environ[ENV_TRUST_ROOT] = str(trust)
+    return trust
+
+
+def _import_owner_pin(root: Path, public_hex: str) -> dict:
+    _bind_trust_root(root)
+    return import_trust_pin(root, make_pin(public_key_hex=public_hex))
 
 
 def _write_anchor(root: Path, public_hex: str) -> dict[str, str]:
@@ -111,22 +124,67 @@ def _review_auth(
     return _sign(actor_key, payload)
 
 
-def _ready_task(svc: ESAAService, actor: str = "agent-spec") -> None:
+def _transition_auth(
+    private: Ed25519PrivateKey,
+    project_id: str,
+    nonce: str,
+    actor_id: str,
+    task_id: str,
+    operation: str,
+) -> dict:
+    payload = canonical_authorization_payload(
+        operation=operation,
+        project_id=project_id,
+        nonce=nonce,
+        scope={"actor_id": actor_id, "task_id": task_id},
+    )
+    return _sign(private, payload)
+
+
+def _alias_auth(owner: Ed25519PrivateKey, project_id: str, nonce: str, actor_id: str, alias_id: str) -> dict:
+    payload = canonical_authorization_payload(
+        operation="actor.bind_alias",
+        project_id=project_id,
+        nonce=nonce,
+        scope={"actor_id": actor_id, "alias_id": alias_id},
+    )
+    return _sign(owner, payload)
+
+
+def _ready_task(
+    svc: ESAAService,
+    actor: str = "agent-spec",
+    keys: dict[str, object] | None = None,
+    actor_key: Ed25519PrivateKey | None = None,
+    task_id: str = "T-1000",
+) -> None:
+    claim_auth = None
+    complete_auth = None
+    if keys is not None:
+        private = actor_key or keys["keys_by_actor"][actor]
+        claim_auth = _transition_auth(
+            private, keys["project_id"], os.urandom(16).hex(), actor, task_id, "claim"
+        )
+        complete_auth = _transition_auth(
+            private, keys["project_id"], os.urandom(16).hex(), actor, task_id, "complete"
+        )
     svc.submit(
-        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
+        {"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}},
         actor=actor,
+        authorization=claim_auth,
     )
     svc.submit(
         {
             "activity_event": {
                 "action": "complete",
-                "task_id": "T-1000",
+                "task_id": task_id,
                 "prior_status": "in_progress",
                 "verification": {"checks": ["ok"]},
             },
-            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "ok\n"}],
+            "file_updates": [{"path": f"docs/spec/{task_id}.md", "content": "ok\n"}],
         },
         actor=actor,
+        authorization=complete_auth,
     )
 
 
@@ -136,7 +194,9 @@ def _activated(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, 
     svc.init(force=True, with_demo_tasks=True)
     owner, owner_pub = _key()
     reviewer, reviewer_pub = _key()
+    spec, spec_pub = _key()
     anchor = _write_anchor(tmp_path, owner_pub)
+    _import_owner_pin(tmp_path, owner_pub)
     svc.bootstrap_actor_authority(_bootstrap_auth(owner, owner_pub, "aa" * 16))
     svc.register_actor(
         actor_id="reviewer-qa",
@@ -145,12 +205,24 @@ def _activated(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, 
         actor_public_key_hex=reviewer_pub,
         authorization=_register_auth(owner, anchor["fingerprint_sha256"], "bb" * 16, "reviewer-qa", "qa", reviewer_pub),
     )
+    svc.register_actor(
+        actor_id="agent-spec",
+        role="implementation",
+        authorization_scope=["claim"],
+        actor_public_key_hex=spec_pub,
+        authorization=_register_auth(
+            owner, anchor["fingerprint_sha256"], "b0" * 16, "agent-spec", "implementation", spec_pub, ["claim"]
+        ),
+    )
     return svc, {
         "owner": owner,
         "owner_pub": owner_pub,
         "reviewer": reviewer,
         "reviewer_pub": reviewer_pub,
+        "spec": spec,
+        "spec_pub": spec_pub,
         "project_id": anchor["fingerprint_sha256"],
+        "keys_by_actor": {"reviewer-qa": reviewer, "agent-spec": spec},
     }
 
 
@@ -166,7 +238,7 @@ def test_history_without_bootstrap_keeps_qa_role_review(tmp_path: Path, repo_roo
 
 def test_bootstrap_and_independent_review(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     auth = _review_auth(
         keys["reviewer"], keys["project_id"], "cc" * 16, "reviewer-qa", "T-1000", "approve"
     )
@@ -178,12 +250,12 @@ def test_bootstrap_and_independent_review(tmp_path: Path, repo_root: Path) -> No
     assert any(event["action"] == "actor.register" for event in events)
     replayed = ESAAService(tmp_path).show_actor_registry()
     assert replayed["identity_contract"] == "active"
-    assert replayed["actors"][0]["actor_id"] == "reviewer-qa"
+    assert {actor["actor_id"] for actor in replayed["actors"]} == {"agent-spec", "reviewer-qa"}
 
 
 def test_unregistered_actor_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     unknown, _ = _key()
     auth = _review_auth(unknown, keys["project_id"], "dd" * 16, "agent-qa-unregistered", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
@@ -193,7 +265,7 @@ def test_unregistered_actor_rejected(tmp_path: Path, repo_root: Path) -> None:
 
 def test_invalid_signature_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     other, _ = _key()
     auth = _review_auth(other, keys["project_id"], "ee" * 16, "reviewer-qa", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
@@ -203,12 +275,15 @@ def test_invalid_signature_rejected(tmp_path: Path, repo_root: Path) -> None:
 
 def test_authorization_replay_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     auth = _review_auth(
         keys["reviewer"], keys["project_id"], "ff" * 16, "reviewer-qa", "T-1000", "request_changes"
     )
     first = svc.review_task("T-1000", actor="reviewer-qa", decision="request_changes", authorization=auth)
     assert first["status"] == "accepted"
+    complete_auth = _transition_auth(
+        keys["spec"], keys["project_id"], os.urandom(16).hex(), "agent-spec", "T-1000", "complete"
+    )
     svc.submit(
         {
             "activity_event": {
@@ -220,6 +295,7 @@ def test_authorization_replay_rejected(tmp_path: Path, repo_root: Path) -> None:
             "file_updates": [{"path": "docs/spec/T-1000.md", "content": "ok2\n"}],
         },
         actor="agent-spec",
+        authorization=complete_auth,
     )
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="reviewer-qa", decision="request_changes", authorization=auth)
@@ -228,7 +304,7 @@ def test_authorization_replay_rejected(tmp_path: Path, repo_root: Path) -> None:
 
 def test_anchor_substitution_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     attacker, attacker_pub = _key()
     _write_anchor(tmp_path, attacker_pub)
     auth = _review_auth(
@@ -253,7 +329,7 @@ def test_self_review_rejected(tmp_path: Path, repo_root: Path) -> None:
             owner, keys["project_id"], "22" * 16, "agent-impl", "implementation", claimant_pub, ["review"]
         ),
     )
-    _ready_task(svc, actor="agent-impl")
+    _ready_task(svc, actor="agent-impl", keys=keys, actor_key=claimant_key)
     auth = _review_auth(claimant_key, keys["project_id"], "33" * 16, "agent-impl", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="agent-impl", decision="approve", authorization=auth)
@@ -271,7 +347,7 @@ def test_claimant_qa_cannot_self_approve(tmp_path: Path, repo_root: Path) -> Non
         actor_public_key_hex=qa_pub,
         authorization=_register_auth(owner, keys["project_id"], "44" * 16, "agent-qa", "qa", qa_pub),
     )
-    _ready_task(svc, actor="agent-qa")
+    _ready_task(svc, actor="agent-qa", keys=keys, actor_key=qa_key)
     auth = _review_auth(qa_key, keys["project_id"], "55" * 16, "agent-qa", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="agent-qa", decision="approve", authorization=auth)
@@ -280,7 +356,7 @@ def test_claimant_qa_cannot_self_approve(tmp_path: Path, repo_root: Path) -> Non
 
 def test_orchestrator_impersonation_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     auth = _review_auth(
         keys["reviewer"], keys["project_id"], "66" * 16, "orchestrator", "T-1000", "approve"
     )
@@ -333,7 +409,7 @@ def test_second_bootstrap_rejected(tmp_path: Path, repo_root: Path) -> None:
 
 def test_dry_run_review_validates_identity(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     before = len(parse_event_store(tmp_path))
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="reviewer-qa", decision="approve", dry_run=True)
@@ -357,6 +433,7 @@ def test_cli_actor_register_exists_and_bootstrap_roundtrip(tmp_path: Path, repo_
     owner, owner_pub = _key()
     reviewer, reviewer_pub = _key()
     anchor = _write_anchor(tmp_path, owner_pub)
+    _import_owner_pin(tmp_path, owner_pub)
     bootstrap_path = tmp_path / "bootstrap.json"
     bootstrap_path.write_text(json.dumps(_bootstrap_auth(owner, owner_pub, "ac" * 16)), encoding="utf-8")
     assert main(["--root", str(tmp_path), "actor", "bootstrap", "--authorization", str(bootstrap_path)]) == 0

@@ -5,6 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from esaa.trust_root import ENV_TRUST_ROOT
+
+
+@pytest.fixture(autouse=True)
+def _isolate_trust_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(ENV_TRUST_ROOT, raising=False)
+
 
 @pytest.fixture
 def repo_root() -> Path:

@@ -36,6 +36,7 @@ CANONICAL_ACTIONS = {
     "chain.anchor",
     "actor.bootstrap",
     "actor.register",
+    "actor.bind_alias",
     "output.rejected",
     "orchestrator.file.write",
     "orchestrator.view.mutate",

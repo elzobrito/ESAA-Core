@@ -21,11 +21,16 @@ from .errors import ESAAError
 from .utils import canonical_json_bytes
 
 ALG = "ed25519"
+IDENTITY_EPOCH = "esaa.identity.v1"
 ANCHOR_REL = ".roadmap/governance-anchor.json"
 RESERVED_ACTOR_IDS = frozenset({"orchestrator"})
 REGISTERABLE_ROLES = frozenset({"qa", "specification", "implementation"})
 REVIEW_ROLES = frozenset({"qa"})
-PRIVILEGED_OPERATIONS = frozenset({"actor.bootstrap", "actor.register", "review"})
+PRIVILEGED_OPERATIONS = frozenset(
+    {"actor.bootstrap", "actor.register", "actor.bind_alias", "review", "claim", "complete"}
+)
+REGISTRY_OPERATIONS = frozenset({"actor.bootstrap", "actor.register", "actor.bind_alias"})
+TRANSITION_OPERATIONS = frozenset({"claim", "complete"})
 
 
 def public_key_fingerprint(public_key_hex: str) -> str:
@@ -131,6 +136,7 @@ def project_registry(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Deterministic registry derived from the append-only event store."""
     bootstrap: dict[str, Any] | None = None
     actors: dict[str, dict[str, Any]] = {}
+    aliases: dict[str, str] = {}
     used_nonces: set[str] = set()
     public_keys: dict[str, str] = {}
     for event in events:
@@ -160,10 +166,13 @@ def project_registry(events: list[dict[str, Any]]) -> dict[str, Any]:
             }
             if public_key_hex:
                 public_keys[public_key_hex] = actor_id
+        elif action == "actor.bind_alias":
+            aliases[str(payload["alias_id"])] = str(payload["actor_id"])
     return {
         "active": bootstrap is not None,
         "bootstrap": bootstrap,
         "actors": actors,
+        "aliases": aliases,
         "used_nonces": used_nonces,
         "public_keys": public_keys,
     }
@@ -220,12 +229,16 @@ def verify_privileged_authorization(
     if operation == "actor.bootstrap":
         if registry["active"]:
             raise ESAAError("ACTOR_BOOTSTRAP_EXISTS", "bootstrap authority is already established")
+        from .trust_root import require_pin_for_activation
+        pin = require_pin_for_activation(root)
         anchor = load_anchor(root)
+        if payload["project_id"] != pin["fingerprint_sha256"]:
+            raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match the external pin")
         if payload["project_id"] != anchor["fingerprint_sha256"]:
             raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match the public anchor")
-        verify_signature(anchor["public_key_hex"], payload, auth["signature_hex"])
+        verify_signature(pin["public_key_hex"], payload, auth["signature_hex"])
         consume_nonce(registry, payload["nonce"])
-        return {"anchor": anchor, "registry": registry, "authorization": auth}
+        return {"anchor": anchor, "registry": registry, "authorization": auth, "trust_pin": pin}
 
     registry = require_active_registry(events)
     anchor = assert_anchor_matches_registry(root, registry)
@@ -286,6 +299,101 @@ def assert_registerable(registry: dict[str, Any], scope: dict[str, Any]) -> None
         )
 
 
+def resolve_principal(registry: dict[str, Any], actor_id: str) -> dict[str, Any]:
+    """Map a presented actor/alias string to the owner-bound canonical principal."""
+    actor_id = actor_id.strip()
+    reject_orchestrator_impersonation(actor_id)
+    if not actor_id:
+        raise ESAAError("PRINCIPAL_UNBOUND", "actor_id is required")
+    recorded = registry["actors"].get(actor_id)
+    alias_id = actor_id
+    if recorded is None:
+        principal_actor = registry.get("aliases", {}).get(actor_id)
+        if not principal_actor:
+            raise ESAAError("ACTOR_NOT_REGISTERED", f"actor is not registered: {actor_id}")
+        recorded = registry["actors"].get(principal_actor)
+        if recorded is None:
+            raise ESAAError("PRINCIPAL_UNBOUND", f"alias {actor_id} is bound to an unknown principal")
+        actor_id = principal_actor
+    public_key_hex = recorded["actor_public_key_hex"]
+    return {
+        "actor_id": recorded["actor_id"],
+        "alias_id": alias_id,
+        "principal_id": public_key_fingerprint(public_key_hex),
+        "role": recorded["role"],
+        "actor_public_key_hex": public_key_hex,
+        "authorization_scope": list(recorded["authorization_scope"]),
+    }
+
+
+def prepare_alias_scope(*, actor_id: str, alias_id: str) -> dict[str, str]:
+    actor_id = actor_id.strip()
+    alias_id = alias_id.strip()
+    if not actor_id or not alias_id:
+        raise ESAAError("INVALID_ARGUMENT", "actor_id and alias_id are required")
+    reject_orchestrator_impersonation(actor_id)
+    reject_orchestrator_impersonation(alias_id)
+    if actor_id == alias_id:
+        raise ESAAError("INVALID_ARGUMENT", "alias_id must differ from actor_id")
+    return {"actor_id": actor_id, "alias_id": alias_id}
+
+
+def assert_bindable(registry: dict[str, Any], scope: dict[str, str]) -> None:
+    actor_id = scope["actor_id"]
+    alias_id = scope["alias_id"]
+    if actor_id not in registry["actors"]:
+        raise ESAAError("ACTOR_NOT_REGISTERED", f"actor is not registered: {actor_id}")
+    if alias_id in registry["actors"]:
+        raise ESAAError("ACTOR_DUPLICATE", f"alias collides with registered actor {alias_id}")
+    existing = registry.get("aliases", {}).get(alias_id)
+    if existing:
+        raise ESAAError("ACTOR_DUPLICATE", f"alias already bound: {alias_id}")
+
+
+def last_transition_principal(events: list[dict[str, Any]], action: str, task_id: str) -> str | None:
+    found: str | None = None
+    for event in events:
+        payload = event.get("payload") or {}
+        if event.get("action") == action and payload.get("task_id") == task_id:
+            principal = payload.get("_principal_id")
+            found = str(principal) if principal else None
+    return found
+
+
+def authorize_actor_transition(
+    *,
+    registry: dict[str, Any],
+    actor: str,
+    operation: str,
+    task_id: str,
+    authorization: Any,
+) -> dict[str, Any]:
+    if operation not in TRANSITION_OPERATIONS:
+        raise ESAAError("ACTOR_AUTH_FAILED", f"unsupported transition operation: {operation}")
+    if authorization is None:
+        raise ESAAError(
+            "ACTOR_AUTH_FAILED",
+            f"{operation} requires a signed authorization when the identity contract is active",
+        )
+    principal = resolve_principal(registry, actor)
+    expected_scope = {"actor_id": actor, "task_id": task_id}
+    auth = load_authorization(authorization)
+    if auth["payload"]["operation"] != operation:
+        raise ESAAError("ACTOR_AUTH_FAILED", f"authorization operation mismatch: {auth['payload']['operation']}")
+    if auth["payload"]["scope"] != expected_scope:
+        raise ESAAError("ACTOR_AUTH_FAILED", "authorization scope does not match the requested operation")
+    if auth["payload"]["project_id"] != registry["bootstrap"]["fingerprint_sha256"]:
+        raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match bootstrapped authority")
+    consume_nonce(registry, auth["payload"]["nonce"])
+    verify_signature(principal["actor_public_key_hex"], auth["payload"], auth["signature_hex"])
+    return {
+        "identity_epoch": IDENTITY_EPOCH,
+        "_principal_id": principal["principal_id"],
+        "_alias_id": principal["alias_id"],
+        "_authorization": auth,
+    }
+
+
 def assert_review_identity(
     *,
     registry: dict[str, Any],
@@ -293,21 +401,28 @@ def assert_review_identity(
     task: dict[str, Any],
     decision: str,
     authorization: Any,
+    events: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     reject_orchestrator_impersonation(actor)
-    recorded = registry["actors"].get(actor)
-    if recorded is None:
-        raise ESAAError("ACTOR_NOT_REGISTERED", f"actor is not registered: {actor}")
-    if recorded["role"] not in REVIEW_ROLES:
-        raise ESAAError("REVIEW_ROLE_VIOLATION", f"actor {actor} role={recorded['role']} cannot review")
+    principal = resolve_principal(registry, actor)
+    if principal["role"] not in REVIEW_ROLES:
+        raise ESAAError("REVIEW_ROLE_VIOLATION", f"actor {actor} role={principal['role']} cannot review")
     claimant = str(task.get("assigned_to") or "")
-    if actor == claimant:
+    if actor == claimant or principal["actor_id"] == claimant:
         raise ESAAError("SELF_REVIEW_FORBIDDEN", "claimant cannot review their own task")
-    if "review" not in recorded["authorization_scope"]:
+    if "review" not in principal["authorization_scope"]:
         raise ESAAError("REVIEW_ROLE_VIOLATION", f"actor {actor} is not authorized for review")
+    task_id = task["task_id"]
+    history = events or []
+    claimant_principal = last_transition_principal(history, "claim", task_id)
+    completer_principal = last_transition_principal(history, "complete", task_id)
+    if claimant_principal is None or completer_principal is None:
+        raise ESAAError("PRINCIPAL_UNBOUND", "review requires a canonical claimant and completer principal")
+    if principal["principal_id"] in {claimant_principal, completer_principal}:
+        raise ESAAError("SELF_REVIEW_FORBIDDEN", "reviewer principal is not distinct from claimant/completer")
     expected_scope = {
         "actor_id": actor,
-        "task_id": task["task_id"],
+        "task_id": task_id,
         "decision": decision,
     }
     auth = load_authorization(authorization)
@@ -318,7 +433,7 @@ def assert_review_identity(
     if auth["payload"]["project_id"] != registry["bootstrap"]["fingerprint_sha256"]:
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization project_id does not match bootstrapped authority")
     consume_nonce(registry, auth["payload"]["nonce"])
-    verify_signature(recorded["actor_public_key_hex"], auth["payload"], auth["signature_hex"])
+    verify_signature(principal["actor_public_key_hex"], auth["payload"], auth["signature_hex"])
     return auth
 
 
@@ -350,9 +465,14 @@ def authorize_review_event(
             task=task,
             decision=decision,
             authorization=authorization,
+            events=events,
         )
+        principal = resolve_principal(registry, actor)
         return {
-            "_reviewer_role": registry["actors"][actor]["role"],
+            "identity_epoch": IDENTITY_EPOCH,
+            "_principal_id": principal["principal_id"],
+            "_alias_id": principal["alias_id"],
+            "_reviewer_role": principal["role"],
             "_authorization": auth,
         }
 
@@ -367,6 +487,49 @@ def authorize_review_event(
             )
         extras["_reviewer_role"] = role
     return extras
+
+
+def authorize_agent_event(
+    *,
+    root: Path,
+    events: list[dict[str, Any]],
+    actor: str,
+    task: dict[str, Any],
+    action: str,
+    decision: str,
+    authorization: Any,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    if action == "review":
+        return authorize_review_event(
+            root=root,
+            events=events,
+            actor=actor,
+            task=task,
+            decision=decision,
+            authorization=authorization,
+            policy=policy,
+        )
+    if action in TRANSITION_OPERATIONS:
+        registry = project_registry(events)
+        if not registry["active"]:
+            return {}
+        assert_anchor_matches_registry(root, registry)
+        extras = authorize_actor_transition(
+            registry=registry,
+            actor=actor,
+            operation=action,
+            task_id=str(task["task_id"]),
+            authorization=authorization,
+        )
+        if action == "complete":
+            claimant_principal = last_transition_principal(events, "claim", str(task["task_id"]))
+            if claimant_principal is None:
+                raise ESAAError("PRINCIPAL_UNBOUND", "complete requires a canonical claimant principal")
+            if extras["_principal_id"] != claimant_principal:
+                raise ESAAError("LOCK_VIOLATION", "completer principal does not match claimant principal")
+        return extras
+    return {}
 
 
 def _normalize_role(role: str) -> str:

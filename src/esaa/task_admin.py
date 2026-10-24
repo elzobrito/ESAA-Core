@@ -191,6 +191,7 @@ class TaskAdminMixin:
         notes: str | None = None,
         notify_transition: bool | None = None,
         dry_run: bool = False,
+        authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
         admission = None if dry_run else self._admit_planned_task_if_needed(task_id)
@@ -205,7 +206,11 @@ class TaskAdminMixin:
             activity_event["notes"] = notes
 
         result = self._submit_command(
-            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
+            {"activity_event": activity_event},
+            actor=actor,
+            task_id=task_id,
+            dry_run=dry_run,
+            authorization=authorization,
         )
 
         if admission:
@@ -237,6 +242,7 @@ class TaskAdminMixin:
         notify_transition: bool | None = None,
         dry_run: bool = False,
         execution_id: str | None = None,
+        authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
         if not checks:
@@ -270,7 +276,9 @@ class TaskAdminMixin:
         if file_updates is not None:
             output["file_updates"] = file_updates
 
-        result = self._submit_command(output, actor=actor, task_id=task_id, dry_run=dry_run)
+        result = self._submit_command(
+            output, actor=actor, task_id=task_id, dry_run=dry_run, authorization=authorization
+        )
         should_notify = notify_transition
         if should_notify is None:
             should_notify = transition_messages_enabled_from_env()

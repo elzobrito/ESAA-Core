@@ -179,21 +179,19 @@ class SubmissionMixin:
             validate_file_update_resource_limits(file_updates, policy)
             file_updates = resolve_external_file_updates(self.root, task, file_updates)
             validate_resolved_file_boundaries(file_updates, contract, task)
-            # FIX-1807 + identity contract: review authorization before effects.
-            if validated_event["action"] == "review":
-                from .identity import authorize_review_event
-
-                validated_event.update(
-                    authorize_review_event(
-                        root=self.root,
-                        events=events,
-                        actor=actor,
-                        task=task,
-                        decision=str(validated_event.get("decision") or ""),
-                        authorization=authorization,
-                        policy=policy,
-                    )
+            from .identity import authorize_agent_event
+            validated_event.update(
+                authorize_agent_event(
+                    root=self.root,
+                    events=events,
+                    actor=actor,
+                    task=task,
+                    action=validated_event["action"],
+                    decision=str(validated_event.get("decision") or ""),
+                    authorization=authorization,
+                    policy=policy,
                 )
+            )
 
             agent_event = make_event(
                 current_seq, actor=actor, action=validated_event["action"], payload=validated_event

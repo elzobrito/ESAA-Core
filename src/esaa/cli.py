@@ -212,6 +212,11 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_claim.add_argument("--actor", required=True)
     cmd_claim.add_argument("--notes", default=None)
     cmd_claim.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
+    cmd_claim.add_argument(
+        "--authorization",
+        default=None,
+        help="signed authorization JSON for claim when identity is active; or ESAA_AUTHORIZATION",
+    )
     cmd_claim.add_argument("--dry-run", action="store_true")
 
     cmd_complete = sub.add_parser("complete", help="append a deterministic complete transition")
@@ -224,6 +229,11 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_complete.add_argument("--issue-id", default=None)
     cmd_complete.add_argument("--fixes", default=None)
     cmd_complete.add_argument("--notify-transition", action="store_true", help="speak the resulting task transition message")
+    cmd_complete.add_argument(
+        "--authorization",
+        default=None,
+        help="signed authorization JSON for complete when identity is active; or ESAA_AUTHORIZATION",
+    )
     cmd_complete.add_argument("--dry-run", action="store_true")
 
     cmd_review = sub.add_parser("review", help="append a deterministic review transition")
@@ -272,6 +282,23 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_actor_register.add_argument("--actor-public-key", required=True, dest="actor_public_key_hex")
     cmd_actor_register.add_argument("--authorization", required=True)
     cmd_actor_register.add_argument("--dry-run", action="store_true")
+    cmd_actor_bind_alias = actor_sub.add_parser(
+        "bind-alias",
+        help="bind an explicit alias to a registered principal (owner-signed)",
+    )
+    cmd_actor_bind_alias.add_argument("--actor-id", required=True)
+    cmd_actor_bind_alias.add_argument("--alias-id", required=True)
+    cmd_actor_bind_alias.add_argument("--authorization", required=True)
+    cmd_actor_bind_alias.add_argument("--dry-run", action="store_true")
+    cmd_actor_trust_import = actor_sub.add_parser(
+        "trust-import",
+        help="import an owner trust pin into ESAA_TRUST_ROOT (never copies local anchor bytes)",
+    )
+    cmd_actor_trust_import.add_argument(
+        "--pin",
+        required=True,
+        help="owner trust pin JSON path, or '-' for stdin",
+    )
     actor_sub.add_parser("show", help="show the event-sourced actor registry")
 
     cmd_verification = sub.add_parser("verification", help="operator-configured executable verification")
@@ -642,6 +669,7 @@ def main(argv: list[str] | None = None) -> int:
                 notes=args.notes,
                 notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
+                authorization=_read_authorization(getattr(args, "authorization", None)),
             )
         elif args.command == "complete":
             file_updates = _read_file_updates(args.file_updates) if args.file_updates else None
@@ -656,6 +684,7 @@ def main(argv: list[str] | None = None) -> int:
                 fixes=args.fixes,
                 notify_transition=args.notify_transition,
                 dry_run=args.dry_run,
+                authorization=_read_authorization(getattr(args, "authorization", None)),
             )
         elif args.command == "review":
             result = service.review_task(
@@ -686,6 +715,21 @@ def main(argv: list[str] | None = None) -> int:
                 authorization=authorization,
                 dry_run=args.dry_run,
             )
+        elif args.command == "actor" and args.actor_command == "bind-alias":
+            authorization = _read_authorization(args.authorization)
+            if authorization is None:
+                raise ESAAError("ACTOR_AUTH_FAILED", "actor bind-alias requires --authorization")
+            result = service.bind_actor_alias(
+                actor_id=args.actor_id,
+                alias_id=args.alias_id,
+                authorization=authorization,
+                dry_run=args.dry_run,
+            )
+        elif args.command == "actor" and args.actor_command == "trust-import":
+            pin = _read_json_arg(args.pin)
+            if not isinstance(pin, dict):
+                raise ESAAError("INVALID_ARGUMENT", "trust pin must be a JSON object")
+            result = service.import_owner_trust_pin(pin)
         elif args.command == "actor" and args.actor_command == "show":
             result = service.show_actor_registry()
         elif args.command == "state":

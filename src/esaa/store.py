@@ -571,6 +571,12 @@ def append_transactional(
         save_project_profile(root, final_project_profile)
         if after_append is not None:
             after_append()
+        from .trust_root import advance_checkpoint
+        advance_checkpoint(
+            root,
+            final_events,
+            final_roadmap["meta"]["run"]["projection_hash_sha256"],
+        )
         return {
             "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],

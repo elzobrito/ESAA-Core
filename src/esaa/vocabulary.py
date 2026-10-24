@@ -101,6 +101,14 @@ VOCABULARY_ROWS: list[dict[str, Any]] = [
     },
     {
         "profile": "core-v0.4.1",
+        "term": "actor.bind_alias",
+        "kind": "reserved_orchestrator_action",
+        "status": "canonical",
+        "maps_to": None,
+        "note": "bind an explicit alias to a registered principal; signed by bootstrap authority",
+    },
+    {
+        "profile": "core-v0.4.1",
         "term": "plugin.install",
         "kind": "reserved_orchestrator_action",
         "status": "canonical",

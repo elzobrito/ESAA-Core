@@ -13,7 +13,7 @@ from test_actor_registration import _activated, _ready_task, _review_auth, _sign
 
 def _reviewed(tmp_path, repo_root):
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     svc.review_task("T-1000", actor="reviewer-qa", decision="approve",
         authorization=_review_auth(keys["reviewer"], keys["project_id"], "cc" * 16,
                                    "reviewer-qa", "T-1000", "approve"))
@@ -111,8 +111,8 @@ def test_invalid_signed_legacy_review_never_becomes_legacy(tmp_path, repo_root):
 
 
 def test_candidate_append_rejects_unsigned_review_without_effect(tmp_path, repo_root):
-    svc, _ = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    svc, keys = _activated(tmp_path, repo_root)
+    _ready_task(svc, keys=keys)
     events = parse_event_store(tmp_path)
     path = tmp_path / ".roadmap/activity.jsonl"
     before = path.read_bytes()
@@ -136,7 +136,7 @@ def test_nonce_reuse_unknown_signer_and_role_are_rejected(tmp_path, repo_root):
 
 def test_valid_history_replay_deterministic_and_dryrun_rejects_invalid(tmp_path, repo_root):
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     before = (tmp_path / ".roadmap/activity.jsonl").read_bytes()
     auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16,
                        "reviewer-qa", "T-1000", "approve")
@@ -154,7 +154,7 @@ def test_valid_history_replay_deterministic_and_dryrun_rejects_invalid(tmp_path,
 
 def test_dryrun_cannot_broaden_signed_review_to_other_tasks(tmp_path, repo_root):
     svc, keys = _activated(tmp_path, repo_root)
-    _ready_task(svc)
+    _ready_task(svc, keys=keys)
     before = (tmp_path / ".roadmap/activity.jsonl").read_bytes()
     auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16,
                        "reviewer-qa", "T-1000", "approve")
