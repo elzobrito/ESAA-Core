@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1456,
-      "projection_hash_sha256": "21d17cf3db2496ee49d498771fc35e614a550a1276161bc8a5877771388c296c",
+      "last_event_seq": 1508,
+      "projection_hash_sha256": "a5f206cd0189dd39ca51e30962829d0f74677b4d09a87b2b0a4b5c480bf811c4",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-26T14:55:43Z"
+    "updated_at": "2026-10-26T16:35:46Z"
   },
   "project": {
     "name": "esaa-core",
@@ -2224,7 +2224,7 @@
       "task_kind": "impl",
       "title": "Proteger trust root externo e detectar rollback",
       "description": "Issue vinculada ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001. Contrato proprietário 2026-10-02: depends_on 001 done obrigatório antes de claim. Pin público project_id/epoch/autoridade e checkpoint monotônico seq/hash fora do domínio agente/projeto; não autoenrollment de bytes locais. Verify/replay/operações/dry-run rejeitam troca conjunta anchor/histórico com chain recalculada, rollback prébootstrap, perdas/config downgrade e divergências seq/hash/project. Ordem append/checkpoint, crash recovery fail-closed e recuperação/import autorizado do owner explicitados e testados, keys só fixtures; ambient trust real ausente => BLOCKED_ENVIRONMENT ativação. Boundary a detalhar oficialmente antes de claim após inspeção e 001 done, coordenar módulos compartilhados. Evidência QA docs/qa/actor-registration/hotfix-trust-rollback/; review distinto segurança/governance conforme schema. Não IAM amplo, bootstrap/chaves definitivas, packaging, TCG ou provas antigas.",
-      "status": "review",
+      "status": "done",
       "depends_on": [
         "ESAA-HF-ACTOR-SIGNED-REPLAY-001"
       ],
@@ -2250,14 +2250,15 @@
         ]
       },
       "issue_id": "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
-      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001"
+      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001",
+      "completed_at": "2026-10-26T16:28:57Z"
     },
     {
       "task_id": "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003",
       "task_kind": "impl",
       "title": "Vincular governança ao principal canônico e rejeitar alias self-review",
       "description": "Issue vinculada ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001; base implementação registration 001 em review, sem dependência funcional 002. Contrato proprietário 2026-10-02: principal estável provado por credencial autorizada e aliases explicitamente vinculados, não actor/runner/prefixo/PID/env/key autopublicada. Metadados canônicos versionados claim/complete/review, completer mesmo principal claimant, reviewer principal comprovadamente distinto de claimant e completer. Legado sem mapeamento inequívoco => bloquear review ou adjudicação legítima sem retroeditar. Ativo exige credencial válida/role/scope/project/actor/alias, reserva orchestrator, nenhum fallback qa_role. Enforcement Orchestrator/CLI/dryrun/APIs/replay. Testes ataque A aliases X/Y/Z, B completar A negado, alias legítimo de A pode completar, QA distinto legítimo aceita, aliases órfãos/credencial compartilhada/IDs duplicados/foreign project/orchestrator/assinatura inválida/replay determinismo + regressão. Boundary resolver auth/transições src/esaa/ tests/ a detalhar e coordenar antes de claim; evidence QA docs/qa/actor-registration/hotfix-canonical-identity/. Revisão independente obrigatória. Trust externo 002, signed replay 001, packaging excluídos. Sem bootstrap vivo/chaves reais/TCG.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [
         "src/esaa/",
@@ -2281,14 +2282,15 @@
         ]
       },
       "issue_id": "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
-      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001"
+      "fixes": "ESAA-CORE-ACTOR-REGISTRATION-001",
+      "completed_at": "2026-10-26T16:28:58Z"
     },
     {
       "task_id": "ESAA-QA-ACTOR-PREACTIVATION-004",
       "task_kind": "qa",
       "title": "Regressão integrada e novo gate pré-ativação",
       "description": "Contrato proprietário 2026-10-02: claim SOMENTE após três hotfixes e packaging done reais. Congelar patch, arquivos inclusive removidos, hashes anteriores protegidos, versões/Python/cryptography/CLI/Git dirty; baseline quatro ataques/433 testes são históricos, medir regressão atual e pacote wheel/sdist clean install. Matriz integral assinatura/epoch/chain recalculada/signer/projeto/nonce/scope; trust externo/checkpoint/substituição conjunta/rollback/crashes/recovery; principal canônico alias/orchestrator/escalada/QA distinto/dryrun; legacy válido, replay determinístico. Auditor independente dos implementadores/autoria testes/oracles com identidade/papel evidenciado, não alias ou qa_role como prova científica. Retomar scan existente cfe966df-2ad4-4d14-9f2d-c7354bf49a6d pelo skill sem alterar permissões amplamente ou criar substituto; bloqueio => BLOCKED_EVIDENCE/cobertura faltante, não READY. Verdict READY_FOR_OWNER_BOOTSTRAP somente todos gates comprovados, senão NO-GO_SECURITY/BLOCKED_EVIDENCE e issues. Evidências obrigatórias docs/qa/actor-registration/preactivation-v2/: README/input-manifest/inventory/attacker-model/negative-regression/legacy-compatibility/full-test-run/packaging-check/scan-status/independent-review/activation-readiness/protected-hashes/reproduction/hashes. Complete/review/done legítimos separados de ativação. Não editar códigos hotfix nessa QA, store/projeções, baseline histórico nem TCG; não chaves definitivas/bootstrap real.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
         "ESAA-HF-ACTOR-TRUST-ROLLBACK-002",
@@ -2305,7 +2307,16 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-26T16:30:51Z",
+      "verification": {
+        "checks": [
+          "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider => 593 passed, 4 skipped in 94.97s",
+          "preactivation-v2 package: identity hotfixes done, scan BLOCKED_STORAGE documented, activation-readiness NO-GO_SECURITY, no bootstrap"
+        ]
+      },
+      "completed_at": "2026-10-26T16:33:47Z"
     },
     {
       "task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-CALLERS-001",
@@ -3174,7 +3185,7 @@
       "task_kind": "qa",
       "title": "Recuperar scan histórico cfe966df-2ad4-4d14-9f2d-c7354bf49a6d sem trocar snapshot",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Plano aprovado pelo usuário26/10/2026 para fechar ESAA: baseGit8dce320,571testes Docker, dois mypyerros, PyPI/user0.5.0b21,pipx0.5.0b19; hotfixes002/003review, packaging/QA004todo. Ler AGENTS.md, contratos ativos e referências pertinentes; outputs e critérios não dependem da conversa. Objetivo/aceite: Recuperar scan histórico cfe966df-2ad4-4d14-9f2d-c7354bf49a6d sem trocar snapshot; ajuste autorizado no pai externo específico0775para0700 semrecursão; auditoria terminal complementar base6122d59 até candidato congelado com inventário completo incluindo removidos e parecer distinto, cobertura separada. Dependências: ESAA-CLOSE-20261026-BASE, ESAA-CLOSE-20261026-TYPE. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/security. Candidatos e logs /tmp/esaa-closeout-20261026-5e_oron8; evidências finais viafile_updates. Exigir testes observados, hashes e revisão técnica independente; segurança devecobrir candidatoatual integral pelo fluxo complementar aprovado, sem atribuir coberturaatual ao scanantigo. Excluir bootstrap real,chavesdefinitivas,TCG,ediçãohistory/projeções, redução de gates, alteraçãoalheia. PublicaçãoPyPI/commit/push/instalação autorizados pelo usuário; token em arquivo indicado, nunca saída ou Git. Grants restritos aos outputs; sem editar usuário/configs amplamente.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "ESAA-CLOSE-20261026-BASE",
         "ESAA-CLOSE-20261026-TYPE"
@@ -3189,14 +3200,21 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-qa",
-      "started_at": "2026-10-26T14:12:11Z"
+      "started_at": "2026-10-26T14:12:11Z",
+      "verification": {
+        "checks": [
+          "Historical scan cfe966df remains BLOCKED_STORAGE; no broad chmod; complementary audit of identity/trust modules with sha256 inventory",
+          "107 identity-related pytest passed; 002/003/postfix done; complementary audit verdict is not READY_FOR_OWNER_BOOTSTRAP"
+        ]
+      },
+      "completed_at": "2026-10-26T16:30:45Z"
     },
     {
       "task_id": "ESAA-CLOSE-20261026-ISSUES",
       "task_kind": "qa",
       "title": "Confrontar9issues abertas com evidências atuais",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Plano aprovado pelo usuário26/10/2026 para fechar ESAA: baseGit8dce320,571testes Docker, dois mypyerros, PyPI/user0.5.0b21,pipx0.5.0b19; hotfixes002/003review, packaging/QA004todo. Ler AGENTS.md, contratos ativos e referências pertinentes; outputs e critérios não dependem da conversa. Objetivo/aceite: Confrontar9issues abertas com evidências atuais; issue.resolve somente causa sanada/revisão legítima; preservar histórico e documentar provisionamento do proprietário fora escopo. Dependências: ESAA-CLOSE-20261026-BASE, ESAA-CLOSE-20261026-EVID, ESAA-CLOSE-20261026-SCAN, ESAA-QA-ACTOR-PREACTIVATION-004. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/issue-reconciliation.json. Candidatos e logs /tmp/esaa-closeout-20261026-5e_oron8; evidências finais viafile_updates. Exigir testes observados, hashes e revisão técnica independente; segurança devecobrir candidatoatual integral pelo fluxo complementar aprovado, sem atribuir coberturaatual ao scanantigo. Excluir bootstrap real,chavesdefinitivas,TCG,ediçãohistory/projeções, redução de gates, alteraçãoalheia. PublicaçãoPyPI/commit/push/instalação autorizados pelo usuário; token em arquivo indicado, nunca saída ou Git. Grants restritos aos outputs; sem editar usuário/configs amplamente.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "ESAA-CLOSE-20261026-BASE",
         "ESAA-CLOSE-20261026-EVID",
@@ -3211,7 +3229,16 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-26T16:33:57Z",
+      "verification": {
+        "checks": [
+          "Resolved ANCHOR-ROLLBACK, CLAIMANT-PRINCIPAL, REPLAY-AUTH, PREACTIVATION-REVIEW-EXECUTION after hotfixes/QA004 done",
+          "Left open: BOOTSTRAP-AUTHORITY (owner), SCAN-STORAGE (BLOCKED_STORAGE), CLOSE-INDEPENDENT-REVIEW residual; no bootstrap"
+        ]
+      },
+      "completed_at": "2026-10-26T16:35:33Z"
     },
     {
       "task_id": "ESAA-CLOSE-20261026-DOCS",
@@ -3254,7 +3281,7 @@
       "task_kind": "qa",
       "title": "Buildwheel/sdist",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Plano aprovado pelo usuário26/10/2026 para fechar ESAA: baseGit8dce320,571testes Docker, dois mypyerros, PyPI/user0.5.0b21,pipx0.5.0b19; hotfixes002/003review, packaging/QA004todo. Ler AGENTS.md, contratos ativos e referências pertinentes; outputs e critérios não dependem da conversa. Objetivo/aceite: Buildwheel/sdist; instalações limpas; publicarbytesexatos revisados, commit/push/tag eCIalljobs incluindo mypy; token somente subprocesso semlog; comparar PyPI SHA256. Dependências: ESAA-CLOSE-20261026-DOCS. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/release.json. Candidatos e logs /tmp/esaa-closeout-20261026-5e_oron8; evidências finais viafile_updates. Exigir testes observados, hashes e revisão técnica independente; segurança devecobrir candidatoatual integral pelo fluxo complementar aprovado, sem atribuir coberturaatual ao scanantigo. Excluir bootstrap real,chavesdefinitivas,TCG,ediçãohistory/projeções, redução de gates, alteraçãoalheia. PublicaçãoPyPI/commit/push/instalação autorizados pelo usuário; token em arquivo indicado, nunca saída ou Git. Grants restritos aos outputs; sem editar usuário/configs amplamente.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": [
         "ESAA-CLOSE-20261026-DOCS",
         "ESAA-CLOSE-20261026-ISSUES",
@@ -3268,7 +3295,9 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-26T16:35:46Z"
     },
     {
       "task_id": "ESAA-CLOSE-20261026-INSTALL",
@@ -3336,7 +3365,7 @@
       "task_kind": "impl",
       "title": "Hotfix for ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
       "description": "Apply a minimal hotfix to resolve issue ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001 without regressing immutable done tasks.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [
         "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001"
@@ -3369,7 +3398,8 @@
           "Fresh reviewer reproduced supplied authorization silently discarded in legacy. Guard now requires active identity for any non-None suppliedauthorization; legacyNone preserved.",
           "77passed19.26s: new12 APIaction/dryrun/auth-empty cases and CLI regression, existingidentity/gate/fileeffects suites. No live identity/bootstrap/keychanges."
         ]
-      }
+      },
+      "completed_at": "2026-10-26T16:28:59Z"
     },
     {
       "task_id": "ESAA-CLOSE-20261026-ALIGN-STABLE",
@@ -3428,10 +3458,9 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 96,
+      "done": 102,
       "in_progress": 1,
-      "review": 3,
-      "todo": 4
+      "todo": 1
     },
     "by_kind": {
       "impl": 56,

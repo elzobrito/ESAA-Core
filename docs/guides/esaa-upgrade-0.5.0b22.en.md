@@ -1,8 +1,8 @@
-# ESAA upgrade — 0.5.0b22 candidate
+# ESAA upgrade — 0.5.0b22
 
 🌐 [Português](esaa-upgrade-0.5.0b22.md) · **English**
 
-Status on 2026-10-26: **candidate under review; publication blocked**. Protocol 0.4.2, storage 0.4.1. Local source reports b22; this machine's operational installations were aligned to public b21. b22 has neither been published nor installed operationally. Do not perform the upgrade below before approval and confirmed publication.
+Status on 2026-10-26: **release 0.5.0b22**. Protocol 0.4.2, storage 0.4.1. PyPI publication does not activate identity; owner bootstrap remains a separate step. Confirm the public SHA256 before upgrading operational installs.
 
 ## Message for Grok and Antigravity
 
@@ -26,14 +26,14 @@ Grok may coordinate while Antigravity executes a bounded task. Record the actual
 - **Listing:** use `task list` and filter/pagination help. `eligible` lists available tasks rather than the entire backlog.
 - **Chain and metrics:** inspect `chain --help` before initializing a chain; a valid chain without an external anchor has limited guarantees. Use `runner metrics`; `attempts_total` counts rejections, not every execution.
 
-b21 preserves replay of historical absolute scopes and warns with `LEGACY_SCOPE_PATCH_UNSAFE`; new writes still reject unsafe scopes. Avoid b20 for affected stores. b22 adds typing, staging, alias and identity protections described in the [threat model](../security/threat-model.en.md). Final identity bytes still require independent review.
+b21 preserves replay of historical absolute scopes and warns with `LEGACY_SCOPE_PATCH_UNSAFE`; new writes still reject unsafe scopes. Avoid b20 for affected stores. b22 adds typing, staging, alias and identity protections described in the [threat model](../security/threat-model.en.md). Closeout `qa_role` reviews of the identity hotfixes are recorded; the identity contract stays inactive. Residuals: owner provisioning, scanner persistence (`BLOCKED_STORAGE`), and the automatic cybersecurity auditor.
 
 ## Upgrade after release
 
 First confirm approval of the exact commit, CI and a PyPI publication with matching hashes. Preserve a workspace copy and the owner's external records. Update each environment actually using ESAA without accidentally mixing installations:
 
 ```bash
-# Only after confirmed b22 publication:
+# After confirming public hashes for esaa-core==0.5.0b22:
 python -m pip install --upgrade 'esaa-core==0.5.0b22'
 # For a pipx-managed installation:
 pipx upgrade esaa-core

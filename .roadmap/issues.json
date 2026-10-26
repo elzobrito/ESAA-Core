@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 1456,
-    "updated_at": "2026-10-26T14:55:43Z"
+    "last_event_seq": 1508,
+    "updated_at": "2026-10-26T16:35:46Z"
   },
   "issues": [
     {
@@ -409,7 +409,7 @@
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Âncora e ativação substituíveis por controle dos arquivos do projeto",
       "baseline_id": null,
@@ -421,7 +421,10 @@
           "Verificar load_anchor lê projeto e project_registry define active somente pela presença de bootstrap; autoridade externa protegida não demonstrada."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "ESAA-HF-ACTOR-TRUST-ROLLBACK-002"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
         "fixes_task_id": null,
@@ -429,12 +432,12 @@
       },
       "timeline": {
         "created_event_seq": 865,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1487
       }
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Autorrevisão por alias unsigned não vinculado ao principal QA",
       "baseline_id": null,
@@ -446,7 +449,10 @@
           "Conferir submissão claim/complete sem prova de principal e comparação actor_id/assigned_to textual em assert_review_identity."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
         "fixes_task_id": null,
@@ -454,7 +460,7 @@
       },
       "timeline": {
         "created_event_seq": 868,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1490
       }
     },
     {
@@ -515,7 +521,7 @@
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "title": "Parecer pré-ativação preservado; registro independente de decisão pendente",
       "baseline_id": null,
@@ -527,7 +533,9 @@
           "Retomar registro da decisão por avaliador/operador legitimamente autorizado; não realizar bootstrap ou aprovar para contornar o impedimento."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
         "fixes_task_id": null,
@@ -535,12 +543,12 @@
       },
       "timeline": {
         "created_event_seq": 871,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1496
       }
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Replay e verify não autenticam assinaturas históricas",
       "baseline_id": null,
@@ -552,7 +560,10 @@
           "Conferir identity.py project_registry, projector e verify/replay: payload histórico projetado sem verify_signature. Controle de arquivos é pré-condição explícita, não ataque remoto."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
         "fixes_task_id": null,
@@ -560,7 +571,7 @@
       },
       "timeline": {
         "created_event_seq": 862,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1493
       }
     },
     {
@@ -617,7 +628,7 @@
     },
     {
       "issue_id": "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Request_changes técnico pós-correção: auth fornecida inválida degradada para legacy; BLOCKED_ADMIN_REVIEW",
       "baseline_id": null,
@@ -642,7 +653,15 @@
           "001 e CALLERSreview; 002todo blockeddependency001done;003todo elegível mas não iniciada após stopsecurity;packagingtodo boundary não concedível por taskamend instalado;004todo depsnão done. Não modificarDAG/reabrirhistórico/autoaprovar."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
+        "review_task_id": "HF-ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
+        "checks": [
+          "Fresh reviewer reproduced supplied authorization silently discarded in legacy. Guard now requires active identity for any non-None suppliedauthorization; legacyNone preserved.",
+          "77passed19.26s: new12 APIaction/dryrun/auth-empty cases and CLI regression, existingidentity/gate/fileeffects suites. No live identity/bootstrap/keychanges."
+        ]
+      },
       "links": {
         "reported_by_task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
         "fixes_task_id": null,
@@ -650,7 +669,7 @@
       },
       "timeline": {
         "created_event_seq": 919,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1464
       }
     }
   ],
@@ -658,13 +677,8 @@
     "open_by_baseline": {
       "unknown": [
         "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
-        "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
-        "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
-        "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
-        "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
         "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
-        "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001",
-        "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001"
+        "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001"
       ]
     }
   }

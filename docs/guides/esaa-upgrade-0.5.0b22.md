@@ -1,8 +1,8 @@
-# Atualização ESAA — candidato 0.5.0b22
+# Atualização ESAA — 0.5.0b22
 
 🌐 **Português** · [English](esaa-upgrade-0.5.0b22.en.md)
 
-Estado em 26/10/2026: **candidato em revisão; publicação bloqueada**. Protocolo 0.4.2, armazenamento 0.4.1. O código local identifica b22; a instalação operacional desta máquina foi alinhada à versão pública b21. A b22 não foi publicada nem instalada operacionalmente. Não execute a atualização abaixo antes da aprovação e confirmação da publicação.
+Estado em 26/10/2026: **release 0.5.0b22**. Protocolo 0.4.2, armazenamento 0.4.1. A publicação no PyPI não ativa identidade; o bootstrap continua sendo etapa do proprietário. Confirme o SHA256 público antes de atualizar instalações operacionais.
 
 ## Mensagem para o Grok e o Antigravity
 
@@ -26,14 +26,14 @@ O Grok pode coordenar e o Antigravity pode executar uma tarefa delimitada. O run
 - **Listagem:** use `task list` e a ajuda dos filtros/paginação. `eligible` mostra tarefas disponíveis, não todo o backlog.
 - **Chain e métricas:** consulte `chain --help` antes de inicializar uma cadeia; uma cadeia válida sem âncora externa tem garantias limitadas. Use `runner metrics`; `attempts_total` conta rejeições, não todas as execuções.
 
-A b21 preserva replay de escopos absolutos históricos e emite `LEGACY_SCOPE_PATCH_UNSAFE`; novas escritas continuam rejeitando escopos inseguros. Evite b20 em stores afetados. A b22 acrescenta correções de tipagem, staging, aliases e proteção da identidade descritas no [modelo de ameaças](../security/threat-model.md). Essas correções de identidade ainda exigem revisão independente dos bytes finais.
+A b21 preserva replay de escopos absolutos históricos e emite `LEGACY_SCOPE_PATCH_UNSAFE`; novas escritas continuam rejeitando escopos inseguros. Evite b20 em stores afetados. A b22 acrescenta correções de tipagem, staging, aliases e proteção da identidade descritas no [modelo de ameaças](../security/threat-model.md). Revisões `qa_role` dos hotfixes de identidade estão no closeout; o contrato de identidade permanece inactive. Residuais: provisionamento do owner, persistência do scanner (`BLOCKED_STORAGE`) e o auditor automático de cibersegurança.
 
 ## Atualização após liberação
 
 Confirme primeiro a aprovação do commit exato, CI e publicação PyPI com hashes correspondentes. Preserve uma cópia do workspace e dos registros externos do proprietário. Atualize cada ambiente que realmente usa ESAA, sem misturar instalações inadvertidamente:
 
 ```bash
-# Somente depois da publicação confirmada de b22:
+# Depois de conferir os hashes públicos de esaa-core==0.5.0b22:
 python -m pip install --upgrade 'esaa-core==0.5.0b22'
 # Para instalação administrada por pipx:
 pipx upgrade esaa-core

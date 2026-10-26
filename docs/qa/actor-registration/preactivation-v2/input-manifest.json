@@ -1,0 +1,16 @@
+{
+  "task_id": "ESAA-QA-ACTOR-PREACTIVATION-004",
+  "candidate": "0.5.0b22",
+  "git_branch": "codex/esaa-closeout-20261026",
+  "base_commit": "94497ac36ed55142ea9354e7e9be2cd1831e527c",
+  "protocol": "0.4.2",
+  "storage_schema": "0.4.1",
+  "identity_contract": "inactive",
+  "depends_done": [
+    "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
+    "ESAA-HF-ACTOR-TRUST-ROLLBACK-002",
+    "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003",
+    "ESAA-CORE-ACTOR-PACKAGING-001",
+    "HF-ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001"
+  ]
+}

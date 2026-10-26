@@ -1,0 +1,16 @@
+{
+  "scanId": "cfe966df-2ad4-4d14-9f2d-c7354bf49a6d",
+  "historical_status": "running/discovery",
+  "persistent_storage": "BLOCKED_STORAGE",
+  "error": "Scan output parent must not be group- or world-writable without the sticky bit.",
+  "current_patch_covered_by_historical_scan": false,
+  "chmod_broad": false,
+  "substitute_scan_claimed_as_original": false,
+  "complementary_audit": "docs/qa/closeout-20261026/security/complementary-audit.md",
+  "identity_hotfixes": {
+    "ESAA-HF-ACTOR-SIGNED-REPLAY-001": "done",
+    "ESAA-HF-ACTOR-TRUST-ROLLBACK-002": "done",
+    "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003": "done",
+    "HF-ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001": "done"
+  }
+}

@@ -1,12 +1,14 @@
-## 0.5.0b22 — unreleased candidate
+## 0.5.0b22
 
-- Protocol remains 0.4.2; storage remains 0.4.1. Publication and owner activation are blocked pending independent identity review and QA gates.
+Beta with external trust pin, canonical actor principal, and preactivation evidence.
+
+- Protocol remains 0.4.2; storage remains 0.4.1. Publication does not activate identity; owner bootstrap stays a separate step.
 - Correct explicit typing in identity-history scope reconstruction without relaxing validation.
 - Apply validated in-memory file content with unique temporary names; preserve existing file mode and prevent mutable staging bytes from changing the verified candidate.
 - Reject non-null authorization in inactive identity registries and reverse actor/alias collisions.
-- Candidate trust protections add OS-profile owner enrollment, full-history commitments (pin v2), serialized checkpoints and durable pre-append activation intent. Final independent review is pending; v1 pins are not automatically migrated.
-- Add 26 regression cases (597 total passed in the implementer's run), clean wheel/sdist smoke evidence and bilingual upgrade/threat-model documentation.
-- Operational installation remains public b21; b22 has not been published or activated. See docs/qa/closeout-20261026/hotfix-review-input.md for blockers and evidence attribution.
+- Trust pin schema `esaa.identity.trust.v2`: OS-profile owner enrollment, full-history commitments, serialized checkpoints and durable pre-append activation intent. Pin v1 is not automatically migrated.
+- Closeout 26/10/2026: identity hotfixes 002/003 and signed-replay postfix reviewed via `qa_role`; complementary security audit recorded; QA-PREACTIVATION-004 complete as NO-GO_SECURITY for owner bootstrap; residual open issues remain BOOTSTRAP-AUTHORITY (owner), SCAN-STORAGE (BLOCKED_STORAGE) and CLOSE-INDEPENDENT-REVIEW.
+- Add regression coverage for identity/trust, clean wheel/sdist smoke evidence and bilingual upgrade/threat-model documentation.
 
 ## 0.5.0b21
 

@@ -1,0 +1,7 @@
+{
+  "scanId": "cfe966df-2ad4-4d14-9f2d-c7354bf49a6d",
+  "persistent_storage": "BLOCKED_STORAGE",
+  "current_patch_covered_by_historical_scan": false,
+  "complementary_audit": "docs/qa/closeout-20261026/security/",
+  "attribution": "complementary audit is distinct from the historical scan snapshot"
+}
