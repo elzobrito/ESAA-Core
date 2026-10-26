@@ -1,0 +1,78 @@
+{
+  "task": "ESAA-CLOSE-20261026-INSTALL",
+  "date": "2026-10-26",
+  "package": "esaa-core==0.5.0b22",
+  "source": "https://pypi.org/project/esaa-core/0.5.0b22/",
+  "git": {
+    "commit": "8013f21a43511fd9fb11ba054fad8336d5e99389",
+    "tag": "v0.5.0b22",
+    "pr": "https://github.com/elzobrito/ESAA-Core/pull/11"
+  },
+  "pypi_sha256": {
+    "esaa_core-0.5.0b22-py3-none-any.whl": "7112bb35c426b63dc91230b5a185074b3da587a94dfab004353a901354528e0a",
+    "esaa_core-0.5.0b22.tar.gz": "4ab3957ba9131da853e7ac919b229756ffabded85bfaaac29a6d7d5e622e94aa"
+  },
+  "installs": [
+    {
+      "host": "notebook (elzobrito)",
+      "command": "/usr/bin/python3 -m pip install --user --break-system-packages --pre --upgrade esaa-core==0.5.0b22",
+      "python": "3.14.4",
+      "module": "/home/elzobrito/.local/lib/python3.14/site-packages/esaa/__init__.py",
+      "esaa_version": "esaa 0.5.0b22 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+      "pythonpath": "unset",
+      "identity.py_sha256": "e604741af647f1793ddf38a8aadb7bc0a596238498ef4de4ed8f3108b6bb400a",
+      "identity.py_matches_src": true
+    },
+    {
+      "host": "notebook (elzobrito)",
+      "command": "pipx upgrade esaa-core --pip-args=--pre",
+      "location": "/home/elzobrito/.local/share/pipx/venvs/esaa-core",
+      "esaa_version": "esaa 0.5.0b22 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+      "note": "PATH esaa remains user-pip ~/.local/bin/esaa; pipx binary not overwritten"
+    }
+  ],
+  "smoke": {
+    "clean_venv": {
+      "python": "/tmp/esaa-b22-install-venv/bin/python",
+      "esaa_version": "esaa 0.5.0b22 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+      "cryptography": "50.0.2",
+      "init_verify": {
+        "verify_status": "ok",
+        "last_event_seq": 4,
+        "projection_hash_sha256": "411885afdc5e0e74e1eac70f8cef0094ef6842c1b5c11b34654bb1e3b0664d50"
+      }
+    },
+    "docker": {
+      "image": "python:3.12-slim-bookworm",
+      "command": "pip install esaa-core==0.5.0b22 && esaa init/verify/actor show in /ws",
+      "esaa_version": "esaa 0.5.0b22 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+      "cryptography": "50.0.2",
+      "verify": {
+        "verify_status": "ok",
+        "last_event_seq": 4,
+        "projection_hash_sha256": "411885afdc5e0e74e1eac70f8cef0094ef6842c1b5c11b34654bb1e3b0664d50"
+      },
+      "identity_contract": "inactive"
+    },
+    "core_verify": {
+      "verify_status": "ok",
+      "last_event_seq": 1518,
+      "projection_hash_sha256": "e1a8572571ec7de5f9ab93249f72ef9392b4708fb354864836160f14e5fb2223"
+    },
+    "home_verify": {
+      "verify_status": "ok",
+      "last_event_seq": 8168,
+      "projection_hash_sha256": "04c54efb81e21e9241be6472d684526f5fac681efaf79f4ea5722704016d0aa3",
+      "warnings": [
+        "LEGACY_SCOPE_PATCH_UNSAFE: HF-ISS-BOOK-ZOTERO-LAUNCHER-20260909"
+      ],
+      "home_store_sha256_before_after": "d106f01d960b9e4f4200d8592cf09d7f6c466399e8079ff914fe3e6921288bd7"
+    }
+  },
+  "identity": {
+    "contract": "inactive",
+    "bootstrap": false
+  },
+  "private_credentials": "not read or generated",
+  "runner": "grok"
+}

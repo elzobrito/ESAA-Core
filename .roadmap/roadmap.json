@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1508,
-      "projection_hash_sha256": "a5f206cd0189dd39ca51e30962829d0f74677b4d09a87b2b0a4b5c480bf811c4",
+      "last_event_seq": 1525,
+      "projection_hash_sha256": "69a6cf2b0b2aa15550743008f1fc4ffa73ff1922928cd65906756048a2ae5764",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-26T16:35:46Z"
+    "updated_at": "2026-10-26T16:45:35Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3281,7 +3281,7 @@
       "task_kind": "qa",
       "title": "Buildwheel/sdist",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Plano aprovado pelo usuário26/10/2026 para fechar ESAA: baseGit8dce320,571testes Docker, dois mypyerros, PyPI/user0.5.0b21,pipx0.5.0b19; hotfixes002/003review, packaging/QA004todo. Ler AGENTS.md, contratos ativos e referências pertinentes; outputs e critérios não dependem da conversa. Objetivo/aceite: Buildwheel/sdist; instalações limpas; publicarbytesexatos revisados, commit/push/tag eCIalljobs incluindo mypy; token somente subprocesso semlog; comparar PyPI SHA256. Dependências: ESAA-CLOSE-20261026-DOCS. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/release.json. Candidatos e logs /tmp/esaa-closeout-20261026-5e_oron8; evidências finais viafile_updates. Exigir testes observados, hashes e revisão técnica independente; segurança devecobrir candidatoatual integral pelo fluxo complementar aprovado, sem atribuir coberturaatual ao scanantigo. Excluir bootstrap real,chavesdefinitivas,TCG,ediçãohistory/projeções, redução de gates, alteraçãoalheia. PublicaçãoPyPI/commit/push/instalação autorizados pelo usuário; token em arquivo indicado, nunca saída ou Git. Grants restritos aos outputs; sem editar usuário/configs amplamente.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "ESAA-CLOSE-20261026-DOCS",
         "ESAA-CLOSE-20261026-ISSUES",
@@ -3297,14 +3297,22 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-qa",
-      "started_at": "2026-10-26T16:35:46Z"
+      "started_at": "2026-10-26T16:35:46Z",
+      "verification": {
+        "checks": [
+          "python -m build produced esaa_core-0.5.0b22 wheel/sdist; twine check PASSED; forbidden env/token hits 0",
+          "twine upload published https://pypi.org/project/esaa-core/0.5.0b22/; PyPI SHA256 matches local wheel 7112bb35... and sdist 4ab3957b...",
+          "git commit d0417ea pushed, PR #11 merged as 8013f21, tag v0.5.0b22; CI PR 40361257193 and main 40361515105 success including mypy 58 files"
+        ]
+      },
+      "completed_at": "2026-10-26T16:43:13Z"
     },
     {
       "task_id": "ESAA-CLOSE-20261026-INSTALL",
       "task_kind": "qa",
       "title": "Instalar PyPI versãoexata no userPython e pipx",
       "description": "Workspace absoluto /home/elzobrito/desenvolvimento/ESAA-Core. Plano aprovado pelo usuário26/10/2026 para fechar ESAA: baseGit8dce320,571testes Docker, dois mypyerros, PyPI/user0.5.0b21,pipx0.5.0b19; hotfixes002/003review, packaging/QA004todo. Ler AGENTS.md, contratos ativos e referências pertinentes; outputs e critérios não dependem da conversa. Objetivo/aceite: Instalar PyPI versãoexata no userPython e pipx; confirmar CLIPythonimports/deps, Core/homeverify, hashfonte/pacote; smokeDockerisolado; docsGrok e commit/pushfinalcom evidence. Nãoativaridentidade. Dependências: ESAA-CLOSE-20261026-RELEASE. Saídas absolutas: /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/install.json, /home/elzobrito/desenvolvimento/ESAA-Core/docs/qa/closeout-20261026/final.md. Candidatos e logs /tmp/esaa-closeout-20261026-5e_oron8; evidências finais viafile_updates. Exigir testes observados, hashes e revisão técnica independente; segurança devecobrir candidatoatual integral pelo fluxo complementar aprovado, sem atribuir coberturaatual ao scanantigo. Excluir bootstrap real,chavesdefinitivas,TCG,ediçãohistory/projeções, redução de gates, alteraçãoalheia. PublicaçãoPyPI/commit/push/instalação autorizados pelo usuário; token em arquivo indicado, nunca saída ou Git. Grants restritos aos outputs; sem editar usuário/configs amplamente.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "ESAA-CLOSE-20261026-RELEASE"
       ],
@@ -3317,7 +3325,17 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-10-26T16:43:23Z",
+      "verification": {
+        "checks": [
+          "user pip and pipx now esaa-core==0.5.0b22 from PyPI; python -m esaa and pipx esaa report 0.5.0b22; identity.py hash matches source",
+          "Core verify ok seq 1518; home verify ok seq 8168 hash unchanged d106f01d...; identity_contract inactive; no bootstrap",
+          "clean venv and Docker python:3.12-slim-bookworm installed PyPI b22, init/verify ok, identity inactive"
+        ]
+      },
+      "completed_at": "2026-10-26T16:45:35Z"
     },
     {
       "task_id": "HF-ISS-ESAA-STAGED-CANDIDATE-20261026",
@@ -3458,9 +3476,7 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 102,
-      "in_progress": 1,
-      "todo": 1
+      "done": 104
     },
     "by_kind": {
       "impl": 56,
