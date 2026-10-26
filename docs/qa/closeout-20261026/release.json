@@ -1,0 +1,63 @@
+{
+  "release": "esaa-core 0.5.0b22",
+  "protocol": "0.4.2",
+  "storage_protocol": "0.4.1",
+  "git": {
+    "commit": "8013f21a43511fd9fb11ba054fad8336d5e99389",
+    "tree_commit": "d0417ea5de59fbd881a79bd4c413a667b593c39d",
+    "remote_main": "8013f21a43511fd9fb11ba054fad8336d5e99389",
+    "tag": "v0.5.0b22",
+    "pr": "https://github.com/elzobrito/ESAA-Core/pull/11",
+    "remote": "https://github.com/elzobrito/ESAA-Core.git"
+  },
+  "ci": {
+    "workflow": "CI",
+    "pr_run_id": 40361257193,
+    "main_run_id": 40361515105,
+    "conclusion": "success",
+    "event": "push",
+    "branch": "main",
+    "mypy": "Success: no issues found in 58 source files",
+    "pytest_local": "593 passed, 4 skipped"
+  },
+  "pypi": {
+    "url": "https://pypi.org/project/esaa-core/0.5.0b22/",
+    "latest": "0.5.0b22",
+    "artifacts": [
+      {
+        "filename": "esaa_core-0.5.0b22-py3-none-any.whl",
+        "sha256_local": "7112bb35c426b63dc91230b5a185074b3da587a94dfab004353a901354528e0a",
+        "sha256_pypi": "7112bb35c426b63dc91230b5a185074b3da587a94dfab004353a901354528e0a",
+        "size": 165289
+      },
+      {
+        "filename": "esaa_core-0.5.0b22.tar.gz",
+        "sha256_local": "4ab3957ba9131da853e7ac919b229756ffabded85bfaaac29a6d7d5e622e94aa",
+        "sha256_pypi": "4ab3957ba9131da853e7ac919b229756ffabded85bfaaac29a6d7d5e622e94aa",
+        "size": 396079
+      }
+    ]
+  },
+  "gates": {
+    "pytest_local": "593 passed, 4 skipped",
+    "mypy": "Success: no issues found in 58 source files",
+    "ci_pr": "success 40361257193 lint+test 3.11/3.12/3.13+typecheck",
+    "ci_main": "success 40361515105 lint+test 3.11/3.12/3.13+typecheck",
+    "twine_check": "PASSED (wheel, sdist)",
+    "artifact_forbidden_hits": 0,
+    "pypi_sha256_match": true
+  },
+  "identity": {
+    "contract": "inactive",
+    "bootstrap": false,
+    "activation": "not READY_FOR_OWNER_BOOTSTRAP"
+  },
+  "residuals": [
+    "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001",
+    "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
+    "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026"
+  ],
+  "runner": "grok",
+  "token_handling": "token passed via TWINE_PASSWORD environment from local file only; never printed, copied or committed",
+  "github_release": "not created; git tag v0.5.0b22 only, to avoid trusted-publishing workflow race"
+}
