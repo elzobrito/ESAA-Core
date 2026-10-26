@@ -9,8 +9,9 @@ from esaa.trust_root import ENV_TRUST_ROOT
 
 
 @pytest.fixture(autouse=True)
-def _isolate_trust_root(monkeypatch: pytest.MonkeyPatch) -> None:
+def _isolate_trust_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(ENV_TRUST_ROOT, raising=False)
+    monkeypatch.setattr("esaa.trust_enrollment.registry_directory", lambda: tmp_path.parent / ("owner-enrollments-" + tmp_path.name))
 
 
 @pytest.fixture

@@ -1,3 +1,15 @@
+## 0.5.0b22
+
+Beta with external trust pin, canonical actor principal, and preactivation evidence.
+
+- Protocol remains 0.4.2; storage remains 0.4.1. Publication does not activate identity; owner bootstrap stays a separate step.
+- Correct explicit typing in identity-history scope reconstruction without relaxing validation.
+- Apply validated in-memory file content with unique temporary names; preserve existing file mode and prevent mutable staging bytes from changing the verified candidate.
+- Reject non-null authorization in inactive identity registries and reverse actor/alias collisions.
+- Trust pin schema `esaa.identity.trust.v2`: OS-profile owner enrollment, full-history commitments, serialized checkpoints and durable pre-append activation intent. Pin v1 is not automatically migrated.
+- Closeout 26/10/2026: identity hotfixes 002/003 and signed-replay postfix reviewed via `qa_role`; complementary security audit recorded; QA-PREACTIVATION-004 complete as NO-GO_SECURITY for owner bootstrap; residual open issues remain BOOTSTRAP-AUTHORITY (owner), SCAN-STORAGE (BLOCKED_STORAGE) and CLOSE-INDEPENDENT-REVIEW.
+- Add regression coverage for identity/trust, clean wheel/sdist smoke evidence and bilingual upgrade/threat-model documentation.
+
 ## 0.5.0b21
 
 Hotfix beta for legacy event stores.

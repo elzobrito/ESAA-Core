@@ -11,14 +11,18 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from .errors import ESAAError
 from .identity import ALG, ANCHOR_REL, load_anchor, project_registry, public_key_fingerprint
+from .trust_enrollment import enroll, validate_enrollment
+from .utils import canonical_json_bytes
 
 ENV_TRUST_ROOT = "ESAA_TRUST_ROOT"
-PIN_SCHEMA = "esaa.identity.trust.v1"
+PIN_SCHEMA = "esaa.identity.trust.v2"
 EPOCH = "esaa.identity.v1"
 
 
@@ -31,6 +35,7 @@ def resolve_trust_root() -> Path | None:
 
 def bound_record_path(root: Path) -> Path:
     base = resolve_trust_root()
+    validate_enrollment(root, base)
     if base is None:
         raise ESAAError(
             "BLOCKED_ENVIRONMENT",
@@ -47,26 +52,53 @@ def bound_record_path(root: Path) -> Path:
 
 
 def try_load_record(root: Path) -> dict[str, Any] | None:
+    enrollment = validate_enrollment(root, resolve_trust_root())
     if resolve_trust_root() is None:
         return None
     path = bound_record_path(root)
     if not path.is_file():
+        if enrollment is not None:
+            raise ESAAError("BLOCKED_ENVIRONMENT", "enrolled workspace lost its protected pin")
         return None
-    return _read_record(path)
+    record = _read_record(path)
+    if enrollment is not None and record["fingerprint_sha256"] != enrollment["fingerprint"]:
+        raise ESAAError("TRUST_MISMATCH", "pin differs from protected owner enrollment")
+    return record
+
+
+@contextmanager
+def _record_lock(root: Path) -> Iterator[None]:
+    from .store import _acquire_store_lock, _release_store_lock
+
+    path = bound_record_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock = _acquire_store_lock(path)
+    try:
+        yield
+    finally:
+        _release_store_lock(lock)
 
 
 def import_trust_pin(root: Path, pin: dict[str, Any]) -> dict[str, Any]:
-    """Owner-authorized import. Does not read workspace governance-anchor.json."""
+    """Explicit owner import. Never enroll from the project replica or signed history."""
     record = _normalize_pin(pin)
     path = bound_record_path(root)
-    existing = _read_record(path) if path.is_file() else None
-    if existing is not None:
-        if existing["fingerprint_sha256"] != record["fingerprint_sha256"]:
-            raise ESAAError("TRUST_MISMATCH", "an owner pin already exists for this workspace")
-        if existing["checkpoint"]["event_seq"] > record["checkpoint"]["event_seq"]:
-            raise ESAAError("TRUST_ROLLBACK", "imported checkpoint would regress the external pin")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_record(path, record)
+    with _record_lock(root):
+        existing = _read_record(path) if path.is_file() else None
+        if existing is not None:
+            if existing["fingerprint_sha256"] != record["fingerprint_sha256"]:
+                raise ESAAError("TRUST_MISMATCH", "an owner pin already exists for this workspace")
+            if existing["checkpoint"]["event_seq"] > record["checkpoint"]["event_seq"]:
+                raise ESAAError("TRUST_ROLLBACK", "imported checkpoint would regress the external pin")
+            pending = existing.get("pending_activation")
+            if pending and (
+                record["checkpoint"]["event_seq"] < pending["event_seq"]
+                or record["checkpoint"].get("history_hash_sha256") != pending["history_hash_sha256"]
+            ):
+                raise ESAAError("TRUST_ROLLBACK", "owner recovery cannot discard activation intent")
+        # Binding first: a failed pin write stays enrolled and cannot become legacy.
+        enroll(root, path.parent, record["fingerprint_sha256"])
+        _write_record(path, record)
     return record
 
 
@@ -78,10 +110,10 @@ def require_pin_record(root: Path) -> dict[str, Any]:
             "activation requires ESAA_TRUST_ROOT pointing outside the project",
         )
     record = try_load_record(root)
-    if record is None:
+    if record is None or validate_enrollment(root, resolve_trust_root()) is None:
         raise ESAAError(
             "BLOCKED_ENVIRONMENT",
-            "no owner-imported trust pin for this workspace",
+            "explicit owner import and protected enrollment are required for this workspace",
         )
     return record
 
@@ -99,7 +131,6 @@ def require_pin_for_activation(root: Path) -> dict[str, Any]:
 
 def evaluate_trust(root: Path, events: list[dict[str, Any]]) -> dict[str, Any] | None:
     registry = project_registry(events)
-    last_seq = int(events[-1]["event_seq"]) if events else 0
     record = try_load_record(root)
 
     if registry["active"]:
@@ -124,6 +155,11 @@ def evaluate_trust(root: Path, events: list[dict[str, Any]]) -> dict[str, Any] |
             raise ESAAError("AUTH_EPOCH_UNSUPPORTED", "unsupported trust pin epoch")
         checkpoint = record["checkpoint"]
         _assert_monotonic_checkpoint(checkpoint, events)
+        pending = record.get("pending_activation")
+        if pending:
+            prefix = [e for e in events if int(e["event_seq"]) <= pending["event_seq"]]
+            if len(prefix) != pending["event_seq"] or _history_hash(prefix) != pending["history_hash_sha256"]:
+                raise ESAAError("TRUST_MISMATCH", "incomplete or divergent activation intent")
         pinned_bootstrap = checkpoint.get("bootstrap_event_seq")
         if pinned_bootstrap is not None and int(bootstrap["event_seq"]) != int(pinned_bootstrap):
             raise ESAAError("TRUST_ROLLBACK", "bootstrap event_seq diverges from the external checkpoint")
@@ -137,39 +173,56 @@ def evaluate_trust(root: Path, events: list[dict[str, Any]]) -> dict[str, Any] |
             raise ESAAError("ANCHOR_MISMATCH", "workspace anchor does not match the external pin")
         return record
 
-    if record is not None and record["checkpoint"].get("bootstrap_event_seq") is not None:
-        raise ESAAError("TRUST_ROLLBACK", "bootstrapped authority was removed from the event store")
+    if record is not None:
+        if record["checkpoint"].get("bootstrap_event_seq") is not None or record.get("pending_activation"):
+            raise ESAAError("TRUST_ROLLBACK", "bootstrapped authority or activation intent was removed")
+        _assert_monotonic_checkpoint(record["checkpoint"], events)
     return record
+
+
+def _history_hash(events: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(canonical_json_bytes(events)).hexdigest()
+
+
+def prepare_activation(root: Path, events: list[dict[str, Any]], final_events: list[dict[str, Any]]) -> None:
+    """Durably bind the planned first activation before any store append."""
+    if project_registry(events)["active"] or not project_registry(final_events)["active"]:
+        return
+    with _record_lock(root):
+        record = require_pin_record(root)
+        intent = {
+            "event_seq": int(final_events[-1]["event_seq"]),
+            "history_hash_sha256": _history_hash(final_events),
+        }
+        if record.get("pending_activation") not in (None, intent):
+            raise ESAAError("TRUST_ROLLBACK", "a different owner activation intent already exists")
+        record["pending_activation"] = intent
+        _write_record(bound_record_path(root), record)
 
 
 def advance_checkpoint(
-    root: Path,
-    events: list[dict[str, Any]],
-    projection_hash_sha256: str,
+    root: Path, events: list[dict[str, Any]], projection_hash_sha256: str
 ) -> dict[str, Any] | None:
-    record = try_load_record(root)
-    if record is None:
+    if try_load_record(root) is None:
         return None
-    evaluate_trust(root, events)
-    last_seq = int(events[-1]["event_seq"]) if events else 0
-    checkpoint = record["checkpoint"]
-    if last_seq < int(checkpoint["event_seq"]):
-        raise ESAAError("TRUST_ROLLBACK", "refusing to regress the external checkpoint")
-    stored_hash = checkpoint.get("projection_hash_sha256")
-    if stored_hash and last_seq == int(checkpoint["event_seq"]) and stored_hash != projection_hash_sha256:
-        raise ESAAError("TRUST_MISMATCH", "projection hash diverges from the external checkpoint")
-    registry = project_registry(events)
-    if registry["active"]:
-        bootstrap_seq = int(registry["bootstrap"]["event_seq"])
-        pinned = checkpoint.get("bootstrap_event_seq")
-        if pinned is not None and int(pinned) != bootstrap_seq:
-            raise ESAAError("TRUST_ROLLBACK", "bootstrap event_seq diverges from the external checkpoint")
-        checkpoint["bootstrap_event_seq"] = bootstrap_seq
-        record["project_id"] = registry["bootstrap"]["fingerprint_sha256"]
-    checkpoint["event_seq"] = last_seq
-    checkpoint["projection_hash_sha256"] = projection_hash_sha256
-    _write_record(bound_record_path(root), record)
-    return record
+    with _record_lock(root):
+        record = evaluate_trust(root, events)
+        assert record is not None
+        checkpoint = record["checkpoint"]
+        last_seq = int(events[-1]["event_seq"]) if events else 0
+        if last_seq < int(checkpoint["event_seq"]):
+            raise ESAAError("TRUST_ROLLBACK", "refusing to regress the external checkpoint")
+        original = canonical_json_bytes(record)
+        registry = project_registry(events)
+        if registry["active"]:
+            checkpoint["bootstrap_event_seq"] = int(registry["bootstrap"]["event_seq"])
+        checkpoint["event_seq"] = last_seq
+        checkpoint["projection_hash_sha256"] = projection_hash_sha256
+        checkpoint["history_hash_sha256"] = _history_hash(events)
+        record["pending_activation"] = None
+        if canonical_json_bytes(record) != original:
+            _write_record(bound_record_path(root), record)
+        return record
 
 
 def catch_up_checkpoint(
@@ -205,6 +258,7 @@ def make_pin(*, public_key_hex: str, epoch: str = EPOCH) -> dict[str, Any]:
         "checkpoint": {
             "event_seq": 0,
             "projection_hash_sha256": None,
+            "history_hash_sha256": _history_hash([]),
             "bootstrap_event_seq": None,
         },
     }
@@ -222,6 +276,10 @@ def _assert_monotonic_checkpoint(checkpoint: dict[str, Any], events: list[dict[s
     checkpoint_seq = int(checkpoint["event_seq"])
     if checkpoint_seq > last_seq:
         raise ESAAError("TRUST_ROLLBACK", "event store seq is behind the external checkpoint")
+    prefix = [event for event in events if int(event["event_seq"]) <= checkpoint_seq]
+    history_hash = checkpoint.get("history_hash_sha256")
+    if not history_hash or _history_hash(prefix) != history_hash:
+        raise ESAAError("TRUST_MISMATCH", "complete event prefix differs from protected checkpoint")
     stored_hash = checkpoint.get("projection_hash_sha256")
     if not stored_hash:
         return
@@ -274,8 +332,27 @@ def _normalize_pin(pin: dict[str, Any]) -> dict[str, Any]:
     projection_hash = checkpoint.get("projection_hash_sha256")
     if projection_hash is not None:
         projection_hash = str(projection_hash).strip().lower() or None
+    history_hash = checkpoint.get("history_hash_sha256")
+    if (
+        not isinstance(history_hash, str)
+        or len(history_hash) != 64
+        or any(c not in "0123456789abcdef" for c in history_hash)
+    ):
+        raise ESAAError(
+            "TRUST_MISMATCH", "v2 pin requires complete history commitment; owner migration required"
+        )
+    pending = pin.get("pending_activation")
+    if pending is not None and (
+        not isinstance(pending, dict)
+        or type(pending.get("event_seq")) is not int
+        or pending["event_seq"] < 1
+        or not isinstance(pending.get("history_hash_sha256"), str)
+        or len(pending["history_hash_sha256"]) != 64
+    ):
+        raise ESAAError("TRUST_MISMATCH", "invalid activation intent")
     return {
         "schema_version": PIN_SCHEMA,
+        "pending_activation": pending,
         "alg": ALG,
         "epoch": epoch,
         "project_id": project_id,
@@ -284,6 +361,7 @@ def _normalize_pin(pin: dict[str, Any]) -> dict[str, Any]:
         "checkpoint": {
             "event_seq": event_seq,
             "projection_hash_sha256": projection_hash,
+            "history_hash_sha256": history_hash,
             "bootstrap_event_seq": bootstrap_seq,
         },
     }

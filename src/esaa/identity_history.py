@@ -40,6 +40,7 @@ def validate_identity_history(root: Path, events: list[dict[str, Any]]) -> None:
     prefix: list[dict[str, Any]] = []
     claimants: dict[str, str] = {}
     active = False
+    scope: dict[str, Any]
     for event in events:
         try:
             validate_identity_representation(event)

@@ -1,0 +1,11 @@
+{
+  "src_esaa_hashed_files": 78,
+  "hash_file": "hashes.sha256",
+  "protected_hashes_file": "protected-hashes.sha256",
+  "identity_modules": [
+    "src/esaa/identity.py",
+    "src/esaa/identity_history.py",
+    "src/esaa/trust_root.py",
+    "src/esaa/trust_enrollment.py"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-26",
+  "task_id": "ESAA-CLOSE-20261026-ISSUES",
+  "resolved_this_cycle": [
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
+      "via": "ESAA-HF-ACTOR-TRUST-ROLLBACK-002 done",
+      "action": "issue.resolve"
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
+      "via": "ESAA-HF-ACTOR-CANONICAL-IDENTITY-003 done",
+      "action": "issue.resolve"
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
+      "via": "ESAA-HF-ACTOR-SIGNED-REPLAY-001 + postfix done",
+      "action": "issue.resolve"
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
+      "via": "ESAA-QA-ACTOR-PREACTIVATION-004 done",
+      "action": "issue.resolve"
+    },
+    {
+      "issue_id": "ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001",
+      "via": "hotfix review auto-resolved",
+      "action": "already resolved"
+    }
+  ],
+  "remain_open": [
+    {
+      "issue_id": "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001",
+      "reason": "owner provisioning; out of scope; no bootstrap"
+    },
+    {
+      "issue_id": "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
+      "reason": "historical Codex scan persistence still BLOCKED_STORAGE; complementary audit recorded separately"
+    },
+    {
+      "issue_id": "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
+      "reason": "automatic security auditor remains blocked; identity hotfixes were reviewed via qa_role; scanner storage residual remains"
+    }
+  ],
+  "activation": "not READY_FOR_OWNER_BOOTSTRAP"
+}

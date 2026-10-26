@@ -280,6 +280,8 @@ def prepare_register_scope(
 def assert_registerable(registry: dict[str, Any], scope: dict[str, Any]) -> None:
     actor_id = scope["actor_id"]
     public_key_hex = scope["actor_public_key_hex"]
+    if actor_id in registry.get("aliases", {}):
+        raise ESAAError("ACTOR_DUPLICATE", f"actor id already belongs to alias namespace: {actor_id}")
     existing = registry["actors"].get(actor_id)
     if existing:
         if (
@@ -476,6 +478,8 @@ def authorize_review_event(
             "_authorization": auth,
         }
 
+    if authorization is not None:
+        raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract")
     extras: dict[str, Any] = {}
     mode = review_authorization_mode(policy)
     role = resolve_role(actor, root=root)
@@ -513,6 +517,8 @@ def authorize_agent_event(
     if action in TRANSITION_OPERATIONS:
         registry = project_registry(events)
         if not registry["active"]:
+            if authorization is not None:
+                raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract")
             return {}
         assert_anchor_matches_registry(root, registry)
         extras = authorize_actor_transition(

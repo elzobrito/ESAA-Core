@@ -25,6 +25,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -55,10 +57,11 @@ def stage_file_updates(root: Path, file_updates: list[dict[str, str]]) -> list[d
     for i, item in enumerate(file_updates):
         final_path = item["path"].replace("\\", "/")
         content = item["content"]
-        # Use hash-based staging name to avoid collisions
-        staged_name = f"stage-{i:04d}-{_sha256_bytes(content.encode('utf-8'))[:12]}.tmp"
-        staged_path = staging_root / staged_name
-        staged_path.write_text(content, encoding="utf-8", newline="")
+        # Each submission owns its stage, even when another delivery has identical bytes.
+        fd, staged_name = tempfile.mkstemp(prefix=f"stage-{i:04d}-", suffix=".tmp", dir=staging_root)
+        staged_path = Path(staged_name)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
         staged.append(
             {
                 "final_path": final_path,
@@ -76,12 +79,23 @@ def stage_file_updates(root: Path, file_updates: list[dict[str, str]]) -> list[d
 
 
 def commit_staged(root: Path, staged: list[dict[str, Any]]) -> None:
-    """Apply staged files atomically to final paths."""
+    """Atomically apply the validated in-memory content, never a mutable stage copy."""
     for entry in staged:
         final = Path(entry["final_abs_path"]) if entry.get("final_abs_path") else root / entry["final_path"]
-        staged_p = Path(entry["staged_path"])
         final.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(staged_p, final)
+        fd, name = tempfile.mkstemp(prefix=".esaa-apply-", suffix=".tmp", dir=final.parent)
+        temporary = Path(name)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                if os.name != "nt" and final.exists():
+                    os.fchmod(handle.fileno(), stat.S_IMODE(final.stat().st_mode))
+                handle.write(entry["content"].encode("utf-8"))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, final)
+        finally:
+            temporary.unlink(missing_ok=True)
+            Path(entry["staged_path"]).unlink(missing_ok=True)
 
 
 def discard_staged(staged: list[dict[str, Any]]) -> None:

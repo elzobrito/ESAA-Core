@@ -449,6 +449,8 @@ def append_events(
         prepared = _prepare_events_for_append(current_events, events)
         from .identity_history import validate_identity_history
         validate_identity_history(root, current_events + prepared)
+        from .trust_root import prepare_activation
+        prepare_activation(root, current_events, current_events + prepared)
         serialized_lines = [
             json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in prepared
         ]
@@ -551,6 +553,8 @@ def append_transactional(
         validate_identity_history(root, final_events)
         final_roadmap, final_issues, final_lessons = materialize(final_events)
         final_project_profile = project_profile_view(final_events)
+        from .trust_root import prepare_activation
+        prepare_activation(root, events, final_events)
 
         # Append (reentrante sob lock atual; usa a logica de newline-guard)
         serialized_lines = [

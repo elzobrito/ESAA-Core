@@ -1,56 +1,36 @@
-# Threat Model - Identidade ESAA
+# Modelo de ameaças — identidade e efeitos ESAA
 
 🌐 **Português** · [English](threat-model.en.md)
 
-> Escopo: G03 / SEC-02
-> Objetivo: definir o que o ESAA assume como confiavel e quais ataques o modelo de actor/runner deve bloquear.
+## Estado e escopo
 
-## Ativos protegidos
+Candidato 0.5.0b22, protocolo 0.4.2, armazenamento 0.4.1. Revisão independente de identidade pendente: **BLOCKED_EVIDENCE**. Este documento descreve desenho e testes observados, sem certificar segurança em produção. Consulte o [guia de atualização](../guides/esaa-upgrade-0.5.0b22.md) e a [evidência](../qa/closeout-20261026/hotfix-review-input.md).
 
-- Integridade do event store `.roadmap/activity.jsonl`.
-- Estado derivado das tarefas (`roadmap.json`, `issues.json`, `lessons.json`).
-- Boundaries de escrita por `task_kind`.
-- Autoridade de review e transicao para `done`.
-- File effects aplicados pelo Orchestrator.
+## Ativos e autoridades
 
-## Fronteiras de confianca
+Protegem-se histórico, projeções, ownership de tarefas, autorização de revisão, boundaries e bytes finais dos efeitos. O Orchestrator valida e escreve; o runner declara proveniência operacional e não substitui identidade criptográfica. No modo legado, os nomes de actor seguem a política local, mas não provam posse de chave. Autenticação Ed25519 é uma extensão com ativação explícita; os antigos exemplos HMAC/identity.strict não descrevem este protocolo.
 
-Confiavel:
+O proprietário controla a autoridade bootstrap, pin externo e enrollment do host. O agente controla propostas e candidatos, não deveria controlar esses registros externos nem chaves do proprietário. O processo do Orchestrator, sistema operacional, implementação criptográfica e configuração autorizada são parte da base confiável.
 
-- Orchestrator/CLI ESAA executando localmente.
-- File lock do event store enquanto estiver integro.
-- `agents_swarm.yaml` e `RUNTIME_POLICY.yaml` versionados no workspace.
-- Segredos de actor quando fornecidos por ambiente/keyfile fora do event store.
+## Controles e evidências por ameaça
 
-Nao confiavel por si so:
+| Ameaça | Controle implementado no candidato | Limite/evidência |
+|---|---|---|
+| Credencial inválida descartada no registry inativo | Operação com authorization não nula exige bootstrap; None preserva legado | Testes do implementador; revisão final pendente |
+| Alias usado para autoaprovação ou colisão de identidade | Principal canônico para ownership/review; colisão inversa actor/alias rejeitada | Testes API/CLI/replay; revisão final pendente |
+| Rollback do projeto ou perda/troca de ESAA_TRUST_ROOT | Enrollment público descoberto pelo perfil OS; raiz/fingerprint externos vinculados ao workspace | Exige isolamento real do proprietário; revisão final pendente |
+| História reescrita com cadeia recalculada | Pin v2 compromete prefixo completo do histórico, além das projeções | Cadeia sem âncora externa não basta; revisão final pendente |
+| Checkpoints concorrentes regressivos | Leitura/validação/escrita sob lock de registro; ordem store → pin | Teste determinístico concorrente; revisão final pendente |
+| Crash na ativação antes do checkpoint | Intent durável antes do primeiro append, ligado aos eventos planejados | Interrupção falha fechada; recuperação cabe ao proprietário |
+| Troca de bytes entre verificação e aplicação | Commit recompõe temporário a partir do conteúdo validado em memória; nomes exclusivos, replace atômico e modo preservado | Revisão independente repetiu adulteração e concorrência; passou |
+| Candidato alterado reutiliza execução | Evidência executável vinculada a tarefa/actor/ciclo/configuração/inputs/candidato | Docker isolado opcional; declarações textuais não viram execução |
 
-- String `actor` recebida em comando ou payload de automacao.
-- Nome com prefixo `agent-qa*`.
-- Conteudo do envelope produzido por agente.
-- Input de plugin, inclusive roots externos e paths runtime.
-- Resposta de adapter HTTP/LLM.
+Assinaturas, sequência e regras de replay são validadas antes de aceitar efeitos. O lock de armazenamento coordena escritores; não é uma autorização adicional. Nunca remova locks manualmente. Falhas de integridade exigem interrupção e diagnóstico, não edição do log.
 
-## Ameaças cobertas por G03
+## Fronteiras e não garantias
 
-1. **Escalada por nome de actor:** um caller usa `agent-qa-fake` para obter role QA por prefixo. Mitigacao: strict actor registry, sem fallback por prefixo.
-2. **Review nao autorizado:** actor que fez claim tenta aprovar a propria entrega sem role QA. Mitigacao: `review_authorization=qa_role` + role resolvida no swarm.
-3. **Complete por terceiro:** actor diferente tenta completar task reivindicada. Mitigacao: WG-004 com `assigned_to` derivado do claim.
-4. **Uso de actor registrado sem credencial:** caller conhece o nome `agent-qa` e tenta usa-lo. Mitigacao opcional: `identity.auth.mode=hmac` com `ACTOR_AUTH_FAILED`.
-5. **Persistencia de segredo:** token aparece em event log ou projection. Mitigacao: token e entrada de comando apenas, nunca payload persistido.
+`ESAA_TRUST_ROOT` sozinho não constitui confiança independente. O enrollment Unix usa o home obtido por UID no sistema; Windows usa a pasta LocalAppData do perfil OS. HOME/XDG não selecionam esse registro. Tanto enrollment quanto trust root precisam ficar fora do workspace e inacessíveis para escrita pelo agente. Um agente com o mesmo UID pode ter acesso apesar de modo 0700. Comprometimento do host, owner ou processo confiável não é resolvido por esse desenho.
 
-## Ameaças fora de escopo imediato
+Não há conversão automática de pins v1 para v2, bootstrap automático ou permissão para reconstruir confiança usando somente a réplica controlada pelo projeto. Os testes usam fixtures descartáveis; nenhum bootstrap real foi realizado neste trabalho. A cadeia do Core sem âncora externa e a extensão de execução desabilitada por padrão não implicam ativação: são estados opcionais que devem ser apresentados corretamente.
 
-- Usuario local com permissao de escrita direta em `.roadmap/activity.jsonl`; tratado por G02 hash chain e por controles de filesystem.
-- Lock orfao/concorrencia no append; tratado por G04.
-- Plugin apontando para diretorio arbitrario; tratado por G05.
-- Comprometimento completo do host local; requer controles externos ao ESAA.
-
-## Garantias resultantes
-
-Com `identity.strict=true` e `review_authorization=qa_role`:
-
-- Role e sempre autorizacao explicita do swarm.
-- Prefixo de nome nao concede privilegio.
-- Review approve so vem de QA/orchestrator autorizado.
-- Complete ainda respeita ownership do claim.
-- Falhas de identidade acontecem antes de schema/gates/efeitos, mantendo fail-closed.
+A política local controla quem pode revisar; um nome/alias de QA e um teste passando não substituem revisão independente. O scanner histórico cobre apenas seu snapshot. A revisão complementar dos novos bytes de identidade não terminou; o gate de release permanece fechado.
