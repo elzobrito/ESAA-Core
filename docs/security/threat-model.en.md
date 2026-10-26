@@ -1,56 +1,36 @@
-# Threat Model - ESAA Identity
+# Threat model — ESAA identity and file effects
 
 🌐 [Português](threat-model.md) · **English**
 
-> Scope: G03 / SEC-02
-> Goal: define what ESAA assumes as trusted and which attacks the actor/runner model must block.
+## Status and scope
 
-## Protected assets
+Candidate 0.5.0b22, protocol 0.4.2, storage 0.4.1. Independent identity review is pending: **BLOCKED_EVIDENCE**. This document describes the design and observed tests without certifying production security. See the [upgrade guide](../guides/esaa-upgrade-0.5.0b22.en.md) and [evidence](../qa/closeout-20261026/hotfix-review-input.md).
 
-- Integrity of the event store `.roadmap/activity.jsonl`.
-- State derived from tasks (`roadmap.json`, `issues.json`, `lessons.json`).
-- Per-`task_kind` write boundaries.
-- Review authority and the transition to `done`.
-- File effects applied by the Orchestrator.
+## Assets and authorities
 
-## Trust boundaries
+Protected assets are history, projections, task ownership, review authorization, boundaries and final file-effect bytes. The Orchestrator validates and writes; runner records operational provenance and does not substitute for cryptographic identity. In legacy mode actor names follow local policy but do not prove key possession. Ed25519 authentication is an explicitly activated extension; historical HMAC/identity.strict examples do not describe this protocol.
 
-Trusted:
+The owner controls bootstrap authority, external pin and host enrollment. Agents control proposals and candidates and should not control these external records or owner keys. The Orchestrator process, operating system, cryptographic implementation and authorized configuration form the trusted base.
 
-- Orchestrator/ESAA CLI running locally.
-- The event store file lock while it remains intact.
-- `agents_swarm.yaml` and `RUNTIME_POLICY.yaml` versioned in the workspace.
-- Actor secrets when provided via environment/keyfile outside the event store.
+## Threat controls and evidence
 
-Not trusted on their own:
+| Threat | Candidate control | Limit/evidence |
+|---|---|---|
+| Invalid credentials discarded in inactive registry | Non-null authorization requires bootstrap; None preserves legacy | Implementer tests; final review pending |
+| Alias enables self-review or identity collision | Canonical principal for ownership/review; reverse actor/alias collision rejected | API/CLI/replay tests; final review pending |
+| Project rollback or lost/replaced ESAA_TRUST_ROOT | Public enrollment discovered from OS profile; external root/fingerprint bound to workspace | Requires real owner isolation; final review pending |
+| Rewritten history with recalculated chain | v2 pin commits the full history prefix in addition to projections | Unanchored chain alone is insufficient; final review pending |
+| Concurrent checkpoint regression | Read/validate/write under record lock; store → pin order | Deterministic concurrency test; final review pending |
+| Activation crash before checkpoint | Durable intent before first append, bound to planned events | Interruption fails closed; owner handles recovery |
+| Bytes swapped between verification and application | Commit builds a fresh temporary file from validated in-memory content; unique names, atomic replace, preserved mode | Independent review repeated tampering/concurrency and passed |
+| Changed candidate reuses execution | Executable evidence binds task/actor/cycle/configuration/inputs/candidate | Optional isolated Docker; textual declarations are not execution |
 
-- The `actor` string received in a command or automation payload.
-- A name with the `agent-qa*` prefix.
-- The envelope content produced by an agent.
-- Plugin input, including external roots and runtime paths.
-- HTTP/LLM adapter responses.
+Signatures, sequence and replay rules are validated before effects are accepted. Store locking coordinates writers and grants no extra authorization. Never remove locks manually. Integrity failures require stopping and diagnosis rather than log editing.
 
-## Threats covered by G03
+## Boundaries and non-guarantees
 
-1. **Escalation via actor name:** a caller uses `agent-qa-fake` to obtain the QA role by prefix. Mitigation: strict actor registry, no prefix fallback.
-2. **Unauthorized review:** the actor who claimed tries to approve their own delivery without the QA role. Mitigation: `review_authorization=qa_role` + role resolved in the swarm.
-3. **Complete by a third party:** a different actor tries to complete a claimed task. Mitigation: WG-004 with `assigned_to` derived from the claim.
-4. **Use of a registered actor without credentials:** a caller knows the `agent-qa` name and tries to use it. Optional mitigation: `identity.auth.mode=hmac` with `ACTOR_AUTH_FAILED`.
-5. **Secret persistence:** a token shows up in the event log or projection. Mitigation: the token is a command input only, never a persisted payload.
+`ESAA_TRUST_ROOT` alone is not independent trust. Unix enrollment uses the OS home resolved by UID; Windows uses OS-profile LocalAppData. HOME/XDG do not select this registry. Enrollment and trust root must both remain outside the workspace and deny agent writes. An agent on the same UID may retain access despite mode 0700. Host, owner or trusted-process compromise is not solved by this design.
 
-## Threats out of immediate scope
+There is no automatic v1-to-v2 pin conversion, automatic bootstrap or permission to reconstruct trust solely from the project-controlled replica. Tests use disposable fixtures; no real bootstrap was performed in this work. Core's unanchored chain and the executable extension being disabled by default do not imply activation: these are optional states that must be reported accurately.
 
-- Local user with direct write permission to `.roadmap/activity.jsonl`; handled by the G02 hash chain and by filesystem controls.
-- Orphan lock/concurrency on append; handled by G04.
-- Plugin pointing to an arbitrary directory; handled by G05.
-- Full compromise of the local host; requires controls external to ESAA.
-
-## Resulting guarantees
-
-With `identity.strict=true` and `review_authorization=qa_role`:
-
-- Role is always an explicit authorization from the swarm.
-- A name prefix grants no privilege.
-- Review approve only comes from an authorized QA/orchestrator.
-- Complete still respects the claim's ownership.
-- Identity failures happen before schema/gates/effects, staying fail-closed.
+Local policy controls review authorization; a QA name/alias and a passing test do not replace independent review. The historical scanner covers only its snapshot. Complementary review of final identity bytes remains incomplete; the release gate stays closed.

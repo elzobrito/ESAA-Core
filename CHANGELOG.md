@@ -1,3 +1,13 @@
+## 0.5.0b22 — unreleased candidate
+
+- Protocol remains 0.4.2; storage remains 0.4.1. Publication and owner activation are blocked pending independent identity review and QA gates.
+- Correct explicit typing in identity-history scope reconstruction without relaxing validation.
+- Apply validated in-memory file content with unique temporary names; preserve existing file mode and prevent mutable staging bytes from changing the verified candidate.
+- Reject non-null authorization in inactive identity registries and reverse actor/alias collisions.
+- Candidate trust protections add OS-profile owner enrollment, full-history commitments (pin v2), serialized checkpoints and durable pre-append activation intent. Final independent review is pending; v1 pins are not automatically migrated.
+- Add 26 regression cases (597 total passed in the implementer's run), clean wheel/sdist smoke evidence and bilingual upgrade/threat-model documentation.
+- Operational installation remains public b21; b22 has not been published or activated. See docs/qa/closeout-20261026/hotfix-review-input.md for blockers and evidence attribution.
+
 ## 0.5.0b21
 
 Hotfix beta for legacy event stores.

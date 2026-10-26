@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-26",
+  "version": "0.5.0b21",
+  "candidate_b22": "NOT_INSTALLED: independent identity review blocked",
+  "pipx": "esaa-core 0.5.0b21\ngcalcli 4.5.1\nmypy 2.1.0\npca 0.5.2\npiper-tts 1.4.2\npytest 9.1.1\nruff 0.15.20\nyt-dlp 2026.6.9",
+  "cli": "esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+  "python": "esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+  "pipx_python": "esaa 0.5.0b21 (protocol 0.4.2, storage protocol 0.4.1, esaa 0.4.x)",
+  "default_launcher": "/home/elzobrito/.local/share/pipx/venvs/esaa-core/bin/esaa",
+  "user_module": "/home/elzobrito/.local/lib/python3.14/site-packages/esaa",
+  "core_verify": {
+    "verify_status": "ok",
+    "last_event_seq": 1397,
+    "projection_hash_sha256": "ac8b7f3a9384d1b631e3d6f6432b1efa66aa2d09f2c640ade058d6cb7eb11744",
+    "project_profile": false
+  },
+  "home_verify": {
+    "verify_status": "ok",
+    "last_event_seq": 8168,
+    "projection_hash_sha256": "04c54efb81e21e9241be6472d684526f5fac681efaf79f4ea5722704016d0aa3",
+    "project_profile": false,
+    "warnings": [
+      {
+        "code": "LEGACY_SCOPE_PATCH_UNSAFE",
+        "task_id": "HF-ISS-BOOK-ZOTERO-LAUNCHER-20260909",
+        "entries": [
+          "/home/elzobrito/.local/share/applications/"
+        ],
+        "message": "historical hotfix scope_patch accepted on replay; new commands reject it"
+      }
+    ]
+  },
+  "home_store_sha256_before_after": "d106f01d960b9e4f4200d8592cf09d7f6c466399e8079ff914fe3e6921288bd7",
+  "core_readonly_verify_sha256_before_after": "3e1f4bfe95c9598a14c7444fc7106ca41d44549ace6ec7111d64ec025a50590f",
+  "private_credentials": "not read or generated",
+  "source": "PyPI production exact pin, no local candidate install"
+}

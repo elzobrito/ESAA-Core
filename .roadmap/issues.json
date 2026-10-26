@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 1291,
-    "updated_at": "2026-10-24T15:45:40Z"
+    "last_event_seq": 1456,
+    "updated_at": "2026-10-26T14:55:43Z"
   },
   "issues": [
     {
@@ -194,6 +194,30 @@
       }
     },
     {
+      "issue_id": "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
+      "status": "open",
+      "severity": "high",
+      "title": "Fechamento bloqueado por avaliação automática e persistência do scanner",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Continuação do auditor independente de identidade rejeitada automaticamente por possível risco de cibersegurança; persistência do scan histórico rejeitada após chmod pontual autorizado. Correções atuais permanecem em review; não há READY nem publicação. Evidências docs/qa/closeout-20261026/hotfix-review-input.json/.md. Não reenviar a avaliação para contornar bloqueio.",
+        "repro_steps": [
+          "Consultar relatório EVID e scan cfe966df-2ad4-4d14-9f2d-c7354bf49a6d; observar rejeição automática do auditor e erro Scan output parent must not be group- or world-writable without the sticky bit."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "ESAA-CLOSE-20261026-SCAN",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 1434,
+        "resolved_event_seq": null
+      }
+    },
+    {
       "issue_id": "ISS-ESAA-GROK-CHAIN-PROJECTION",
       "status": "resolved",
       "severity": "medium",
@@ -287,6 +311,38 @@
       "timeline": {
         "created_event_seq": 1126,
         "resolved_event_seq": 1144
+      }
+    },
+    {
+      "issue_id": "ISS-ESAA-STAGED-CANDIDATE-20261026",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Bytes aplicados divergem do candidato verificado",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Revisor independente executou check Docker válido, alterou somente staging antes append; submitaccepted e verifyok mas arquivo finalUNVERIFIED. Gateverifica artifact; postcommit aplica stagingdiferente. Fixture /tmp/esaa-closeout-20261026-5e_oron8/verification-audit/staged_repro.py; código vivo intocado.",
+        "repro_steps": [
+          "Executar reprodução em fixture; verificar passagem Docker e divergência final. Corrigir vínculo entre bytes verificados e efeitos aplicados, cobrindo submit/adapters/ativação."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-STAGED-CANDIDATE-20261026",
+        "review_task_id": "HF-ISS-ESAA-STAGED-CANDIDATE-20261026",
+        "checks": [
+          "Reviewer reproduced realDockerpassed-but-different-appliedbytes and ordinary distinctfile concurrent identicalcontent stagecollision. Stages are now uniquelyowned, commits atomically materialize originalvalidated memory content instead of mutable stagebytes.",
+          "77passed19.26s includes exactcandidate underdisk tampering, twoidenticalcontentstages independent, existing atomic/recovery/verification/identity tests. No reexecution bycomplete."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "ESAA-GROK-20261024-006",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-STAGED-CANDIDATE-20261026"
+      },
+      "timeline": {
+        "created_event_seq": 1357,
+        "resolved_event_seq": 1381
       }
     },
     {
@@ -403,7 +459,7 @@
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-HOTFIX-PACKAGE-MISSING-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "title": "Pacote vinculante dos hotfixes não localizado",
       "baseline_id": null,
@@ -415,7 +471,9 @@
           "Solicitar anexo ZIP ou caminho absoluto acessível; então validar SHA256, listar membros com segurança e ler integralmente quatro especificações antes do cadastro."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-REGISTRATION-001",
         "fixes_task_id": null,
@@ -423,12 +481,12 @@
       },
       "timeline": {
         "created_event_seq": 874,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1419
       }
     },
     {
       "issue_id": "ISSUE-ESAA-ACTOR-PACKAGING-BOUNDARY-001",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "BLOCKED_BOUNDARY: task.amend não oferece concessão de manifesto à tarefa existente",
       "baseline_id": null,
@@ -442,7 +500,9 @@
           "Solicitar ao operador solução oficial versionada sem duplicar task nem alterar projeções"
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_command"
+      },
       "links": {
         "reported_by_task_id": "ESAA-CORE-ACTOR-PACKAGING-001",
         "fixes_task_id": null,
@@ -450,7 +510,7 @@
       },
       "timeline": {
         "created_event_seq": 935,
-        "resolved_event_seq": null
+        "resolved_event_seq": 1422
       }
     },
     {
@@ -586,7 +646,7 @@
       "links": {
         "reported_by_task_id": "ESAA-HF-ACTOR-SIGNED-REPLAY-001",
         "fixes_task_id": null,
-        "hotfix_task_id": null
+        "hotfix_task_id": "HF-ISSUE-ESAA-SIGNED-REPLAY-POSTFIX-REVIEW-001"
       },
       "timeline": {
         "created_event_seq": 919,
@@ -597,10 +657,9 @@
   "indexes": {
     "open_by_baseline": {
       "unknown": [
+        "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
         "ISSUE-ESAA-ACTOR-ANCHOR-ROLLBACK-001",
         "ISSUE-ESAA-ACTOR-CLAIMANT-PRINCIPAL-001",
-        "ISSUE-ESAA-ACTOR-HOTFIX-PACKAGE-MISSING-001",
-        "ISSUE-ESAA-ACTOR-PACKAGING-BOUNDARY-001",
         "ISSUE-ESAA-ACTOR-PREACTIVATION-REVIEW-EXECUTION-001",
         "ISSUE-ESAA-ACTOR-REPLAY-AUTH-001",
         "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",

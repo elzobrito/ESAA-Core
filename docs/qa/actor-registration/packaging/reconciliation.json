@@ -1,0 +1,98 @@
+{
+  "task": "ESAA-CORE-ACTOR-PACKAGING-001",
+  "date": "2026-10-26",
+  "candidate": "0.5.0b22",
+  "publication": "NOT_PUBLISHED; independent identity review pending",
+  "manifest_changed": false,
+  "artifacts": {
+    "esaa_core-0.5.0b22-py3-none-any.whl": {
+      "sha256": "74684e657d2b77f3a55c8ee2582fa33ad6f47d3b266a460bd93d9d129656f9c9",
+      "files_compared": 78,
+      "source_mismatches": [],
+      "requires_cryptography": "cryptography>=42.0.0",
+      "private_entries": []
+    },
+    "esaa_core-0.5.0b22.tar.gz": {
+      "sha256": "9c55e26c57672d2d3f3bbbc05e77beae98155055c6b849233d16c4a6184bc361",
+      "files_compared": 78,
+      "source_mismatches": [],
+      "requires_cryptography": "cryptography>=42.0.0",
+      "private_entries": []
+    }
+  },
+  "twine_check": "passed both",
+  "installations": {
+    "wheel": {
+      "label": "wheel",
+      "workspace": "/tmp/esaa-distribution-smoke-b1sx_s0o",
+      "python": "/tmp/esaa-closeout-20261026-5e_oron8/clean-wheel/bin/python",
+      "package": "/tmp/esaa-closeout-20261026-5e_oron8/clean-wheel/lib/python3.14/site-packages/esaa/__init__.py",
+      "version": "0.5.0b22",
+      "cryptography": "50.0.2",
+      "protocol": "0.4.2",
+      "tasks_done": [
+        "T-SMOKE",
+        "HF-ISS-SMOKE"
+      ],
+      "issue_resolved": true,
+      "negative_controls": [
+        "VERIFICATION_REQUIRED",
+        "VERIFICATION_STALE"
+      ],
+      "executed_checks": 3,
+      "queries_read_only": true,
+      "verify": {
+        "verify_status": "ok",
+        "last_event_seq": 48,
+        "projection_hash_sha256": "d2babdf8211763f698c9a71745fa55f0a91904f47c7c216623cc3969622b943d",
+        "project_profile": false
+      },
+      "chain": {
+        "chain_status": "ok",
+        "anchored_through_seq": 4,
+        "anchor_sha256": "85399cbd1e5db998f87aac1f1b932eb6376de7e2e87a0ec4763f2301e27cd3f5",
+        "last_event_seq": 48
+      },
+      "boundary": "Synthetic fixture only; no original Tetris or GUI was executed."
+    },
+    "sdist": {
+      "label": "sdist",
+      "workspace": "/tmp/esaa-distribution-smoke-8kl3a0x9",
+      "python": "/tmp/esaa-closeout-20261026-5e_oron8/clean-sdist/bin/python",
+      "package": "/tmp/esaa-closeout-20261026-5e_oron8/clean-sdist/lib/python3.14/site-packages/esaa/__init__.py",
+      "version": "0.5.0b22",
+      "cryptography": "50.0.2",
+      "protocol": "0.4.2",
+      "tasks_done": [
+        "T-SMOKE",
+        "HF-ISS-SMOKE"
+      ],
+      "issue_resolved": true,
+      "negative_controls": [
+        "VERIFICATION_REQUIRED",
+        "VERIFICATION_STALE"
+      ],
+      "executed_checks": 3,
+      "queries_read_only": true,
+      "verify": {
+        "verify_status": "ok",
+        "last_event_seq": 48,
+        "projection_hash_sha256": "fdf956d59649265d3486cf4750c102c25f92be48867927cc7abad556608599da",
+        "project_profile": false
+      },
+      "chain": {
+        "chain_status": "ok",
+        "anchored_through_seq": 4,
+        "anchor_sha256": "85399cbd1e5db998f87aac1f1b932eb6376de7e2e87a0ec4763f2301e27cd3f5",
+        "last_event_seq": 48
+      },
+      "boundary": "Synthetic fixture only; no original Tetris or GUI was executed."
+    }
+  },
+  "full_suite": {
+    "passed": 597,
+    "seconds": 85.74,
+    "docker": true
+  },
+  "review": "Technical packaging validation only; not READY_FOR_OWNER_BOOTSTRAP; independent packaging review requested."
+}
