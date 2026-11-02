@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1691,
-      "projection_hash_sha256": "07f209649acea71a1940730a970753ca5794a3c1edbbc31ae340dcda5099e686",
+      "last_event_seq": 1698,
+      "projection_hash_sha256": "414affc8675c7280d7d3dc5c717b0c5623c5592fae6494f65683c5a4236ca316",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-02T16:52:58Z"
+    "updated_at": "2026-11-02T17:03:30Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3611,7 +3611,7 @@
       "task_kind": "impl",
       "title": "Publicar ESAA-Core com efeitos binários no Git e no PyPI",
       "description": "Após CORE-BINARY-FILE-EFFECTS-20261102 done e testes, preparar versão, verificar origem Git, build e artefatos; publicar no repositório Git e PyPI conforme autorização expressa do proprietário usando arquivo de token fornecido, sem expor segredo; registrar evidências verificáveis e resultados reais.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "CORE-BINARY-FILE-EFFECTS-20261102"
       ],
@@ -3628,7 +3628,16 @@
         "docs/qa/core-binary-release-20261102.md"
       ],
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-02T16:52:58Z"
+      "started_at": "2026-11-02T16:52:58Z",
+      "verification": {
+        "checks": [
+          "git main aeb53120f7599127238293ae75302f808d3e5d31 tag v0.5.0b25 pushed; no GitHub Release",
+          "PyPI esaa-core==0.5.0b25 wheel sha256 cc6444404e0a3600b5e8c4262ee3f977978fafd1f4f29de6a303cfdbcc0cede8 matches local; twine check PASSED",
+          "CI 41486999420 success: lint + pytest 3.11/3.12/3.13; typecheck advisory fail",
+          "user-pip and pipx installed 0.5.0b25; esaa --version 0.5.0b25 protocol 0.4.2; verify ok seq 1691 before this complete"
+        ]
+      },
+      "completed_at": "2026-11-02T17:03:30Z"
     },
     {
       "task_id": "CORE-BINARY-TASK-CREATE-20261102",
@@ -3872,8 +3881,7 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 115,
-      "in_progress": 1
+      "done": 116
     },
     "by_kind": {
       "impl": 67,
