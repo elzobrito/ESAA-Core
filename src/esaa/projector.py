@@ -44,6 +44,12 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
     for field in ("task_type", "acceptance_criteria", "required_review_mode", "supersedes"):
         if field in payload:
             task[field] = deepcopy(payload[field])
+    if "resource_limits" in payload:
+        from .task_resource_limits import _validate
+        try:
+            task["resource_limits"] = _validate(payload["resource_limits"], name="resource_limits", require_all=False)
+        except ValueError as exc:
+            raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
     if payload.get("is_hotfix"):
         # Replay preserves historical scopes; new commands validate strictly before append.
         task["scope_patch"] = validate_hotfix_scope_entries(task.get("scope_patch", []), legacy=True)
@@ -111,6 +117,34 @@ def _existing_task_ids(state: dict[str, Any]) -> set[str]:
     return {task["task_id"] for task in state["tasks"]}
 
 
+def _apply_task_limits_set(state: dict[str, Any], payload: dict[str, Any]) -> None:
+    task_id = str(payload.get("task_id", "")).strip()
+    if not task_id:
+        raise ESAAError("SCHEMA_INVALID", "task.limits.set requires task_id")
+    task = _task_by_id(state, task_id)
+    if task["status"] == "done":
+        raise ESAAError("IMMUTABLE_DONE_VIOLATION", f"cannot change limits of done task: {task_id}")
+    if task["status"] != "in_progress":
+        raise ESAAError("INVALID_TRANSITION", f"task.limits.set only allowed for in_progress tasks: {task_id}")
+    previous = payload.get("previous")
+    current = dict(task["resource_limits"]) if "resource_limits" in task else None
+    if previous != current:
+        raise ESAAError("RESOURCE_LIMIT_INVALID", "previous limits do not match current task state")
+    reason = payload.get("reason")
+    authorized_by = payload.get("authorized_by")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ESAAError("SCHEMA_INVALID", "task.limits.set requires reason")
+    if not isinstance(authorized_by, str) or not authorized_by.strip():
+        raise ESAAError("SCHEMA_INVALID", "task.limits.set requires authorized_by")
+    from .task_resource_limits import _validate
+    try:
+        task["resource_limits"] = _validate(payload.get("resource_limits"), name="resource_limits", require_all=False)
+    except ValueError as exc:
+        raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
+    if not task["resource_limits"]:
+        raise ESAAError("RESOURCE_LIMIT_INVALID", "task.limits.set requires at least one limit")
+
+
 def _apply_task_amend(state: dict[str, Any], payload: dict[str, Any]) -> None:
     task_id = str(payload.get("task_id", "")).strip()
     if not task_id:
@@ -168,6 +202,12 @@ def _apply_task_amend(state: dict[str, Any], payload: dict[str, Any]) -> None:
         verification = [str(item).strip() for item in payload["required_verification"] if str(item).strip()]
         if verification:
             task["required_verification"] = verification
+    if "resource_limits" in payload:
+        from .task_resource_limits import _validate
+        try:
+            task["resource_limits"] = _validate(payload["resource_limits"], name="resource_limits", require_all=False)
+        except ValueError as exc:
+            raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
 
 
 def _derive_superseded_by(state: dict[str, Any], task: dict[str, Any]) -> None:
@@ -342,6 +382,8 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         _derive_superseded_by(state, task)
     elif action == "task.amend":
         _apply_task_amend(state, payload)
+    elif action == "task.limits.set":
+        _apply_task_limits_set(state, payload)
     elif action == "claim":
         _apply_claim(state, event)
     elif action == "complete":

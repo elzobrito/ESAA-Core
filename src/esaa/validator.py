@@ -126,6 +126,11 @@ def _file_update_size(item: dict[str, Any]) -> int:
     'edits' abaixo so e alcancado por chamadas standalone pre-resolucao e
     mede old_string+new_string como aproximacao.
     """
+    if "binary" in item:
+        size = item["binary"].get("size")
+        if type(size) is not int or size < 0:
+            raise ESAAError("RESOURCE_LIMIT_INVALID", "binary size must be a nonnegative integer")
+        return size
     if "content" in item:
         return len(str(item.get("content", "")).encode("utf-8"))
     if "edits" in item and isinstance(item.get("edits"), list):
@@ -138,8 +143,14 @@ def _file_update_size(item: dict[str, Any]) -> int:
     return 0
 
 
-def validate_file_update_resource_limits(file_updates: list[dict[str, Any]], policy: dict[str, Any]) -> None:
+def validate_file_update_resource_limits(file_updates: list[dict[str, Any]], policy: dict[str, Any], task: dict[str, Any] | None = None) -> None:
     limits = resource_limits_from_policy(policy)
+    if task is not None and "resource_limits" in task:
+        from .task_resource_limits import resolve_task_limits
+        try:
+            limits = resolve_task_limits(limits, policy.get("resource_limit_caps"), task["resource_limits"])
+        except ValueError as exc:
+            raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
     if len(file_updates) > limits["max_file_updates"]:
         raise ESAAError(
             "RESOURCE_LIMIT_EXCEEDED",

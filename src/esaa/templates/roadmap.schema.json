@@ -369,6 +369,28 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "resource_limits": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "max_file_updates": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "max_bytes_per_update": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "max_bytes_total": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            }
+          }
         }
       },
       "allOf": [

@@ -28,12 +28,14 @@ from .service_core import ESAAServiceCore
 from .submission import SubmissionMixin
 from .task_admin import TaskAdminMixin
 from .task_amend import TaskAmendMixin
+from .task_limits_admin import TaskLimitsAdminMixin
 from .verification_service import VerificationMixin
 
 
 class ESAAService(
     VerificationMixin,
     ActorAdminMixin,
+    TaskLimitsAdminMixin,
     TaskAmendMixin,
     TaskAdminMixin,
     SubmissionMixin,

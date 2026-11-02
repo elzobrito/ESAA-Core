@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://esaa.local/schemas/roadmap.schema.json",
+  "title": "ESAA Roadmap Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "project",
+    "tasks",
+    "indexes"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "esaa_version",
+        "immutable_done",
+        "master_correlation_id",
+        "run",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "0.4.1"
+        },
+        "esaa_version": {
+          "type": "string"
+        },
+        "immutable_done": {
+          "const": true
+        },
+        "master_correlation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "run": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "status",
+            "last_event_seq",
+            "projection_hash_sha256",
+            "verify_status"
+          ],
+          "properties": {
+            "run_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "initialized",
+                "running",
+                "success",
+                "failed",
+                "halted"
+              ]
+            },
+            "last_event_seq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "projection_hash_sha256": {
+              "type": "string",
+              "pattern": "^[A-Fa-f0-9]{64}$"
+            },
+            "verify_status": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "ok",
+                "mismatch",
+                "corrupted"
+              ]
+            }
+          }
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "audit_scope"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    },
+    "indexes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by_status",
+        "by_kind"
+      ],
+      "properties": {
+        "by_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "by_kind": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "task_kind",
+        "title",
+        "description",
+        "status",
+        "depends_on",
+        "targets",
+        "outputs",
+        "immutability"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_kind": {
+          "type": "string",
+          "enum": [
+            "spec",
+            "impl",
+            "qa"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "todo",
+            "in_progress",
+            "review",
+            "done"
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "files"
+          ],
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "immutability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "done_is_immutable"
+          ],
+          "properties": {
+            "done_is_immutable": {
+              "const": true
+            }
+          }
+        },
+        "plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "execution_id",
+            "local_task_id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "local_task_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "assigned_to": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verification": {
+          "type": "object"
+        },
+        "is_hotfix": {
+          "type": "boolean"
+        },
+        "issue_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_patch": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "boundary_grant": {
+          "$comment": "T-2070: padroes fnmatch de escrita extras concedidos pelo operador via task.create, validos apenas para esta task.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "required_verification": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "baseline_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "in_progress",
+                  "review",
+                  "done"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "assigned_to",
+              "started_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "done"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "completed_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "is_hotfix": {
+                "const": true
+              }
+            },
+            "required": [
+              "is_hotfix"
+            ]
+          },
+          "then": {
+            "required": [
+              "issue_id",
+              "fixes",
+              "scope_patch",
+              "required_verification",
+              "baseline_id"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

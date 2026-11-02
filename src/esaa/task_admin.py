@@ -59,6 +59,7 @@ class TaskAdminMixin:
         dry_run: bool = False,
         *,
         executable_checks: list[str] | None = None,
+        resource_limits: dict[str, int] | None = None,
     ) -> dict[str, Any]:
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
@@ -66,6 +67,15 @@ class TaskAdminMixin:
 
         if any(task["task_id"] == task_id for task in tasks):
             raise ESAAError("DUPLICATE_TASK", f"task already exists: {task_id}")
+
+        if resource_limits is not None:
+            from .task_resource_limits import resolve_task_limits
+            from .validator import resource_limits_from_policy
+            policy = self._policy()
+            try:
+                resolve_task_limits(resource_limits_from_policy(policy), policy.get("resource_limit_caps"), resource_limits)
+            except ValueError as exc:
+                raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
 
         payload = build_task_create_payload(
             task_id=task_id,
@@ -81,6 +91,7 @@ class TaskAdminMixin:
             required_review_mode=required_review_mode,
             supersedes=supersedes,
             existing_task_ids={task["task_id"] for task in tasks},
+            resource_limits=resource_limits,
         )
 
         if executable_checks is not None:

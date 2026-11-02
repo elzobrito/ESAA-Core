@@ -34,6 +34,15 @@ from .store import init_hash_chain, verify_hash_chain
 from .vocabulary import vocabulary_payload
 
 
+def _cli_resource_limits(args: Any) -> dict[str, int] | None:
+    values = {
+        "max_bytes_per_update": getattr(args, "max_file_bytes", None),
+        "max_bytes_total": getattr(args, "max_total_bytes", None),
+        "max_file_updates": getattr(args, "max_file_updates", None),
+    }
+    return {key: value for key, value in values.items() if value is not None} or None
+
+
 def _read_json_arg(path_arg: str) -> object:
     raw = sys.stdin.read() if path_arg == "-" else Path(path_arg).read_text(encoding="utf-8")
     return json.loads(raw)
@@ -54,8 +63,8 @@ def _read_file_updates(path_arg: str) -> list[dict[str, str]]:
     if not isinstance(payload, list):
         raise ESAAError("SCHEMA_INVALID", "--file-updates must be a JSON array")
     for item in payload:
-        if not isinstance(item, dict) or "path" not in item or "content" not in item:
-            raise ESAAError("SCHEMA_INVALID", "--file-updates items require path and content")
+        if not isinstance(item, dict) or "path" not in item or not any(k in item for k in ("content", "edits", "binary")):
+            raise ESAAError("SCHEMA_INVALID", "--file-updates items require path and one of content, edits, or binary")
     return payload
 
 
@@ -349,6 +358,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_task_create.add_argument("task_id")
     cmd_task_create.add_argument("--kind", choices=["spec", "impl", "qa"], required=True)
     cmd_task_create.add_argument("--title", required=True)
+    cmd_task_create.add_argument("--max-file-bytes", type=int)
+    cmd_task_create.add_argument("--max-total-bytes", type=int)
+    cmd_task_create.add_argument("--max-file-updates", type=int)
     cmd_task_create.add_argument("--description", default=None)
     cmd_task_create.add_argument("--output", action="append", dest="outputs", default=None)
     cmd_task_create.add_argument("--depends-on", action="append", dest="depends_on", default=None)
@@ -426,7 +438,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="replace required verification items; repeat to add multiple",
     )
     cmd_task_amend.add_argument("--executable-check", action="append", dest="executable_checks", default=None)
+    cmd_task_amend.add_argument("--max-file-bytes", type=int)
+    cmd_task_amend.add_argument("--max-total-bytes", type=int)
+    cmd_task_amend.add_argument("--max-file-updates", type=int)
     cmd_task_amend.add_argument("--dry-run", action="store_true")
+    cmd_task_set_limits = task_sub.add_parser(
+        "set-limits", help="set resource limits of an in_progress task via an audited operator event"
+    )
+    cmd_task_set_limits.add_argument("task_id")
+    cmd_task_set_limits.add_argument("--max-file-bytes", type=int)
+    cmd_task_set_limits.add_argument("--max-total-bytes", type=int)
+    cmd_task_set_limits.add_argument("--max-file-updates", type=int)
+    cmd_task_set_limits.add_argument("--reason", required=True)
+    cmd_task_set_limits.add_argument("--authorized-by", required=True)
+    cmd_task_set_limits.add_argument("--dry-run", action="store_true")
+
+    cmd_contract = sub.add_parser("contract", help="migrate active governance schemas without bootstrap --force")
+    contract_sub = cmd_contract.add_subparsers(dest="contract_command", required=True)
+    cmd_contract_migrate = contract_sub.add_parser(
+        "migrate", help="selectively add binary file_updates and resource_limits to active schemas"
+    )
+    cmd_contract_migrate.add_argument("--dry-run", action="store_true")
+    cmd_contract_revert = contract_sub.add_parser(
+        "revert", help="restore migratable schemas from a contract migrate backup directory"
+    )
+    cmd_contract_revert.add_argument("--from", dest="backup_dir", required=True)
+    cmd_contract_revert.add_argument("--dry-run", action="store_true")
 
     cmd_issue = sub.add_parser("issue", help="deterministic issue commands")
     issue_sub = cmd_issue.add_subparsers(dest="issue_command", required=True)
@@ -494,6 +531,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     cmd_input = sub.add_parser("input", help="local runner input commands")
     input_sub = cmd_input.add_subparsers(dest="input_command", required=True)
+    cmd_input_binary = input_sub.add_parser("binary", help="stage binary input for a claimed task")
+    cmd_input_binary.add_argument("task_id")
+    cmd_input_binary.add_argument("source")
+    cmd_input_binary.add_argument("--actor", required=True)
+    cmd_input_binary.add_argument("--size", required=True, type=int)
+    cmd_input_binary.add_argument("--sha256", required=True)
     cmd_input_commands = input_sub.add_parser("commands", help="runner command capability input")
     input_commands_sub = cmd_input_commands.add_subparsers(dest="commands_command", required=True)
     cmd_input_commands_validate = input_commands_sub.add_parser(
@@ -773,6 +816,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.task_id,
                 task_kind=args.kind,
                 title=args.title,
+                resource_limits=_cli_resource_limits(args),
                 description=args.description,
                 outputs=args.outputs,
                 depends_on=args.depends_on,
@@ -801,8 +845,28 @@ def main(argv: list[str] | None = None) -> int:
                 executable_checks=args.executable_checks,
                 clear_boundary_grants=args.clear_boundary_grants,
                 scope_patch=args.scope_patch,
+                resource_limits=_cli_resource_limits(args),
                 dry_run=args.dry_run,
             )
+        elif args.command == "task" and args.task_command == "set-limits":
+            limits = _cli_resource_limits(args)
+            if limits is None:
+                raise ESAAError("INVALID_ARGUMENT", "task set-limits requires at least one limit option")
+            result = service.set_task_limits(
+                args.task_id,
+                limits,
+                reason=args.reason,
+                authorized_by=args.authorized_by,
+                dry_run=args.dry_run,
+            )
+        elif args.command == "contract" and args.contract_command == "migrate":
+            from .contract_migrate import migrate_active_contracts
+
+            result = migrate_active_contracts(root, dry_run=args.dry_run)
+        elif args.command == "contract" and args.contract_command == "revert":
+            from .contract_migrate import revert_active_contracts
+
+            result = revert_active_contracts(root, args.backup_dir, dry_run=args.dry_run)
         elif args.command == "issue" and args.issue_command == "report":
             result = service.report_issue(
                 args.task_id,
@@ -849,6 +913,9 @@ def main(argv: list[str] | None = None) -> int:
             result = service.eligible()
         elif args.command == "metrics":
             result = service.metrics()
+        elif args.command == "input" and args.input_command == "binary":
+            from .binary_input import stage_task_input
+            result = stage_task_input(service, args.task_id, args.actor, args.source, args.size, args.sha256)
         elif args.command == "input" and args.input_command == "commands":
             if args.commands_command == "validate":
                 result = validate_commands_input(Path(args.path))

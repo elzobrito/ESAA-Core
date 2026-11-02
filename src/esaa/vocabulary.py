@@ -165,6 +165,14 @@ VOCABULARY_ROWS: list[dict[str, Any]] = [
     },
     {
         "profile": "core-v0.4.1",
+        "term": "task.limits.set",
+        "kind": "reserved_orchestrator_action",
+        "status": "canonical",
+        "maps_to": None,
+        "note": "audited resource-limit change for an in_progress task before a submission starts",
+    },
+    {
+        "profile": "core-v0.4.1",
         "term": "todo",
         "kind": "task_status",
         "status": "canonical",

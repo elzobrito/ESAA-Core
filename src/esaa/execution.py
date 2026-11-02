@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
+from .runtime_policy import load_policy
 from .events import make_event
 from .file_effects import commit_staged, discard_staged
 from .projector import materialize
@@ -146,6 +147,7 @@ class ExecutionMixin:
 
         new_events: list[dict[str, Any]] = []
         staged_file_effects: list[dict[str, Any]] = []
+        limit_checks: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
         # M1: write-set com escopo do run() inteiro - staging so commita no fim,
         # entao conflito entre iteracoes precisa ser detectado aqui, nao por wave.
         run_write_set: list[str] = []
@@ -307,6 +309,7 @@ class ExecutionMixin:
                         dry_run,
                         wave_write_set=run_write_set,
                         staged_file_effects=staged_file_effects,
+                        limit_checks=limit_checks,
                     )
                 except ESAAError as exc:
 
@@ -419,7 +422,9 @@ class ExecutionMixin:
 
         if not dry_run:
             try:
+                from .limit_revalidation import _revalidate_limits_under_lock
                 self._append_events_transactionally(events, new_events,
+                    precommit=lambda current: _revalidate_limits_under_lock(self.root, current, limit_checks, load_policy(self.root)),
                     postcommit=lambda: commit_staged(self.root, staged_file_effects))
             except Exception:
                 discard_staged(staged_file_effects)

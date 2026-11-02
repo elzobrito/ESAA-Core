@@ -237,6 +237,7 @@ def build_minimal_context(
         "executable_checks",
         "baseline_id",
         "boundary_grant",
+        "resource_limits",
         "task_type",
         "acceptance_criteria",
         "required_review_mode",

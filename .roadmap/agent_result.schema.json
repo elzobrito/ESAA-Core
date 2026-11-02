@@ -5,16 +5,27 @@
   "$comment": "v0.4.1 — prior_status obrigatório; allOf condicional garante coerência entre action e prior_status; file_updates sem complete é inválido via WG-002.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["activity_event"],
+  "required": [
+    "activity_event"
+  ],
   "properties": {
     "activity_event": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["action", "task_id", "prior_status"],
+      "required": [
+        "action",
+        "task_id",
+        "prior_status"
+      ],
       "properties": {
         "action": {
           "type": "string",
-          "enum": ["claim", "complete", "review", "issue.report"]
+          "enum": [
+            "claim",
+            "complete",
+            "review",
+            "issue.report"
+          ]
         },
         "task_id": {
           "type": "string",
@@ -23,7 +34,12 @@
         "prior_status": {
           "$comment": "Status da tarefa no roadmap no momento da invocação. Declarado pelo agente e validado pelo Orchestrator via WG-003 antes de qualquer transição. FIX-1810: 'done' é permitido apenas quando action='issue.report' (preserva evidência sobre tarefa imutável).",
           "type": "string",
-          "enum": ["todo", "in_progress", "review", "done"]
+          "enum": [
+            "todo",
+            "in_progress",
+            "review",
+            "done"
+          ]
         },
         "notes": {
           "type": "string"
@@ -31,7 +47,9 @@
         "verification": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["checks"],
+          "required": [
+            "checks"
+          ],
           "properties": {
             "checks": {
               "type": "array",
@@ -45,7 +63,10 @@
         },
         "decision": {
           "type": "string",
-          "enum": ["approve", "request_changes"]
+          "enum": [
+            "approve",
+            "request_changes"
+          ]
         },
         "tasks": {
           "type": "array",
@@ -65,7 +86,12 @@
         },
         "severity": {
           "type": "string",
-          "enum": ["low", "medium", "high", "critical"]
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
         },
         "title": {
           "type": "string",
@@ -99,7 +125,10 @@
         "evidence": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["symptom", "repro_steps"],
+          "required": [
+            "symptom",
+            "repro_steps"
+          ],
           "properties": {
             "symptom": {
               "type": "string",
@@ -118,7 +147,12 @@
         "lesson": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mistake", "rule", "scope", "enforcement"],
+          "required": [
+            "mistake",
+            "rule",
+            "scope",
+            "enforcement"
+          ],
           "properties": {
             "mistake": {
               "type": "string",
@@ -131,13 +165,19 @@
             "scope": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["task_kinds"],
+              "required": [
+                "task_kinds"
+              ],
               "properties": {
                 "task_kinds": {
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["spec", "impl", "qa"]
+                    "enum": [
+                      "spec",
+                      "impl",
+                      "qa"
+                    ]
                   },
                   "minItems": 1
                 }
@@ -146,15 +186,29 @@
             "enforcement": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["mode", "applies_to"],
+              "required": [
+                "mode",
+                "applies_to"
+              ],
               "properties": {
                 "mode": {
                   "type": "string",
-                  "enum": ["reject", "warn", "require_field", "require_step"]
+                  "enum": [
+                    "reject",
+                    "warn",
+                    "require_field",
+                    "require_step"
+                  ]
                 },
                 "applies_to": {
                   "type": "string",
-                  "enum": ["output_contract", "boundaries", "template", "workflow_gate", "verification_gate"]
+                  "enum": [
+                    "output_contract",
+                    "boundaries",
+                    "template",
+                    "workflow_gate",
+                    "verification_gate"
+                  ]
                 }
               }
             }
@@ -165,12 +219,20 @@
         {
           "$comment": "RULE: action=claim só é válido se prior_status=todo",
           "if": {
-            "properties": { "action": { "const": "claim" } },
-            "required": ["action"]
+            "properties": {
+              "action": {
+                "const": "claim"
+              }
+            },
+            "required": [
+              "action"
+            ]
           },
           "then": {
             "properties": {
-              "prior_status": { "const": "todo" }
+              "prior_status": {
+                "const": "todo"
+              }
             },
             "$comment": "claim sobre tarefa que não está em todo é sempre MISSING_CLAIM ou LOCK_VIOLATION"
           }
@@ -178,38 +240,70 @@
         {
           "$comment": "RULE: action=complete só é válido se prior_status=in_progress e verification.checks presente",
           "if": {
-            "properties": { "action": { "const": "complete" } },
-            "required": ["action"]
+            "properties": {
+              "action": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "action"
+            ]
           },
           "then": {
             "properties": {
-              "prior_status": { "const": "in_progress" }
+              "prior_status": {
+                "const": "in_progress"
+              }
             },
-            "required": ["verification"],
+            "required": [
+              "verification"
+            ],
             "$comment": "complete sem verification é rejeitado por WG-002; prior_status errado é rejeitado por WG-003"
           }
         },
         {
           "$comment": "RULE: action=review só é válido se prior_status=review e decision+tasks presentes",
           "if": {
-            "properties": { "action": { "const": "review" } },
-            "required": ["action"]
+            "properties": {
+              "action": {
+                "const": "review"
+              }
+            },
+            "required": [
+              "action"
+            ]
           },
           "then": {
             "properties": {
-              "prior_status": { "const": "review" }
+              "prior_status": {
+                "const": "review"
+              }
             },
-            "required": ["decision", "tasks"]
+            "required": [
+              "decision",
+              "tasks"
+            ]
           }
         },
         {
           "$comment": "RULE: action=issue.report requer campos de evidência independente do prior_status",
           "if": {
-            "properties": { "action": { "const": "issue.report" } },
-            "required": ["action"]
+            "properties": {
+              "action": {
+                "const": "issue.report"
+              }
+            },
+            "required": [
+              "action"
+            ]
           },
           "then": {
-            "required": ["issue_id", "severity", "title", "evidence"]
+            "required": [
+              "issue_id",
+              "severity",
+              "title",
+              "evidence"
+            ]
           }
         }
       ]
@@ -222,7 +316,10 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "content"],
+            "required": [
+              "path",
+              "content"
+            ],
             "properties": {
               "path": {
                 "type": "string",
@@ -236,7 +333,11 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "base_sha256", "edits"],
+            "required": [
+              "path",
+              "base_sha256",
+              "edits"
+            ],
             "properties": {
               "path": {
                 "type": "string",
@@ -252,7 +353,10 @@
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["old_string", "new_string"],
+                  "required": [
+                    "old_string",
+                    "new_string"
+                  ],
                   "properties": {
                     "old_string": {
                       "type": "string"
@@ -267,6 +371,44 @@
                 }
               }
             }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "binary"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "binary": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source",
+                  "size",
+                  "sha256"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
           }
         ]
       }
@@ -276,15 +418,21 @@
     {
       "$comment": "RULE (root): file_updates só é permitido quando action=complete. Schema não pode proibir sozinho (file_updates é opcional), mas o Orchestrator aplica WG-002 para rejeitar file_updates com qualquer action != complete.",
       "if": {
-        "required": ["file_updates"]
+        "required": [
+          "file_updates"
+        ]
       },
       "then": {
         "properties": {
           "activity_event": {
             "properties": {
-              "action": { "const": "complete" }
+              "action": {
+                "const": "complete"
+              }
             },
-            "required": ["action"]
+            "required": [
+              "action"
+            ]
           }
         }
       }

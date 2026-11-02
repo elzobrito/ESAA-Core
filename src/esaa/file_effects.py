@@ -46,7 +46,25 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def stage_file_updates(root: Path, file_updates: list[dict[str, str]]) -> list[dict[str, Any]]:
+def _sha256_file(path: Path) -> str:
+    from .binary_payload import _open_confined
+
+    fd = _open_confined(path.parent, path.name)
+    digest = hashlib.sha256()
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ValueError("hash source must be a single-link regular file")
+        while chunk := os.read(fd, 1024 * 1024):
+            digest.update(chunk)
+    finally:
+        os.close(fd)
+    return digest.hexdigest()
+
+
+def stage_file_updates(
+    root: Path, file_updates: list[dict[str, str]], task_id: str | None = None
+) -> list[dict[str, Any]]:
     """Stage file_updates em .roadmap/staging/. Returns list of staged records."""
 
     staging_root = root / STAGING_DIR
@@ -54,35 +72,91 @@ def stage_file_updates(root: Path, file_updates: list[dict[str, str]]) -> list[d
     staging_root.mkdir(parents=True, exist_ok=True)
 
     staged: list[dict[str, Any]] = []
-    for i, item in enumerate(file_updates):
-        final_path = item["path"].replace("\\", "/")
-        content = item["content"]
-        # Each submission owns its stage, even when another delivery has identical bytes.
-        fd, staged_name = tempfile.mkstemp(prefix=f"stage-{i:04d}-", suffix=".tmp", dir=staging_root)
-        staged_path = Path(staged_name)
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
-            handle.write(content)
-        staged.append(
-            {
-                "final_path": final_path,
-                "staged_path": str(staged_path),
-                "content": content,
-                "final_abs_path": item.get("_esaa_final_abs_path"),
-                "effect_scope": item.get("_esaa_effect_scope", "workspace"),
-                "source_path": item.get("_esaa_source_path", final_path),
-                "target": item.get("_esaa_target"),
-                "target_root": item.get("_esaa_target_root"),
-                "target_path": item.get("_esaa_target_path"),
-            }
-        )
+    try:
+        for i, item in enumerate(file_updates):
+            final_path = item["path"].replace("\\", "/")
+            if "binary" in item:
+                from .binary_payload import stage_binary
+
+                binary = item["binary"]
+                if not task_id:
+                    raise ValueError("binary update requires task identity")
+                task_key = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+                source_root = root / ".roadmap" / "binary-input" / task_key
+                staged_path = stage_binary(
+                    source_root,
+                    binary["source"],
+                    staging_root,
+                    size=binary["size"],
+                    sha256=binary["sha256"],
+                    limit=binary["size"],
+                )
+                staged.append(
+                    {
+                        "final_path": final_path,
+                        "staged_path": str(staged_path),
+                        "binary": binary,
+                        "final_abs_path": item.get("_esaa_final_abs_path"),
+                        "effect_scope": item.get("_esaa_effect_scope", "workspace"),
+                        "source_path": item.get("_esaa_source_path", final_path),
+                        "target": item.get("_esaa_target"),
+                        "target_root": item.get("_esaa_target_root"),
+                        "target_path": item.get("_esaa_target_path"),
+                    }
+                )
+                continue
+            content = item["content"]
+            # Each submission owns its stage, even when another delivery has identical bytes.
+            fd, staged_name = tempfile.mkstemp(prefix=f"stage-{i:04d}-", suffix=".tmp", dir=staging_root)
+            staged_path = Path(staged_name)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                    handle.write(content)
+            except BaseException:
+                staged_path.unlink(missing_ok=True)
+                raise
+            staged.append(
+                {
+                    "final_path": final_path,
+                    "staged_path": str(staged_path),
+                    "content": content,
+                    "final_abs_path": item.get("_esaa_final_abs_path"),
+                    "effect_scope": item.get("_esaa_effect_scope", "workspace"),
+                    "source_path": item.get("_esaa_source_path", final_path),
+                    "target": item.get("_esaa_target"),
+                    "target_root": item.get("_esaa_target_root"),
+                    "target_path": item.get("_esaa_target_path"),
+                }
+            )
+    except BaseException:
+        discard_staged(staged)
+        raise
     return staged
 
 
 def commit_staged(root: Path, staged: list[dict[str, Any]]) -> None:
     """Atomically apply the validated in-memory content, never a mutable stage copy."""
+    from .binary_artifacts import assert_safe_destination
+
     for entry in staged:
         final = Path(entry["final_abs_path"]) if entry.get("final_abs_path") else root / entry["final_path"]
         final.parent.mkdir(parents=True, exist_ok=True)
+        assert_safe_destination(final)
+        if "binary" in entry:
+            from .binary_artifacts import restore_blob
+
+            binary = entry["binary"]
+            try:
+                restore_blob(
+                    root / ARTIFACT_DIR / "blobs",
+                    binary["sha256"],
+                    final,
+                    size=binary["size"],
+                    limit=binary["size"],
+                )
+            finally:
+                Path(entry["staged_path"]).unlink(missing_ok=True)
+            continue
         fd, name = tempfile.mkstemp(prefix=".esaa-apply-", suffix=".tmp", dir=final.parent)
         temporary = Path(name)
         try:
@@ -269,6 +343,16 @@ def verify_artifact(root: Path, artifact_path: str) -> tuple[bool, str | None]:
 
     enc = data.get("encoding", "utf-8")
 
+    if enc == "binary":
+        try:
+            blob = root / ARTIFACT_DIR / "blobs" / data["after_sha256"]
+            if blob.is_symlink() or blob.stat().st_size != data["bytes"]:
+                return False, "ARTIFACT_CONTENT_HASH_MISMATCH"
+            if _sha256_file(blob) != data["after_sha256"]:
+                return False, "ARTIFACT_CONTENT_HASH_MISMATCH"
+        except (OSError, ValueError, KeyError):
+            return False, "ARTIFACT_CONTENT_HASH_MISMATCH"
+        return True, None
     if _sha256_bytes(content.encode(enc)) != data.get("after_sha256"):
 
         return False, "ARTIFACT_CONTENT_HASH_MISMATCH"
@@ -321,7 +405,18 @@ def recover_file_effects(root: Path, events: list[dict[str, Any]], dry_run: bool
                 continue
             if not dry_run:
                 final.parent.mkdir(parents=True, exist_ok=True)
-                final.write_bytes(artifact.get("content", "").encode(artifact.get("encoding", "utf-8")))
+                if artifact.get("encoding") == "binary":
+                    from .binary_artifacts import restore_blob
+
+                    restore_blob(
+                        root / ARTIFACT_DIR / "blobs",
+                        after_sha,
+                        final,
+                        size=artifact["bytes"],
+                        limit=artifact["bytes"],
+                    )
+                else:
+                    final.write_bytes(artifact.get("content", "").encode(artifact.get("encoding", "utf-8")))
             recovered.append(rel_path)
         except Exception as exc:
             errors.append({"path": path, "error": str(exc)})
@@ -337,7 +432,7 @@ def recover_file_effects(root: Path, events: list[dict[str, Any]], dry_run: bool
 
 
 def stage_and_compute(
-    root: Path, file_updates: list[dict[str, str]]
+    root: Path, file_updates: list[dict[str, str]], task_id: str | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Atomico: stage + compute metadata + write_artifact em uma chamada.
 
@@ -345,29 +440,65 @@ def stage_and_compute(
 
     """
 
-    staged = stage_file_updates(root, file_updates)
+    staged = stage_file_updates(root, file_updates, task_id=task_id)
 
     metadata_list: list[dict[str, Any]] = []
 
-    for entry in staged:
+    try:
+        for entry in staged:
 
-        extra = {
-            "effect_scope": entry.get("effect_scope", "workspace"),
-            "source_path": entry.get("source_path"),
-            "target": entry.get("target"),
-            "target_root": entry.get("target_root"),
-            "target_path": entry.get("target_path"),
-        }
-        meta = compute_file_metadata(
-            root,
-            entry["final_path"],
-            entry["content"],
-            final_abs_path=entry.get("final_abs_path"),
-            extra=extra,
-        )
+            extra = {
+                "effect_scope": entry.get("effect_scope", "workspace"),
+                "source_path": entry.get("source_path"),
+                "target": entry.get("target"),
+                "target_root": entry.get("target_root"),
+                "target_path": entry.get("target_path"),
+            }
+            if "binary" in entry:
+                from .binary_artifacts import store_blob
 
-        meta = write_artifact(root, meta, entry["content"])
+                binary = entry["binary"]
+                staged_path = Path(entry["staged_path"])
+                store_blob(
+                    staged_path.parent,
+                    staged_path.name,
+                    root / ARTIFACT_DIR / "blobs",
+                    size=binary["size"],
+                    sha256=binary["sha256"],
+                    limit=binary["size"],
+                )
+                final = (
+                    Path(entry["final_abs_path"])
+                    if entry.get("final_abs_path")
+                    else root / entry["final_path"]
+                )
+                before = _sha256_file(final) if final.exists() else None
+                meta = {
+                    "path": entry["final_path"],
+                    "before_sha256": before,
+                    "after_sha256": binary["sha256"],
+                    "bytes": binary["size"],
+                    "encoding": "binary",
+                }
+                meta.update({k: v for k, v in extra.items() if v is not None})
+                if entry.get("final_abs_path"):
+                    meta["absolute_path"] = entry["final_abs_path"]
+                metadata_list.append(write_artifact(root, meta, ""))
+                continue
+            meta = compute_file_metadata(
+                root,
+                entry["final_path"],
+                entry["content"],
+                final_abs_path=entry.get("final_abs_path"),
+                extra=extra,
+            )
 
-        metadata_list.append(meta)
+            meta = write_artifact(root, meta, entry["content"])
+
+            metadata_list.append(meta)
+
+    except BaseException:
+        discard_staged(staged)
+        raise
 
     return staged, metadata_list

@@ -21,6 +21,7 @@ def build_task_create_payload(
     required_review_mode: str | None = None,
     supersedes: list[str] | None = None,
     existing_task_ids: set[str] | None = None,
+    resource_limits: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     task_id = task_id.strip()
     title = title.strip()
@@ -50,6 +51,12 @@ def build_task_create_payload(
         "targets": targets,
         "outputs": {"files": outputs},
     }
+    if resource_limits is not None:
+        from .task_resource_limits import _validate
+        try:
+            payload["resource_limits"] = _validate(resource_limits, name="resource_limits", require_all=False)
+        except ValueError as exc:
+            raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
     if boundary_grant:
         payload["boundary_grant"] = boundary_grant
     if task_type:

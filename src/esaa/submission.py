@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 from .conflicts import conflict_between_sets, explain_conflict, normalize_write_set
 from .edits import resolve_edit_updates
 from .errors import ESAAError
+from .limit_revalidation import _revalidate_limits_under_lock
+from .runtime_policy import load_policy
 from .events import build_hotfix_event, build_issue_resolve_event, make_event
 from .external_effects import resolve_external_file_updates
 from .file_effects import (
@@ -40,16 +42,20 @@ if TYPE_CHECKING:
 
 def _normalize_file_updates(root: Path, file_updates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = [
-        {"path": normalize_rel_path(item["path"]), "content": item["content"]}
+        {**item, "path": normalize_rel_path(item["path"])}
         for item in resolve_edit_updates(root, file_updates)
     ]
     validate_unique_file_update_paths(normalized)
     return normalized
 
 
-def _dry_run_file_effects(root: Path, file_updates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _dry_run_file_effects(root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None) -> list[dict[str, Any]]:
     effects: list[dict[str, Any]] = []
     for item in file_updates:
+        if "binary" in item:
+            from .binary_dry_run import dry_run_binary
+            effects.append(dry_run_binary(root, item, task_id))
+            continue
         extra = {
             "effect_scope": item.get("_esaa_effect_scope", "workspace"),
             "source_path": item.get("_esaa_source_path", item["path"]),
@@ -69,14 +75,12 @@ def _dry_run_file_effects(root: Path, file_updates: list[dict[str, Any]]) -> lis
         effects.append(meta)
     return effects
 
-
 def _file_write_payload(task_id: str, effects: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "task_id": task_id,
         "files": [effect["path"] for effect in effects],
         "effects": effects,
     }
-
 
 class SubmissionMixin:
     if TYPE_CHECKING:
@@ -176,7 +180,7 @@ class SubmissionMixin:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
             validate_evidence(self.root, events, actor, agent_output)
             file_updates = _normalize_file_updates(self.root, file_updates)
-            validate_file_update_resource_limits(file_updates, policy)
+            validate_file_update_resource_limits(file_updates, policy, task)
             file_updates = resolve_external_file_updates(self.root, task, file_updates)
             validate_resolved_file_boundaries(file_updates, contract, task)
             from .identity import authorize_agent_event
@@ -203,9 +207,9 @@ class SubmissionMixin:
 
             if file_updates:
                 if dry_run:
-                    effects = _dry_run_file_effects(self.root, file_updates)
+                    effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
                 else:
-                    staged_file_effects, effects = stage_and_compute(self.root, file_updates)
+                    staged_file_effects, effects = stage_and_compute(self.root, file_updates, task_id=task["task_id"])
                 write_event = make_event(
                     current_seq + 1,
                     actor="orchestrator",
@@ -284,6 +288,7 @@ class SubmissionMixin:
         if not dry_run:
             try:
                 self._append_events_transactionally(events, new_events,
+                    precommit=lambda current: _revalidate_limits_under_lock(self.root, current, [(task, file_updates)] if file_updates else [], load_policy(self.root)),
                     postcommit=lambda: commit_staged(self.root, staged_file_effects))
             except Exception:
                 discard_staged(staged_file_effects)
@@ -400,12 +405,13 @@ class SubmissionMixin:
         dry_run: bool,
         wave_write_set: list[str] | None = None,
         staged_file_effects: list[dict[str, Any]] | None = None,
+        limit_checks: list[tuple[dict[str, Any], list[dict[str, Any]]]] | None = None,
     ) -> int:
         current_seq = next_event_seq(events + new_events)
         activity_event, file_updates = validate_agent_output(output, schema, contract, task)
         validate_evidence(self.root, events + new_events, self.adapter.agent_id, output)
         file_updates = _normalize_file_updates(self.root, file_updates)
-        validate_file_update_resource_limits(file_updates, self._policy())
+        validate_file_update_resource_limits(file_updates, self._policy(), task)
         file_updates = resolve_external_file_updates(self.root, task, file_updates)
         validate_resolved_file_boundaries(file_updates, contract, task)
         known_roadmap, _, _ = materialize(events + new_events)
@@ -421,6 +427,8 @@ class SubmissionMixin:
                 "targets": list(task.get("targets", [])),
                 "outputs": task.get("outputs", {"files": []}),
             }
+            if "resource_limits" in task:
+                task_payload["resource_limits"] = dict(task["resource_limits"])
             if task.get("executable_checks"):
                 from .verification_config import validate_check_ids
                 task_payload["executable_checks"] = validate_check_ids(task["executable_checks"], events + new_events)
@@ -449,9 +457,9 @@ class SubmissionMixin:
                     )
 
                 if dry_run:
-                    effects = _dry_run_file_effects(self.root, file_updates)
+                    effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
                 else:
-                    local_staged, effects = stage_and_compute(self.root, file_updates)
+                    local_staged, effects = stage_and_compute(self.root, file_updates, task_id=task["task_id"])
 
                 write_event = make_event(
                     next_event_seq(events + new_events + candidate_events),
@@ -484,6 +492,8 @@ class SubmissionMixin:
             if wave_write_set is not None:
                 wave_write_set.extend(accepted_write_set)
             new_events.extend(candidate_events)
+            if limit_checks is not None and file_updates:
+                limit_checks.append((task, file_updates))
             return files_written
         except Exception:
             discard_staged(local_staged)

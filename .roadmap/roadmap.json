@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1525,
-      "projection_hash_sha256": "69a6cf2b0b2aa15550743008f1fc4ffa73ff1922928cd65906756048a2ae5764",
+      "last_event_seq": 1691,
+      "projection_hash_sha256": "07f209649acea71a1940730a970753ca5794a3c1edbbc31ae340dcda5099e686",
       "verify_status": "ok"
     },
-    "updated_at": "2026-10-26T16:45:35Z"
+    "updated_at": "2026-11-02T16:52:58Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3472,16 +3472,413 @@
         ]
       },
       "completed_at": "2026-10-26T14:55:43Z"
+    },
+    {
+      "task_id": "CORE-BINARY-FILE-EFFECTS-20261102",
+      "task_kind": "impl",
+      "title": "Suportar efeitos binários auditáveis e recuperação íntegra no Orchestrator",
+      "description": "Corrigir bloqueio ISS-PTB-BINARY-EFFECTS-20261102: implementar efeitos binários pelo Orchestrator com boundaries, limites, staging atômico, hashes, recuperação e compatibilidade textual; validar PNG/MKV reais, rejeições e regressões.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/file_effects.py",
+          "src/esaa/submission.py",
+          "src/esaa/validator.py",
+          "src/esaa/edits.py",
+          "src/esaa/templates/agent_result.schema.json",
+          "tests/test_binary_file_effects.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/**",
+        "tests/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:14:22Z",
+      "resource_limits": {
+        "max_file_updates": 64
+      },
+      "verification": {
+        "checks": [
+          "pytest -q: 652 passed, 4 skipped (binary payload/artifacts/input/schema/security/concurrency, contract migrate, task limits create/amend/set/enforce)",
+          "binary file_updates: source/size/sha256; dirfd+O_NOFOLLOW+O_NONBLOCK; store_blob hardlink; restore_blob stage+os.replace; assert_safe_destination rejects symlink dest/parent",
+          "esaa contract migrate applied live schemas without bootstrap --force; backups under .roadmap/backups/contracts/20261102T164858Z; activity/roadmap/issues/lessons/project_profile untouched by migrate",
+          "task.limits.set CORE-BINARY-FILE-EFFECTS-20261102 max_file_updates=64 authorized-by operator after resource_limit_caps in RUNTIME_POLICY; seq 1681 verify ok"
+        ]
+      },
+      "completed_at": "2026-11-02T16:52:02Z"
+    },
+    {
+      "task_id": "CORE-BINARY-PLAN-20261102",
+      "task_kind": "spec",
+      "title": "Planejar efeitos binários e limites de arquivo por tarefa",
+      "description": "Planejar evolução do ESAA-Core para efeitos binários auditáveis e limites declarados na criação de cada tarefa, com compatibilidade, segurança, migração, recuperação e critérios de teste; não implementar.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/spec/plano-efeitos-binarios-limites.md",
+          ".motor-IA/links/referencias.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "docs/spec/plano-efeitos-binarios-limites.md",
+        ".motor-IA/links/referencias.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-11-02T15:21:16Z",
+      "verification": {
+        "checks": [
+          "Plano confrontado com schema de file_updates, validator, task_creation, submission e mecanismo atual de staging/recovery; limite e amostra FFV1 conferidos.",
+          "Cinco wikilinks registrados e seus destinos confirmados; índice inclui o plano; critérios cobrem limites por tarefa, segurança, migração, replay e retomada PTB."
+        ]
+      },
+      "completed_at": "2026-11-02T15:22:23Z"
+    },
+    {
+      "task_id": "CORE-BINARY-STREAM-20261102",
+      "task_kind": "impl",
+      "title": "Preparar staging binário por fluxo com limites e hash",
+      "description": "Implementar primitiva isolada de leitura confinada e staging por fluxo, com limite, hash verificado, limpeza de falhas e testes; sem afirmar integração no Orchestrator.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/binary_payload.py",
+          "tests/test_binary_payload.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/binary_payload.py",
+        "tests/test_binary_payload.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:23:35Z",
+      "verification": {
+        "checks": [
+          "10 testes passaram em cópia isolada: payload maior que 2 MiB, limites, hash, travessia, symlinks, hardlinks e limpeza.",
+          "Escrita governada confinada aos dois arquivos; primitiva requer diretório privado e ainda não integra submission ou recovery."
+        ]
+      },
+      "completed_at": "2026-11-02T15:24:10Z"
+    },
+    {
+      "task_id": "CORE-BINARY-LIMITS-20261102",
+      "task_kind": "impl",
+      "title": "Definir resolução estrita dos limites por tarefa",
+      "description": "Implementar e testar resolução de limites de arquivo, total e quantidade por tarefa sob teto administrativo, sem integrar ainda CLI ou persistência.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/task_resource_limits.py",
+          "tests/test_task_resource_limits.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/task_resource_limits.py",
+        "tests/test_task_resource_limits.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:24:22Z",
+      "verification": {
+        "checks": [
+          "Dez testes de resolução passaram em ambiente isolado, incluindo limites padrão, elevação com teto, reduções e entradas inválidas.",
+          "Código rejeita aumento sem teto e entradas não inteiras, preservando os limites declarados pelo operador; módulo ainda não integrado à CLI ou ao runtime."
+        ]
+      },
+      "completed_at": "2026-11-02T15:24:45Z"
+    },
+    {
+      "task_id": "CORE-BINARY-RELEASE-20261102",
+      "task_kind": "impl",
+      "title": "Publicar ESAA-Core com efeitos binários no Git e no PyPI",
+      "description": "Após CORE-BINARY-FILE-EFFECTS-20261102 done e testes, preparar versão, verificar origem Git, build e artefatos; publicar no repositório Git e PyPI conforme autorização expressa do proprietário usando arquivo de token fornecido, sem expor segredo; registrar evidências verificáveis e resultados reais.",
+      "status": "in_progress",
+      "depends_on": [
+        "CORE-BINARY-FILE-EFFECTS-20261102"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/core-binary-release-20261102.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "docs/qa/core-binary-release-20261102.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T16:52:58Z"
+    },
+    {
+      "task_id": "CORE-BINARY-TASK-CREATE-20261102",
+      "task_kind": "impl",
+      "title": "Integrar limites por tarefa à criação e projeção",
+      "description": "Implementar declaração de limites de arquivos na criação de tarefas, validação contra tetos e projeção, com CLI e testes; integração de submissão e migração de workspaces existentes serão etapas posteriores.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/task_creation.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/projector.py",
+          "src/esaa/cli.py",
+          "src/esaa/templates/roadmap.schema.json",
+          "tests/test_task_create_resource_limits.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/**",
+        "tests/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:30:35Z",
+      "verification": {
+        "checks": [
+          "17 testes em cópia isolada: task create, CLI, projeção, dispatch, replay, tetos, valores inválidos e regressões de limites.",
+          "Contrato novo aplicado apenas ao template; workspaces ativos não são atualizados automaticamente e a submissão ainda não impõe limites por tarefa."
+        ]
+      },
+      "completed_at": "2026-11-02T15:32:17Z"
+    },
+    {
+      "task_id": "CORE-BINARY-LIMITS-ENFORCE-20261102",
+      "task_kind": "impl",
+      "title": "Aplicar limites declarados nas submissões do Orchestrator",
+      "description": "Aplicar limites por tarefa em cada submissão e no fluxo em lote, mantendo defaults históricos, tetos administrativos e limites de bytes reais; testar rejeição e ausência de efeitos parciais.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/validator.py",
+          "src/esaa/submission.py",
+          "tests/test_task_limit_enforcement.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/**",
+        "tests/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:32:28Z",
+      "verification": {
+        "checks": [
+          "Separação de módulo reduziu submission.py para 498 linhas; vinte testes de política, integridade e regressão passaram no candidato.",
+          "Testada mudança de política entre validação e commit, e verificação de múltiplas tarefas no lote; nenhuma capacidade de efeito binário é declarada."
+        ]
+      },
+      "completed_at": "2026-11-02T15:42:44Z"
+    },
+    {
+      "task_id": "HF-ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+      "description": "Apply a minimal hotfix to resolve issue ISS-CORE-RESOURCE-ERROR-CODE-20261102 without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-CORE-RESOURCE-ERROR-CODE-20261102"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/reject_codes.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+      "fixes": "CORE-BINARY-TASK-CREATE-20261102",
+      "scope_patch": [
+        "src/esaa/reject_codes.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        "src/esaa/reject_codes.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:38:40Z",
+      "verification": {
+        "checks": [
+          "Inventário de reject codes passou em ambiente isolado com código novo registrado.",
+          "Treze testes de limites, inventário e rejeição passaram com o candidato."
+        ]
+      },
+      "completed_at": "2026-11-02T15:39:04Z"
+    },
+    {
+      "task_id": "CORE-BINARY-SCHEMA-20261102",
+      "task_kind": "impl",
+      "title": "Adicionar contrato explícito de metadados binários ao schema",
+      "description": "Adicionar variante binária mutuamente exclusiva no schema distribuído e testar compatibilidade; o runtime e os schemas ativos ainda exigem integração e migração antes de uso.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/templates/agent_result.schema.json",
+          "tests/test_binary_schema.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/templates/agent_result.schema.json",
+        "tests/test_binary_schema.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:48:35Z",
+      "verification": {
+        "checks": [
+          "Schema Draft 2020-12 válido; sete testes cobrem binário, formatos legados, entradas inválidas e claim proibido.",
+          "Contrato distribuído somente; integração de runtime e migração dos schemas ativos permanecem pendentes."
+        ]
+      },
+      "completed_at": "2026-11-02T15:49:02Z"
+    },
+    {
+      "task_id": "CORE-BINARY-ARTIFACTS-20261102",
+      "task_kind": "impl",
+      "title": "Preparar armazenamento e recuperação de blobs binários",
+      "description": "Implementar e testar módulo isolado de armazenamento binário endereçado por hash e restauração atômica, sem declarar integração com submissão.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/binary_artifacts.py",
+          "tests/test_binary_artifacts.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/binary_artifacts.py",
+        "tests/test_binary_artifacts.py"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T15:50:51Z",
+      "verification": {
+        "checks": [
+          "Doze testes em cópia isolada cobrem blob maior que 2 MiB, recuperação, deduplicação, corrupção, symlink e limites.",
+          "FFV1 real de 2162463 bytes armazenado e recuperado isoladamente com SHA-256 idêntico; ffprobe confirmou três quadros. Integração ESAA ainda pendente."
+        ]
+      },
+      "completed_at": "2026-11-02T15:51:32Z"
+    },
+    {
+      "task_id": "CORE-BINARY-INPUT-20261102",
+      "task_kind": "impl",
+      "title": "Preparar entrada binária para tarefa ESAA",
+      "description": "Implementar comando de staging de entrada binária limitada e hasheada para tarefa reivindicada, isolada logicamente por tarefa e sem efeitos finais; testar falhas e limites.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/binary_input.py",
+          "src/esaa/cli.py",
+          "tests/test_binary_input.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/**",
+        "tests/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T16:19:40Z",
+      "verification": {
+        "checks": [
+          "23 testes em ambiente isolado: staging, arquivo maior que 2 MiB, limite declarado, hash, ator, caminhos inseguros e regressões.",
+          "Entrada é temporária e isolada logicamente por tarefa; comparação de actor não comprova isolamento do mesmo usuário de sistema; submissão binária ainda não integrada."
+        ]
+      },
+      "completed_at": "2026-11-02T16:21:18Z"
+    },
+    {
+      "task_id": "CORE-BINARY-SUBMIT-20261102",
+      "task_kind": "impl",
+      "title": "Integrar entrada binária à submissão e recuperação",
+      "description": "Integrar variante binária ao pipeline de submissão, staging e recuperação; validar fluxo em ambiente isolado; migração de schemas ativos e isolamento por tentativa são etapas distintas ainda pendentes.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/file_effects.py",
+          "src/esaa/submission.py",
+          "src/esaa/validator.py",
+          "src/esaa/edits.py",
+          "src/esaa/cli.py",
+          "src/esaa/binary_dry_run.py",
+          "tests/test_binary_file_effects.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "src/esaa/**",
+        "tests/**"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-02T16:26:48Z",
+      "verification": {
+        "checks": [
+          "31 testes direcionados passaram em ambiente isolado; FFV1 de 3 quadros maior que 2 MiB percorreu input binary, complete e recovery com bytes idênticos.",
+          "Corrupção de blob bloqueou recovery; testados isolamento lógico entre tarefas, cleanup parcial, verificação por fluxo e compatibilidade textual. Migração e autenticação entre processos permanecem pendentes."
+        ]
+      },
+      "completed_at": "2026-11-02T16:29:08Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 104
+      "done": 115,
+      "in_progress": 1
     },
     "by_kind": {
-      "impl": 56,
+      "impl": 67,
       "qa": 24,
-      "spec": 24
+      "spec": 25
     }
   }
 }

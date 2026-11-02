@@ -28,6 +28,7 @@ class TaskAmendMixin:
         ) -> dict[str, Any]: ...
 
         def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
+        def _policy(self) -> dict[str, Any]: ...
 
     def amend_task(
         self,
@@ -47,6 +48,7 @@ class TaskAmendMixin:
         clear_boundary_grants: bool = False,
         scope_patch: list[str] | None = None,
         executable_checks: list[str] | None = None,
+        resource_limits: dict[str, int] | None = None,
     ) -> dict[str, Any]:
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
@@ -87,6 +89,24 @@ class TaskAmendMixin:
             from .verification_config import validate_check_ids
 
             payload["executable_checks"] = validate_check_ids(executable_checks, events)
+        if resource_limits is not None:
+            from .task_resource_limits import resolve_task_limits
+            from .validator import resource_limits_from_policy
+
+            policy = self._policy()
+            try:
+                from .task_resource_limits import _validate
+
+                payload["resource_limits"] = _validate(
+                    resource_limits, name="resource_limits", require_all=False
+                )
+                resolve_task_limits(
+                    resource_limits_from_policy(policy),
+                    policy.get("resource_limit_caps"),
+                    payload["resource_limits"],
+                )
+            except ValueError as exc:
+                raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
         if len(payload) == 1:
             raise ESAAError("INVALID_ARGUMENT", "task.amend requires at least one field to update")
 

@@ -58,6 +58,11 @@ def apply_edits(text: str, edits: list[dict[str, Any]], path: str) -> str:
 def resolve_edit_updates(root: Path, file_updates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     resolved: list[dict[str, Any]] = []
     for item in file_updates:
+        if "binary" in item:
+            if "content" in item or "edits" in item:
+                raise ESAAError("SCHEMA_INVALID", "binary update cannot contain text or edits")
+            resolved.append(dict(item))
+            continue
         if "edits" not in item:
             if "content" not in item:
                 raise ESAAError(

@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 1525,
-    "updated_at": "2026-10-26T16:45:35Z"
+    "last_event_seq": 1691,
+    "updated_at": "2026-11-02T16:52:58Z"
   },
   "issues": [
     {
@@ -100,6 +100,63 @@
       "timeline": {
         "created_event_seq": 304,
         "resolved_event_seq": 787
+      }
+    },
+    {
+      "issue_id": "ISS-CORE-BINARY-RESOURCE-CONTRACT-20261102",
+      "status": "open",
+      "severity": "high",
+      "title": "Entrega binária exige evolução de contrato e limite superior explícito",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Schema ativo do agente aceita somente texto ou edits, staging e recovery gravam UTF-8, e o limite padrão é 2097152 bytes por efeito. Um FFV1 de apenas três quadros gerado para PTB-03 mede 2162463 bytes, portanto suporte base64 isolado não atende ao pacote. O schema e a política ativos em .roadmap não podem ser alterados por file_updates comuns; bootstrap --force sobrescreve todo o bundle de governança.",
+        "repro_steps": [
+          "Gerar PTB-03 de 3 quadros com ptb_engine.py render --start 30 --end 33 --pngs --video --codec ffv1 e consultar tamanho do reference.mkv.",
+          "Inspecionar agent_result.schema.json file_updates, validator.py DEFAULT_RESOURCE_LIMITS e bootstrap.py."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "CORE-BINARY-FILE-EFFECTS-20261102",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 1532,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Código de erro RESOURCE_LIMIT_INVALID não cadastrado",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A suíte completa falha em test_all_emitted_codes_are_registered porque task_admin.py, task_creation.py e projector.py emitem RESOURCE_LIMIT_INVALID, ausente de reject_codes.ALL_CODES. A tarefa original está done e requer hotfix.",
+        "repro_steps": [
+          "Executar PYTHONPATH=src python -B -m pytest -q tests/test_reject_codes_inventory.py."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+        "review_task_id": "HF-ISS-CORE-RESOURCE-ERROR-CODE-20261102",
+        "checks": [
+          "Inventário de reject codes passou em ambiente isolado com código novo registrado.",
+          "Treze testes de limites, inventário e rejeição passaram com o candidato."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "CORE-BINARY-TASK-CREATE-20261102",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-CORE-RESOURCE-ERROR-CODE-20261102"
+      },
+      "timeline": {
+        "created_event_seq": 1596,
+        "resolved_event_seq": 1610
       }
     },
     {
@@ -676,6 +733,7 @@
   "indexes": {
     "open_by_baseline": {
       "unknown": [
+        "ISS-CORE-BINARY-RESOURCE-CONTRACT-20261102",
         "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
         "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",
         "ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001"
