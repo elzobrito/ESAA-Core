@@ -2,13 +2,6 @@ version: "0.4.1"
 
 review_authorization: "qa_role"
 
-# Administrative ceilings for per-task resource_limits. Absence keeps the
-# historical defaults (32 / 2MiB / 8MiB) as both default and ceiling.
-resource_limit_caps:
-  max_file_updates: 64
-  max_bytes_per_update: 4194304
-  max_bytes_total: 8388608
-
 # G08/PROV-02: permissive aceita qualquer runner_id; strict exige registro na secao runners do swarm
 runner_validation: "permissive"
 

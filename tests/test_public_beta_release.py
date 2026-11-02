@@ -43,6 +43,7 @@ INTENTIONAL_TEMPLATE_DIVERGENCES = {
     "agent_result.schema.json": ("review_mode",),
     "roadmap.schema.json": ("task_type", "acceptance_criteria", "required_review_mode"),
     "lessons.schema.json": ("experimental", "require_boundary_grant"),
+    "RUNTIME_POLICY.yaml": ("runner_validation",),
 }
 
 INSTALL_GUIDES = (
