@@ -154,6 +154,48 @@ def review_authorization_mode(policy: dict[str, Any]) -> str:
     return val if val in {"owner", "qa_role"} else "owner"
 
 
+def review_runner_separation_mode(policy: dict[str, Any]) -> str:
+    """AUD-O0-020 (GOV-01): 'off' (default, comportamento historico) ou 'enforce'.
+
+    Opt-in do operador em RUNTIME_POLICY.yaml. Vale apenas no modo legado com
+    review_authorization=qa_role; com identidade ativa a separacao e garantida
+    por principal assinado.
+    """
+    val = str(policy.get("review_runner_separation", "off")).strip().lower()
+    return "enforce" if val in {"enforce", "on", "true", "strict"} else "off"
+
+
+def assert_review_runner_separation(
+    events: list[dict[str, Any]], task_id: str, reviewer_runner_id: str
+) -> None:
+    """Rejeita review cujo runner executou o claim ou o complete vigentes da tarefa.
+
+    O nome do actor e autodeclarado no modo legado; o runner tambem, mas exigir
+    runners distintos impede que uma unica sessao conclua e aprove trocando
+    apenas --actor. Eventos historicos sem bloco runner nao sao comparaveis e
+    nao bloqueiam a revisao.
+    """
+    executors: dict[str, str] = {}
+    for event in events:
+        if event.get("action") not in {"claim", "complete"}:
+            continue
+        if (event.get("payload") or {}).get("task_id") != task_id:
+            continue
+        runner_id = (event.get("runner") or {}).get("runner_id")
+        if isinstance(runner_id, str) and runner_id.strip():
+            executors[str(event["action"])] = runner_id.strip()
+        else:
+            executors.pop(str(event["action"]), None)
+    reviewer = reviewer_runner_id.strip()
+    matched = sorted(action for action, runner_id in executors.items() if runner_id == reviewer)
+    if matched:
+        raise ESAAError(
+            "SELF_REVIEW_FORBIDDEN",
+            f"runner {reviewer} performed {'/'.join(matched)} of task {task_id}; "
+            "review requires a different runner (policy review_runner_separation)",
+        )
+
+
 def attempt_expired(events: list[dict[str, Any]], task_id: str, now: datetime, ttl: timedelta) -> bool:
     """Tarefa em in_progress sem complete ha mais que ttl?"""
     last_claim = None

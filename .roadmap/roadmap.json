@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1732,
-      "projection_hash_sha256": "4faea847d291ae4f109a9fd7860e1569f258cbc329502cd763ba172fbf3b6731",
+      "last_event_seq": 1742,
+      "projection_hash_sha256": "f2c7350694d68607cbda54fdc700bb5b5a179a04c726476aba8b29f35858a842",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-10T18:15:20Z"
+    "updated_at": "2026-11-10T18:44:57Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3913,7 +3913,7 @@
       "task_kind": "impl",
       "title": "Separar completador e revisor por runner no modo legado",
       "description": "Achado GOV-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: sem actor.bootstrap, o mesmo processo completa como agent-impl e aprova como agent-qa trocando --actor. No modo legado, rejeitar review quando runner_id for igual ao do complete da mesma tarefa (SELF_REVIEW_FORBIDDEN), com opcao de politica review_runner_separation: off. Criterios de aceite: (1) complete e review com o mesmo runner e actors diferentes falha com SELF_REVIEW_FORBIDDEN; (2) review_runner_separation: off restaura o comportamento atual; (3) replay do log real continua ok e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -3925,7 +3925,17 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-10T18:19:35Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 676 passed, 4 skipped (antes 663)",
+          "tests/test_review_runner_separation.py: 13 testes (default off, enforce rejeita mesmo runner, aceita runner distinto, unattended, ciclo apos request_changes, eventos sem runner, modo owner)",
+          "ruff check nos arquivos alterados sem erros; mypy src/esaa com os mesmos 9 erros do baseline"
+        ]
+      },
+      "completed_at": "2026-11-10T18:44:57Z"
     },
     {
       "task_id": "AUD-O0-030",
@@ -4054,8 +4064,8 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 117,
-      "todo": 7
+      "done": 118,
+      "todo": 6
     },
     "by_kind": {
       "impl": 74,

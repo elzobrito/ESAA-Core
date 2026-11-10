@@ -2,6 +2,11 @@ version: "0.4.1"
 
 review_authorization: "qa_role"
 
+# AUD-O0-020: com "enforce", o runner que fez claim/complete de uma tarefa nao
+# pode revisa-la (SELF_REVIEW_FORBIDDEN). "off" (default) mantem o historico:
+# o papel de QA e resolvido pelo nome do actor, sem exigir runner distinto.
+review_runner_separation: "off"
+
 # G08/PROV-02: permissive aceita qualquer runner_id; strict exige registro na secao runners do swarm
 runner_validation: "permissive"
 

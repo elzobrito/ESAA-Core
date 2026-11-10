@@ -490,6 +490,12 @@ def authorize_review_event(
                 f"actor {actor} role={role} not authorized to review (qa_role mode)",
             )
         extras["_reviewer_role"] = role
+        from .runtime_policy import assert_review_runner_separation, review_runner_separation_mode
+
+        if review_runner_separation_mode(policy) == "enforce":
+            from .provenance import resolve_runner
+
+            assert_review_runner_separation(events, str(task["task_id"]), str(resolve_runner()["runner_id"]))
     return extras
 
 
