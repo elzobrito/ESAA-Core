@@ -10,6 +10,10 @@ def ready(root):
     (root / ".roadmap/RUNTIME_POLICY.yaml").write_text("review_authorization: qa_role\n")
     svc = ESAAService(root)
     svc.init(with_demo_tasks=True)
+    # AUD-O0-010: T-1010 depende de T-1000; a dependencia precisa estar done antes do claim.
+    svc.claim_task("T-1000", actor="agent-spec")
+    svc.complete_task("T-1000", actor="agent-spec", checks=["done"])
+    svc.review_task("T-1000", actor="agent-qa", decision="approve")
     svc.claim_task("T-1010", actor="agent-impl")
     svc.complete_task("T-1010", actor="agent-impl", checks=["done"])
     svc.review_task("T-1010", actor="agent-qa", decision="approve")

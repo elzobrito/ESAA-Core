@@ -47,8 +47,9 @@ def test_bad_cursor_corruption_and_event_filters(contract_bundle):
     s.init(with_demo_tasks=True)
     with pytest.raises(ESAAError):
         list_tasks(contract_bundle, cursor="!bad")
-    s.claim_task("T-1010", actor="agent-impl")
-    events = list_activity(contract_bundle, task_id="T-1010", actions=["claim"])["events"]
+    # AUD-O0-010: usa a tarefa sem dependencias; T-1010 depende de T-1000.
+    s.claim_task("T-1000", actor="agent-impl")
+    events = list_activity(contract_bundle, task_id="T-1000", actions=["claim"])["events"]
     assert len(events) == 1
     assert not list_activity(contract_bundle, after_seq=events[0]["event_seq"], actions=["claim"])["events"]
     p = contract_bundle / ".roadmap/activity.jsonl"

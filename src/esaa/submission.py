@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .claim_admission import assert_claim_admissible
 from .conflicts import conflict_between_sets, explain_conflict, normalize_write_set
 from .edits import resolve_edit_updates
 from .errors import ESAAError
@@ -108,11 +109,8 @@ class SubmissionMixin:
     ) -> dict[str, Any]:
 
         result = self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization)
-
         if not dry_run:
-
             result["task"] = self.task_state(task_id)["task"]
-
         return result
 
     def submit(
@@ -178,6 +176,8 @@ class SubmissionMixin:
 
         try:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
+            if validated_event["action"] == "claim":
+                assert_claim_admissible(roadmap["tasks"], task)
             validate_evidence(self.root, events, actor, agent_output)
             file_updates = _normalize_file_updates(self.root, file_updates)
             validate_file_update_resource_limits(file_updates, policy, task)

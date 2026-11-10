@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1698,
-      "projection_hash_sha256": "414affc8675c7280d7d3dc5c717b0c5623c5592fae6494f65683c5a4236ca316",
+      "last_event_seq": 1732,
+      "projection_hash_sha256": "4faea847d291ae4f109a9fd7860e1569f258cbc329502cd763ba172fbf3b6731",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-02T17:03:30Z"
+    "updated_at": "2026-11-10T18:15:20Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3877,15 +3877,189 @@
         ]
       },
       "completed_at": "2026-11-02T16:29:08Z"
+    },
+    {
+      "task_id": "AUD-O0-010",
+      "task_kind": "impl",
+      "title": "Rejeitar claim com dependencia pendente ou tarefa superseded",
+      "description": "Achado GOV-02 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: claim aceita tarefa cujo depends_on nao esta done (so eligible consulta dependencias) e tarefa com superseded_by. Validar em submit antes do append, sem alterar o replay de eventos historicos. Novos reject codes DEPENDENCY_NOT_DONE e TASK_SUPERSEDED. Criterios de aceite: (1) claim de tarefa com dependencia em todo retorna exit 1 e DEPENDENCY_NOT_DONE; (2) claim de tarefa com superseded_by retorna TASK_SUPERSEDED; (3) esaa --root . verify do log real continua ok e pytest -q passa; Revisao exigida: governance, por actor e runner distintos do executor.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/submission.py",
+          "src/esaa/reject_codes.py",
+          "tests/test_claim_dependencies.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-10T17:48:04Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 663 passed, 4 skipped (baseline 652 passed)",
+          "tests/test_claim_dependencies.py: 11 testes cobrindo DEPENDENCY_NOT_DONE, TASK_SUPERSEDED, dry-run, replay historico e exit code da CLI",
+          "replay do log real (1725 eventos) com o candidato: verify_status ok",
+          "ruff check nos arquivos novos sem erros; mypy src/esaa com os mesmos 9 erros do baseline"
+        ]
+      },
+      "completed_at": "2026-11-10T18:15:20Z"
+    },
+    {
+      "task_id": "AUD-O0-020",
+      "task_kind": "impl",
+      "title": "Separar completador e revisor por runner no modo legado",
+      "description": "Achado GOV-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: sem actor.bootstrap, o mesmo processo completa como agent-impl e aprova como agent-qa trocando --actor. No modo legado, rejeitar review quando runner_id for igual ao do complete da mesma tarefa (SELF_REVIEW_FORBIDDEN), com opcao de politica review_runner_separation: off. Criterios de aceite: (1) complete e review com o mesmo runner e actors diferentes falha com SELF_REVIEW_FORBIDDEN; (2) review_runner_separation: off restaura o comportamento atual; (3) replay do log real continua ok e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/identity.py",
+          "src/esaa/runtime_policy.py",
+          "tests/test_review_runner_separation.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-030",
+      "task_kind": "impl",
+      "title": "Lessons de agentes nascem proposed e exigem aprovacao do operador",
+      "description": "Achado SEC-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: issue.report com category=process e subtype=lesson cria lesson active que entra no dispatch-context de todos os agentes. Lessons vindas de agentes passam a nascer proposed e ficam fora do dispatch-context ate aprovacao por operador (servico lesson_admin; registro do comando na CLI fica em AUD-O0-045). Lessons ja existentes no historico permanecem active. Criterios de aceite: (1) lesson criada por issue.report de agente fica proposed e nao aparece em dispatch-context; (2) apos aprovacao pelo operador a lesson aparece como active; (3) hash de projecao do log real inalterado e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/projector.py",
+          "src/esaa/dispatch.py",
+          "src/esaa/lesson_admin.py",
+          "tests/test_lesson_curation.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-040",
+      "task_kind": "impl",
+      "title": "Comandos de operador exigem runner humano e activity clear auditado",
+      "description": "Achados GOV-03, GOV-04 e SEC-02 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: reject, task create/amend, issue resolve, hotfix create e activity clear --force nao tem controle de acesso e gravam actor=orchestrator. Com runner_validation: strict, exigir runner kind=human (OPERATOR_REQUIRED); activity clear grava no novo log o hash e a contagem do log anterior; submit rejeita actor=orchestrator em toda acao (ORCHESTRATOR_IMPERSONATION). Criterios de aceite: (1) com runner_validation strict, --runner codex reject e activity clear --force retornam OPERATOR_REQUIRED; (2) novo log apos clear autorizado contem previous_log_sha256; (3) submit com --actor orchestrator retorna ORCHESTRATOR_IMPERSONATION; (4) modo permissive preserva o comportamento atual e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/task_admin.py",
+          "src/esaa/activity_admin.py",
+          "src/esaa/provenance.py",
+          "tests/test_operator_commands.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-045",
+      "task_kind": "impl",
+      "title": "Registrar na CLI os comandos lesson approve e correlatos de operador",
+      "description": "Suporte a AUD-O0-030 e AUD-O0-040 (ver docs/audit/ESAA-CORE-AUDIT-2026-11-10.md, secao 6): registrar no parser o comando lesson approve e as flags novas dos comandos de operador, em uma unica tarefa para evitar duas tarefas editando src/esaa/cli.py em paralelo. Criterios de aceite: (1) esaa lesson approve --help responde exit 0; (2) esaa lesson approve LES-N move a lesson de proposed para active com evento no log; (3) pytest -q passa; Revisao exigida: functional, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [
+        "AUD-O0-030",
+        "AUD-O0-040"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/cli.py",
+          "tests/test_cli_operator_commands.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-050",
+      "task_kind": "impl",
+      "title": "Confinar efeitos ao root real e validar destino antes do append",
+      "description": "Achados SEC-03 e GOV-08 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: file_update em src/link/sub/x com src/link sendo symlink para fora do workspace grava fora do root; e quando o destino e invalido o evento orchestrator.file.write e gravado sem o arquivo existir. Resolver o caminho final e exigir que fique dentro do root para efeitos de escopo workspace; validar o destino antes do append. Criterios de aceite: (1) file_update atraves de symlink ancestral para fora do root retorna BOUNDARY_VIOLATION e nada e criado fora; (2) destino invalido nao anexa nenhum evento ao log; (3) efeitos externos autorizados (runtime://) continuam funcionando e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/file_effects.py",
+          "src/esaa/binary_artifacts.py",
+          "tests/test_symlink_confinement.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-060",
+      "task_kind": "impl",
+      "title": "verify compara o conteudo das tres projecoes",
+      "description": "Achado GOV-05 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: verify compara apenas o campo projection_hash_sha256 armazenado em roadmap.json com o hash do replay; editar tarefas em roadmap.json, ou qualquer conteudo de issues.json e lessons.json, mantem verify_status ok. Comparar o JSON canonico de cada projecao armazenada com o materializado (ignorando meta.updated_at) e listar os arquivos divergentes. Criterios de aceite: (1) adulterar roadmap.json, issues.json ou lessons.json resulta em verify_status mismatch, exit 2 e campo divergent; (2) verify do repositorio real continua ok; (3) pytest -q passa; Revisao exigida: governance, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/service_core.py",
+          "tests/test_verify_projection_content.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
+    },
+    {
+      "task_id": "AUD-O0-070",
+      "task_kind": "qa",
+      "title": "Testes de propriedades de governanca da Onda 0",
+      "description": "Achado ENG-03 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: a suite passou com GOV-01, GOV-02, GOV-05, SEC-01 e SEC-03 presentes. Escrever um teste por propriedade: revisor distinto do completador, claim exige dependencias, verify detecta projecao adulterada, lesson de agente nao entra no contexto, symlink nao escapa do root. Registrar evidencia de que falham no commit d741770 e passam no candidato. Criterios de aceite: (1) cinco propriedades cobertas, um teste por propriedade; (2) relatorio em docs/qa mostra falha em d741770 e sucesso no candidato; (3) pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
+      "status": "todo",
+      "depends_on": [
+        "AUD-O0-010",
+        "AUD-O0-020",
+        "AUD-O0-030",
+        "AUD-O0-040",
+        "AUD-O0-045",
+        "AUD-O0-050",
+        "AUD-O0-060"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "tests/test_governance_properties.py",
+          "docs/qa/AUD-O0-governance.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      }
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 116
+      "done": 117,
+      "todo": 7
     },
     "by_kind": {
-      "impl": 67,
-      "qa": 24,
+      "impl": 74,
+      "qa": 25,
       "spec": 25
     }
   }
