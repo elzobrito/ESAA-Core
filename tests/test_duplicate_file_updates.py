@@ -11,6 +11,7 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.errors import ESAAError
 from esaa.file_effects import STAGING_DIR
@@ -100,7 +101,7 @@ def test_submit_rejects_duplicate_content_paths_without_store_or_staging_change(
 
     assert exc.value.code == "FILE_UPDATE_DUPLICATE_PATH"
     assert target.read_text(encoding="utf-8") == base
-    assert len(parse_event_store(contract_bundle)) == before
+    assert_only_rejection_events(contract_bundle, before, exc.value.code)
     assert _staging_files(contract_bundle) == []
 
 
@@ -134,7 +135,7 @@ def test_submit_rejects_duplicate_edit_updates_with_same_base_sha(contract_bundl
 
     assert exc.value.code == "FILE_UPDATE_DUPLICATE_PATH"
     assert target.read_text(encoding="utf-8") == base
-    assert len(parse_event_store(contract_bundle)) == before
+    assert_only_rejection_events(contract_bundle, before, exc.value.code)
     assert _staging_files(contract_bundle) == []
 
 

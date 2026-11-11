@@ -13,13 +13,12 @@ from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
 from .metrics import compute_metrics
-from .projection_check import REBUILD_HINT, compare_projections
-from .projector import apply_events, materialize, projection_summary, replay_state, state_tasks
 from .project_profile import project_profile_view
+from .projection_check import REBUILD_HINT, compare_projections
+from .projector import materialize
 from .runner_metrics import normalize_runner_metrics
 from .runtime_policy import load_policy, parse_duration
-from .seeds import BASELINE_LESSONS, all_tasks_done, load_plugin_seeds, seed_tasks
-from .verify_annotations import chain_status, verify_annotations
+from .seeds import BASELINE_LESSONS, load_plugin_seeds, seed_tasks
 from .store import (
     append_events,
     append_transactional,
@@ -33,6 +32,8 @@ from .store import (
     save_project_profile,
     save_roadmap,
 )
+from .verify_annotations import chain_status, verify_annotations
+
 
 def _projection_hash(events: list[dict[str, Any]]) -> str:
     roadmap, _, _ = materialize(events)
@@ -303,6 +304,9 @@ class ESAAServiceCore:
                 adjusted_event["event_seq"] = expected_seq
                 adjusted_event["event_id"] = f"EV-{expected_seq:08d}"
                 adjusted.append(adjusted_event)
+            if attempt:
+                from .orchestrator_commit import refresh_verification_hashes
+                refresh_verification_hashes(current_events, adjusted)
             from .verification_gate import validate_pending
             validate_pending(self.root, current_events, adjusted)
             return adjusted
@@ -365,87 +369,12 @@ class ESAAServiceCore:
         self, candidate_events: list[dict[str, Any]], dry_run: bool = False, precommit=None, postcommit=None
     ) -> dict[str, Any]:
 
-        if not candidate_events:
-
-            raise ESAAError("INVALID_ARGUMENT", "at least one orchestrator event is required")
-
-        events = parse_event_store(self.root)
-
-        expected_seq = next_event_seq(events)
-
-        if candidate_events[0]["event_seq"] != expected_seq:
-
-            raise ESAAError("EVENT_SEQ_NON_MONOTONIC", f"expected event_seq={expected_seq}")
-
-        new_events = list(candidate_events)
-
-        all_events = events + new_events
-
-        from .identity_history import validate_identity_history
-        validate_identity_history(self.root, all_events)
-        # AUD-O1-010: um replay do prefixo; cada evento novo e aplicado uma vez sobre o estado.
-        state = replay_state(events)
-        base_hash = projection_summary(state)["projection_hash_sha256"]
-        apply_events(state, new_events)
-        if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
-            run_end = make_event(
-                next_event_seq(all_events),
-                actor="orchestrator",
-                action="run.end",
-                payload={"status": "success"},
-            )
-            all_events.append(run_end)
-            new_events.append(run_end)
-            apply_events(state, [run_end])
-
-        verify_start = make_event(
-            next_event_seq(all_events), actor="orchestrator", action="verify.start", payload={"strict": True}
+        from .orchestrator_commit import commit_orchestrator_events
+        return commit_orchestrator_events(
+            self.root, candidate_events, append_transactional, dry_run=dry_run,
+            precommit=precommit, postcommit=postcommit,
+            lock_max_age=float(_concurrency_policy(self._policy())["lock_max_age"]),
         )
-        all_events.append(verify_start)
-        new_events.append(verify_start)
-        apply_events(state, [verify_start])
-
-        verify_ok = make_event(
-            next_event_seq(all_events),
-            actor="orchestrator",
-            action="verify.ok",
-            payload={"projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]},
-        )
-        all_events.append(verify_ok)
-        new_events.append(verify_ok)
-        final_run = projection_summary(apply_events(state, [verify_ok]))
-
-        if not dry_run:
-            self._append_events_transactionally(
-                events, new_events, precommit=precommit, postcommit=postcommit, base_hash=base_hash
-            )
-
-        first = candidate_events[0]
-
-        payload = first["payload"]
-
-        result = {
-            "status": "dry_run" if dry_run else "accepted",
-            "actor": first["actor"],
-            "action": first["action"],
-            "event_id": first["event_id"],
-            "events_appended": len(new_events),
-            "last_event_seq": final_run["last_event_seq"],
-            "verify_status": final_run["verify_status"],
-            "projection_hash_sha256": final_run["projection_hash_sha256"],
-        }
-        if dry_run:
-            result["would_append_events"] = len(new_events)
-            result["simulated_last_event_seq"] = result["last_event_seq"]
-            result["simulated_projection_hash_sha256"] = result["projection_hash_sha256"]
-
-        for key in ("task_id", "issue_id", "error_code", "source_action"):
-
-            if key in payload:
-
-                result[key] = payload[key]
-
-        return result
 
     def replay(self, until: str | None = None, write_views: bool = True) -> dict[str, Any]:
 

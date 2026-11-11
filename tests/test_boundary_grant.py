@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.errors import ESAAError
 from esaa.file_effects import STAGING_DIR
@@ -131,7 +132,7 @@ def test_complete_outside_kind_allowlist_rejected_without_grant(grant_bundle: Pa
 
     assert exc.value.code == "BOUNDARY_VIOLATION"
     assert not (grant_bundle / "tools/audit/evil.py").exists()
-    assert len(parse_event_store(grant_bundle)) == before
+    assert_only_rejection_events(grant_bundle, before, exc.value.code)
     assert _staging_files(grant_bundle) == []
 
 

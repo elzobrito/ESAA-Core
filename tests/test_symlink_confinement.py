@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa import cli
 from esaa.errors import ESAAError
@@ -40,7 +41,10 @@ def _assert_rejected_without_trace(service: ESAAService, root: Path, path: str, 
         _complete(service, path, **kwargs)
 
     assert exc.value.code == "BOUNDARY_VIOLATION"
-    assert len(parse_event_store(root)) == before_events
+    if kwargs.get("dry_run"):
+        assert len(parse_event_store(root)) == before_events
+    else:
+        assert_only_rejection_events(root, before_events, exc.value.code)
     assert service.task_state("T-A")["task"]["status"] == "in_progress"
     assert (sorted(p.name for p in artifacts.glob("*")) if artifacts.exists() else []) == before_artifacts
     staging = root / ".roadmap" / "staging"

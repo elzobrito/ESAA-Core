@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 from test_verification_config import CONFIG
 from test_verification_executor import ready
 
@@ -90,7 +91,7 @@ def test_final_lock_revalidates_and_does_not_apply(contract_bundle, monkeypatch)
     monkeypatch.setattr(svc, "_append_events_transactionally", concurrent)
     with pytest.raises(ESAAError, match="verification belongs"):
         svc.submit(candidate, actor="agent-impl")
-    assert (contract_bundle / ".roadmap/activity.jsonl").read_bytes() == before
+    assert_only_rejection_events(contract_bundle, before, "VERIFICATION_STALE")
     assert (contract_bundle / "tetris.py").read_text() == "concurrent\n"
     assert svc.task_state("T-C")["task"]["status"] == "in_progress"
 

@@ -9,8 +9,6 @@ from .claim_admission import assert_claim_admissible
 from .conflicts import conflict_between_sets, explain_conflict, normalize_write_set
 from .edits import resolve_edit_updates
 from .errors import ESAAError
-from .limit_revalidation import _revalidate_limits_under_lock
-from .runtime_policy import load_policy
 from .events import build_hotfix_event, build_issue_resolve_event, make_event
 from .external_effects import resolve_external_file_updates
 from .file_effects import (
@@ -19,6 +17,7 @@ from .file_effects import (
     discard_staged,
     stage_and_compute,
 )
+from .limit_revalidation import _revalidate_limits_under_lock as _revalidate_limits_under_lock
 from .projector import apply_events, materialize, projection_summary, replay_state, state_tasks
 from .provenance import resolve_runner
 from .runtime_policy import is_blocked_by_max_attempts
@@ -29,14 +28,15 @@ from .store import (
     next_event_seq,
     parse_event_store,
 )
+from .submission_rejections import record_submission_rejection, revalidate_submission
 from .utils import normalize_rel_path
-from .verification_gate import validate_evidence
 from .validator import (
     validate_agent_output,
     validate_file_update_resource_limits,
     validate_resolved_file_boundaries,
     validate_unique_file_update_paths,
 )
+from .verification_gate import validate_evidence
 
 if TYPE_CHECKING:
     from .adapters.base import AgentAdapter
@@ -123,9 +123,7 @@ class SubmissionMixin:
     ) -> dict[str, Any]:
 
         events = parse_event_store(self.root)
-
         contract = load_agent_contract(self.root)
-
         schema = load_agent_result_schema(self.root)
         # AUD-O1-010: um replay do prefixo; os candidatos sao aplicados sobre este estado.
         state = replay_state(events)
@@ -142,13 +140,11 @@ class SubmissionMixin:
                 break
 
         if not task:
-
             raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
 
         # R2: bloqueia se ja atingiu max_attempts
 
         policy = self._policy()
-
         max_attempts = policy.get("attempt_limits", {}).get("max_attempts_per_task", 3)
 
         if is_blocked_by_max_attempts(events, task_id, max_attempts):
@@ -233,8 +229,9 @@ class SubmissionMixin:
                     apply_events(state, [resolve_event])
 
             new_events.extend(candidate_events)
-        except Exception:
+        except Exception as exc:
             discard_staged(staged_file_effects)
+            record_submission_rejection(self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization)
             raise
 
         all_events = events + new_events
@@ -284,11 +281,13 @@ class SubmissionMixin:
             try:
                 committed = self._append_events_transactionally(events, new_events, base_hash=base_hash,
                     result_task_id=task_id if include_task else None,
-                    precommit=lambda current: _revalidate_limits_under_lock(self.root, current, [(task, file_updates)] if file_updates else [], load_policy(self.root)),
+                    precommit=lambda current: revalidate_submission(self.root, current, task, file_updates),
                     postcommit=lambda: commit_staged(self.root, staged_file_effects))
-            except Exception:
+            except Exception as exc:
                 discard_staged(staged_file_effects)
+                record_submission_rejection(self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization)
                 raise
+            final_run.update({key: committed[key] for key in ("last_event_seq", "projection_hash_sha256")})
 
         result = {
             "status": "dry_run" if dry_run else "accepted",

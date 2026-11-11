@@ -11,6 +11,7 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.edits import resolve_edit_updates
 from esaa.errors import ESAAError
@@ -116,7 +117,7 @@ def test_edit_with_lf_old_string_does_not_match_crlf_file(contract_bundle: Path)
 
     assert exc.value.code == "EDIT_TARGET_NOT_FOUND"
     assert target.read_bytes() == base
-    assert len(parse_event_store(contract_bundle)) == before
+    assert_only_rejection_events(contract_bundle, before, exc.value.code)
     assert _staging_files(contract_bundle) == []
 
 
@@ -173,7 +174,7 @@ def test_edit_on_non_utf8_file_is_edit_invalid_without_store_or_staging_change(
     assert exc.value.code == "EDIT_INVALID"
     assert "not valid UTF-8" in exc.value.message
     assert target.read_bytes() == base
-    assert len(parse_event_store(contract_bundle)) == before
+    assert_only_rejection_events(contract_bundle, before, exc.value.code)
     assert _staging_files(contract_bundle) == []
 
 

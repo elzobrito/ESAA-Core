@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.adapters import http_llm
 from esaa.adapters.http_llm import HttpLlmAdapter
@@ -63,7 +64,7 @@ def test_file_update_count_limit_rejects_before_staging_and_append(contract_bund
         )
 
     assert excinfo.value.code == "RESOURCE_LIMIT_EXCEEDED"
-    assert len(parse_event_store(contract_bundle)) == before
+    assert_only_rejection_events(contract_bundle, before, excinfo.value.code)
     staging = contract_bundle / ".roadmap" / "staging"
     assert not staging.exists() or not any(staging.rglob("*"))
 

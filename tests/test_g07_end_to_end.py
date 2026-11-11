@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.cli import main
 from esaa.dispatch import build_minimal_context
@@ -117,7 +118,8 @@ def test_g07_task_review_projection_and_dispatch_flow(tmp_path: Path, repo_root:
     with pytest.raises(ESAAError) as missing:
         service.review_task("T-G07-E2E", actor="agent-qa", decision="approve")
     assert missing.value.code == "REVIEW_MODE_REQUIRED"
-    assert len(parse_event_store(root)) == before_invalid
+    assert_only_rejection_events(root, before_invalid, missing.value.code)
+    before_invalid = len(parse_event_store(root))
 
     with pytest.raises(ESAAError) as mismatch:
         service.review_task(
@@ -127,7 +129,7 @@ def test_g07_task_review_projection_and_dispatch_flow(tmp_path: Path, repo_root:
             review_mode="security",
         )
     assert mismatch.value.code == "REVIEW_MODE_MISMATCH"
-    assert len(parse_event_store(root)) == before_invalid
+    assert_only_rejection_events(root, before_invalid, mismatch.value.code)
 
     service.review_task(
         "T-G07-E2E",

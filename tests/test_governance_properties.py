@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.errors import ESAAError
 from esaa.service import ESAAService
@@ -165,7 +166,7 @@ def test_p4_agent_lesson_stays_out_of_dispatch_context(contract_bundle: Path) ->
 def test_p5_file_effects_cannot_escape_root_through_symlink(
     contract_bundle: Path, tmp_path_factory: Any
 ) -> None:
-    """SEC-03/GOV-08: symlink dentro de src/ nao leva escrita para fora, e nada e registrado."""
+    """SEC-03/GOV-08: symlink dentro de src/ nao leva escrita para fora; apenas a rejeicao e auditada."""
     _policy(contract_bundle)
     service = _service(contract_bundle)
     service.claim_task("T-A", actor="agent-impl")
@@ -180,7 +181,7 @@ def test_p5_file_effects_cannot_escape_root_through_symlink(
         assert exc.value.code == "BOUNDARY_VIOLATION", path
 
     assert list(outside.iterdir()) == []
-    assert _event_count(contract_bundle) == before
+    assert_only_rejection_events(contract_bundle, before, "BOUNDARY_VIOLATION", repetitions=2)
     assert _status(service, "T-A") == "in_progress"
 
     _complete(service, "T-A", "src/nested/dir/a.txt")

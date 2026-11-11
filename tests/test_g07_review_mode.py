@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from rejection_assertions import assert_only_rejection_events
 
 from esaa.cli import main
 from esaa.errors import ESAAError
@@ -84,12 +85,13 @@ def test_required_review_mode_missing_or_mismatched_fails_before_append(
     with pytest.raises(ESAAError) as missing:
         service.review_task("T-REQ", actor="agent-qa", decision="approve")
     assert missing.value.code == "REVIEW_MODE_REQUIRED"
-    assert len(parse_event_store(root)) == before
+    assert_only_rejection_events(root, before, missing.value.code)
+    before = len(parse_event_store(root))
 
     with pytest.raises(ESAAError) as mismatch:
         service.review_task("T-REQ", actor="agent-qa", decision="request_changes", review_mode="security")
     assert mismatch.value.code == "REVIEW_MODE_MISMATCH"
-    assert len(parse_event_store(root)) == before
+    assert_only_rejection_events(root, before, mismatch.value.code)
 
 
 def test_request_changes_and_approve_require_matching_review_mode(
@@ -157,4 +159,4 @@ def test_invalid_review_mode_from_agent_result_fails_before_append(
         )
 
     assert exc.value.code == "SCHEMA_INVALID"
-    assert len(parse_event_store(root)) == before
+    assert_only_rejection_events(root, before, exc.value.code)

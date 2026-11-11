@@ -9,12 +9,11 @@ import pytest
 
 from esaa.boundary_paths import path_within_scope, validate_hotfix_scope_entries
 from esaa.errors import ESAAError
+from esaa.events import make_event
 from esaa.external_effects import resolve_external_file_updates
 from esaa.plugins import validate_plugin_dir
-from esaa.events import make_event
 from esaa.service import ESAAService, validate_hotfix_request
-from esaa.store import next_event_seq
-from esaa.store import parse_event_store
+from esaa.store import next_event_seq, parse_event_store
 from esaa.validator import _validate_boundaries
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -276,6 +275,9 @@ def test_resolve_external_file_updates_blocks_roadmap_target(tmp_path: Path) -> 
 
 def _seed_plugin_task(svc: ESAAService, task_id: str) -> None:
     events = parse_event_store(svc.root)
+    # init already seeds active plugin tasks; do not fabricate a duplicate create.
+    if any(e["action"] == "task.create" and e["payload"]["task_id"] == task_id for e in events):
+        return
     event = make_event(
         next_event_seq(events),
         "orchestrator",
