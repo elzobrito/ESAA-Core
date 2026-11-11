@@ -170,7 +170,19 @@ def _plugin_status(root: Path, detail: bool = False, plugin_filter: str | None =
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="esaa", description="ESAA deterministic orchestrator core")
+    parser = argparse.ArgumentParser(
+        prog="esaa",
+        description="ESAA deterministic orchestrator core",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Agent workflow:
+  Read AGENTS.md in the workspace selected by --root before making changes.
+  Use eligible to discover tasks, then dispatch-context TASK-ID before work.
+  Follow the returned contract, boundaries and active lessons.
+  Use your real --runner identity for every command that writes events.
+  Submit claim and complete separately; file_updates belongs only to complete.
+  Let the Orchestrator apply effects; do not edit the event store or projections.
+  Use 'esaa COMMAND --help' for command syntax.""",
+    )
     parser.add_argument("--root", default=".", help="project root path")
     parser.add_argument(
         "--runner",

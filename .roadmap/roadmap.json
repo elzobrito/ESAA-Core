@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1961,
-      "projection_hash_sha256": "297307c5ca705824f15991241b47a08b0e983049b51dcdca2b1ecd7311cd252f",
+      "last_event_seq": 1971,
+      "projection_hash_sha256": "1d883bdc8fea65d93aa6948b21bc2b9867cc031e3f1ce0a853a4b492b8a64630",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T23:46:56Z"
+    "updated_at": "2026-11-11T23:53:29Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4501,15 +4501,41 @@
           "Artifacts: {\"esaa_core-0.5.0b26-py3-none-any.whl\": {\"sha256\": \"26eefec05c12c7e28271f02186c976d3bbd33999839eaecafe643b2a6aba328c\", \"size\": 202950}, \"esaa_core-0.5.0b26.tar.gz\": {\"sha256\": \"6a836ac61c82703a6daed960b6e6e40e24e39ca7a47470d1e05ae5c62a086aaa\", \"size\": 507519}}"
         ]
       }
+    },
+    {
+      "task_id": "CLI-AGENT-HELP-20261111",
+      "task_kind": "impl",
+      "title": "Show agent workflow guidance in top-level CLI help",
+      "description": "Add a concise agent-facing help epilog pointing to local AGENTS.md and dispatch-context, real runner provenance, separate claim/complete submissions and Orchestrator-owned effects. Preserve read-only help behavior and existing command syntax. No new release or publication requested.",
+      "status": "review",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/cli.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T23:52:44Z",
+      "verification": {
+        "checks": [
+          "79 focused CLI error-contract/public-beta tests passed in 29.28s, including --help creates no workspace.",
+          "Ruff and Black checks pass for cli.py; manually inspected top-level help epilog with preserved multiline agent guidance.",
+          "Help directs agents to AGENTS.md and dispatch-context; local contract remains authoritative. No new package version, push or PyPI publication."
+        ]
+      }
     }
   ],
   "indexes": {
     "by_status": {
       "done": 133,
-      "review": 2
+      "review": 3
     },
     "by_kind": {
-      "impl": 84,
+      "impl": 85,
       "qa": 25,
       "spec": 26
     }
