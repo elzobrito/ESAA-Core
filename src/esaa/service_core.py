@@ -14,6 +14,7 @@ from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
 from .metrics import compute_metrics
+from .projection_check import REBUILD_HINT, compare_projections
 from .projector import materialize
 from .project_profile import project_profile_view
 from .runner_metrics import normalize_runner_metrics
@@ -23,7 +24,6 @@ from .store import (
     append_events,
     append_transactional,
     ensure_event_store,
-    load_roadmap,
     load_project_profile,
     next_event_seq,
     parse_event_store,
@@ -219,7 +219,7 @@ class ESAAServiceCore:
     def verify(self) -> dict[str, Any]:
         try:
             events = parse_event_store(self.root)
-            projected, _, _ = materialize(events)
+            projected, issues_view, lessons_view = materialize(events)
             projected_profile = project_profile_view(events)
         except CorruptedStoreError as exc:
             return {
@@ -230,24 +230,28 @@ class ESAAServiceCore:
                 "projection_hash_sha256": None,
             }
         computed_hash = projected["meta"]["run"]["projection_hash_sha256"]
+        computed_seq = projected["meta"]["run"]["last_event_seq"]
         from .trust_root import catch_up_checkpoint
         caught = catch_up_checkpoint(self.root, events, computed_hash)
         if caught:
             return caught
-        stored = load_roadmap(self.root)
-        if stored is None:
+        # AUD-O0-060 (GOV-05): compara o conteudo das projecoes, nao so o hash declarado.
+        views = {"roadmap.json": projected, "issues.json": issues_view, "lessons.json": lessons_view}
+        check = compare_projections(self.root, views, ignore_updated_at=not events)
+        if check["problems"].get("roadmap.json") == "missing":
             return {
                 "verify_status": "mismatch",
                 "reason": "roadmap_missing",
-                "last_event_seq": projected["meta"]["run"]["last_event_seq"],
-                "projection_hash_sha256": projected["meta"]["run"]["projection_hash_sha256"],
+                "last_event_seq": computed_seq,
+                "projection_hash_sha256": computed_hash,
             }
-        stored_hash = stored.get("meta", {}).get("run", {}).get("projection_hash_sha256")
-        computed_seq = projected["meta"]["run"]["last_event_seq"]
-        stored_seq = stored.get("meta", {}).get("run", {}).get("last_event_seq")
-        stored_profile = load_project_profile(self.root)
-        profile_matches = projected_profile == stored_profile
-        if computed_hash == stored_hash and computed_seq == stored_seq and profile_matches:
+        stored_run = ((check["stored_roadmap"] or {}).get("meta") or {}).get("run") or {}
+        stored_hash, stored_seq = stored_run.get("projection_hash_sha256"), stored_run.get("last_event_seq")
+        try:
+            profile_matches = projected_profile == load_project_profile(self.root)
+        except (ValueError, OSError):
+            profile_matches = False
+        if computed_hash == stored_hash and computed_seq == stored_seq and profile_matches and not check["divergent"]:
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
@@ -262,6 +266,9 @@ class ESAAServiceCore:
             "stored_last_event_seq": stored_seq,
             "stored_projection_hash_sha256": stored_hash,
             "project_profile_mismatch": not profile_matches,
+            "divergent": check["divergent"],
+            **({"unreadable": check["problems"]} if check["problems"] else {}),
+            "hint": REBUILD_HINT,
         }
 
     def metrics(self) -> dict[str, Any]:
