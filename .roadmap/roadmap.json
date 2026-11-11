@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1903,
-      "projection_hash_sha256": "b88df8acc51048561adae8efcc4e2242db72758bd8c9d77ce90c1dc65136481e",
+      "last_event_seq": 1913,
+      "projection_hash_sha256": "23c9796cd3fbb282f39606e1ff3f3014a9f879a95b246044498fb5b5203ef2b8",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T19:51:37Z"
+    "updated_at": "2026-11-11T20:33:25Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4230,7 +4230,7 @@
       "task_kind": "impl",
       "title": "Erros de entrada e de ambiente em JSON na CLI; leitura sem efeitos colaterais",
       "description": "Achados FUN-02 e FUN-03 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: a CLI captura apenas ESAAError; JSON invalido em submit, arquivo inexistente, AGENT_CONTRACT ausente e RUNTIME_POLICY com YAML invalido terminam em traceback. Comandos de leitura (eligible, verify, state) criam .roadmap/activity.jsonl em diretorio nao inicializado. Capturar JSONDecodeError, OSError e YAMLError em main e emitir uma linha JSON com error_code INPUT_INVALID ou WORKSPACE_INVALID; ESAA_DEBUG=1 reexibe o traceback. Leitura em diretorio nao inicializado retorna EVENT_STORE_MISSING sem criar arquivos. O caso de roadmap.json truncado ja foi resolvido na AUD-O0-060 e fica fora. Criterios de aceite: (1) submit de JSON invalido, arquivo inexistente, contrato ausente e politica com YAML invalido produzem uma linha JSON em stderr, exit 1, sem Traceback; (2) eligible e verify em diretorio vazio retornam EVENT_STORE_MISSING e o diretorio continua vazio; (3) init e bootstrap continuam criando o workspace normalmente; pytest -q passa; Revisao exigida: functional, por runner distinto do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "AUD-O1-030"
       ],
@@ -4245,7 +4245,19 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T19:56:26Z",
+      "verification": {
+        "checks": [
+          "Full isolated candidate suite: 907 passed, 5 skipped in 235.51s (pytest -q); /tmp/esaa-040-full.log.",
+          "Final focused regression: 159 passed in 47.37s; covers CLI error contract, hash chain/visibility, store compatibility/locking/repair, projection content, policy schema and hotfix trace.",
+          "54 new CLI/API checks: invalid/missing/UTF-8 input, missing contracts/schema, invalid policy preserves POLICY_INVALID, single-line stderr JSON exit 1; ESAA_DEBUG=1 alone emits traceback.",
+          "Read-only commands and APIs on absent/empty/roadmap-only roots return EVENT_STORE_MISSING without files; bootstrap/init and deliberate writable hotfix scenario remain functional. Broken chain returns structured corruption result with exit 2.",
+          "Frozen five source/test files match freeze.json. Mypy retains only 9 historical errors in 4 files; Ruff clean for CLI/reject codes/scenarios/tests, with only historical store Windows B009 remaining."
+        ]
+      },
+      "completed_at": "2026-11-11T20:33:25Z"
     },
     {
       "task_id": "AUD-O1-050",
@@ -4404,8 +4416,8 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 130,
-      "todo": 3
+      "done": 131,
+      "todo": 2
     },
     "by_kind": {
       "impl": 82,

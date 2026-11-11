@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,7 +8,7 @@ from typing import Any
 from .errors import ESAAError
 from .projector import materialize
 from .service import ESAAService
-from .store import parse_event_store
+from .store import ensure_event_store, parse_event_store
 
 HOTFIX_FLOW = [
     "issue.report",
@@ -119,6 +118,9 @@ def run_hotfix_trace(
     workspace = target_root or _prepare_temp_workspace(source_root)
     service = ESAAService(workspace)
 
+    # This scenario deliberately initializes a writable demo workspace. Readers
+    # no longer create a log implicitly when checking whether it has events.
+    ensure_event_store(workspace)
     if not parse_event_store(workspace):
         service.init(force=True, with_demo_tasks=True)
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
-from datetime import datetime, timezone
 import ctypes
 import hashlib
 import json
@@ -9,6 +7,8 @@ import os
 import socket
 import sys
 import time
+from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,11 +23,12 @@ from .constants import (
     PROJECT_PROFILE_PATH,
     ROADMAP_PATH,
 )
-from .errors import CorruptedStoreError, ESAAError
 from .durable_io import atomic_write_bytes, sync_directory
+from .errors import CorruptedStoreError, ESAAError
 from .project_profile import project_profile_view
 from .provenance import resolve_runner, validate_runner_block
-from .utils import ensure_parent, utc_now_iso
+from .reject_codes import EVENT_STORE_MISSING
+from .utils import ensure_parent
 
 _CONCURRENCY_METRICS: Counter[str] = Counter()
 
@@ -185,8 +186,6 @@ def _prepare_events_for_append(
 
 
 def verify_hash_chain(root: Path) -> dict[str, Any]:
-    path = ensure_event_store(root)
-    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
     try:
         events = parse_event_store(root)
     except CorruptedStoreError as exc:
@@ -241,9 +240,15 @@ def _normalize_validated_event(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_event_store(root: Path) -> list[dict[str, Any]]:
-    path = ensure_event_store(root)
+    path = root / EVENT_STORE_PATH
     try:
         text = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise ESAAError(
+            EVENT_STORE_MISSING,
+            "event store missing; run esaa init (esaa bootstrap first if needed); no files were created",
+            penalizes_counter=False,
+        ) from exc
     except UnicodeDecodeError as exc:
         raise CorruptedStoreError("JSONL_INVALID", f"invalid UTF-8: {exc}; {JSONL_REPAIR_HINT}") from exc
     return parse_event_store_text(root, text, cache_key=str(path))

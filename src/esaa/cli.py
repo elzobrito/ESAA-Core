@@ -4,12 +4,16 @@ import argparse
 import json
 import os
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
+import yaml
+from jsonschema.exceptions import SchemaError
+
 from .adapters.http_llm import HttpLlmAdapter
 from .bootstrap import bootstrap_workspace
-from .constants import ESAA_VERSION, PACKAGE_VERSION, SCHEMA_VERSION, PROTOCOL_VERSION
+from .constants import ESAA_VERSION, PACKAGE_VERSION, PROTOCOL_VERSION, SCHEMA_VERSION
 from .errors import ESAAError
 from .plugins import (
     activate_roadmap,
@@ -25,10 +29,11 @@ from .plugins import (
     validate_plugin,
 )
 from .provenance import ENV_RUNNER_ID
+from .queries import format_query, list_activity, list_tasks
+from .reject_codes import INPUT_INVALID, WORKSPACE_INVALID
 from .runner_inputs import register_commands_input, show_commands_input, validate_commands_input
 from .scenarios import run_hotfix_trace
 from .service import ESAAService
-from .queries import list_tasks, list_activity, format_query
 from .snapshot import compact_event_store, create_snapshot
 from .store import init_hash_chain, verify_hash_chain
 from .vocabulary import vocabulary_payload
@@ -44,8 +49,11 @@ def _cli_resource_limits(args: Any) -> dict[str, int] | None:
 
 
 def _read_json_arg(path_arg: str) -> object:
-    raw = sys.stdin.read() if path_arg == "-" else Path(path_arg).read_text(encoding="utf-8")
-    return json.loads(raw)
+    try:
+        raw = sys.stdin.read() if path_arg == "-" else Path(path_arg).read_text(encoding="utf-8")
+        return json.loads(raw)
+    except (json.JSONDecodeError, OSError, UnicodeError) as exc:
+        raise ESAAError(INPUT_INVALID, f"input {path_arg!r}: {exc}", penalizes_counter=False) from exc
 
 
 def _read_authorization(path_arg: str | None) -> dict[str, Any] | None:
@@ -690,21 +698,36 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
-    if getattr(args, "runner", None):
-        os.environ[ENV_RUNNER_ID] = args.runner  # G08: precedencia CLI > env > default
-    root = Path(args.root).resolve()
-    adapter = None
-    if getattr(args, "command", None) == "run" and getattr(args, "adapter", "mock") == "http":
-        url = args.llm_url
-        if url:
-            adapter = HttpLlmAdapter(url=url, token=args.llm_token, timeout=args.llm_timeout)
-        else:
-            adapter = HttpLlmAdapter.from_env()
-    service = ESAAService(root=root, adapter=adapter)
+def _report_cli_error(code: str, message: str) -> int:
+    """RF08: one short JSON line; traceback is opt-in, including exception causes."""
+    lines = message.splitlines()
+    msg = lines[0] if lines else code
+    if len(msg) > 200:
+        msg = msg[:197] + "..."
+    print(json.dumps({"error_code": code, "error_message": msg}, ensure_ascii=True), file=sys.stderr)
+    if os.environ.get("ESAA_DEBUG") == "1":
+        traceback.print_exc(file=sys.stderr)
+    return 1
 
+
+def main(argv: list[str] | None = None) -> int:
     try:
+        args = _build_parser().parse_args(argv)
+        if getattr(args, "runner", None):
+            os.environ[ENV_RUNNER_ID] = args.runner  # G08: precedencia CLI > env > default
+        root = Path(args.root).resolve()
+        adapter = None
+        if getattr(args, "command", None) == "run" and getattr(args, "adapter", "mock") == "http":
+            url = args.llm_url
+            if url:
+                adapter = HttpLlmAdapter(url=url, token=args.llm_token, timeout=args.llm_timeout)
+            else:
+                try:
+                    adapter = HttpLlmAdapter.from_env()
+                except ValueError as exc:
+                    raise ESAAError(WORKSPACE_INVALID, f"HTTP adapter configuration: {exc}") from exc
+        service = ESAAService(root=root, adapter=adapter)
+
         if args.command == "bootstrap":
             result = bootstrap_workspace(
                 root,
@@ -1057,22 +1080,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verification" and args.verification_command == "run" and result.get("status") not in {"passed", "dry_run"}:
             return 2
         verify_status = result.get("verify_status")
-        if verify_status in {"mismatch", "corrupted"}:
+        if verify_status in {"mismatch", "corrupted"} or result.get("chain_status") == "broken":
             return 2
         return 0
     except ESAAError as exc:
-        # RF08: mensagem curta e padronizada para a proxima tentativa do LLM.
-        msg = exc.message.splitlines()[0]
-        if len(msg) > 200:
-            msg = msg[:197] + "..."
-        print(
-            json.dumps(
-                {"error_code": exc.code, "error_message": msg},
-                ensure_ascii=True,
-            ),
-            file=sys.stderr,
-        )
-        return 1
+        return _report_cli_error(exc.code, exc.message)
+    except (json.JSONDecodeError, OSError, UnicodeError, yaml.YAMLError, SchemaError) as exc:
+        message = getattr(exc, "problem", None) or str(exc)
+        return _report_cli_error(WORKSPACE_INVALID, message)
 
 
 if __name__ == "__main__":
