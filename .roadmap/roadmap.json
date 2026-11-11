@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1920,
-      "projection_hash_sha256": "2cff790e3d992705820ac42126cee39fdfdb39c8daf5a3694f498a4bfcf63870",
+      "last_event_seq": 1923,
+      "projection_hash_sha256": "0fd9b0fe49cef11213564f91a549f3f4c97725261d1e2d2ee2868e8329fff55a",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T21:23:43Z"
+    "updated_at": "2026-11-11T21:31:52Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4300,7 +4300,7 @@
       "task_kind": "impl",
       "title": "task release para claim parado e listagem de claims envelhecidos",
       "description": "Achado GOV-09 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: no fluxo por CLI nada libera uma tarefa in_progress cujo agente parou; attempt_expired so e usado pelo run do adaptador. Novo comando de operador esaa task release TASK --reason que devolve a tarefa a todo por evento auditavel (sujeito ao gate de operador da AUD-O0-040), e eligible passa a listar stale_claims com claims mais velhos que attempt_lifecycle.ttl. Inclui o registro do comando em cli.py. Tambem cobrir o desbloqueio de tarefa travada por MAX_ATTEMPTS, que hoje nao tem saida. Criterios de aceite: (1) claim mais velho que o TTL aparece em eligible.stale_claims; (2) apos task release, outro actor consegue claim; replay do log real inalterado; (3) task release em strict exige runner humano (OPERATOR_REQUIRED); (4) tarefa bloqueada por MAX_ATTEMPTS volta a aceitar submissao apos o comando de desbloqueio; (5) pytest -q passa; Revisao exigida: functional, por runner distinto do executor.",
-      "status": "review",
+      "status": "done",
       "depends_on": [
         "AUD-O1-040"
       ],
@@ -4327,7 +4327,8 @@
           "eligible stale claims tested read-only, including request_changes returning to in_progress; historical real replay unchanged at seq 1916 and hash 16c603e12012ea305b5bf2e5322b2c5f3406ffdbc39833f47120a98430a9aca5.",
           "New task_release module and tests pass Ruff; 500-line module constraint preserved. Eight frozen file SHA-256 hashes checked; no contracts/policy/docs/version changes."
         ]
-      }
+      },
+      "completed_at": "2026-11-11T21:31:52Z"
     },
     {
       "task_id": "AUD-O1-080",
@@ -4426,8 +4427,7 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 131,
-      "review": 1,
+      "done": 132,
       "todo": 1
     },
     "by_kind": {
