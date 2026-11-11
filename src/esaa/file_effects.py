@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .errors import ESAAError
+
 STAGING_DIR = ".roadmap/staging"
 
 ARTIFACT_DIR = ".roadmap/artifacts/file-effects"
@@ -62,10 +64,87 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def assert_confined_destination(
+    root: Path,
+    rel_path: str,
+    final_abs_path: str | None = None,
+    target_root: str | None = None,
+    check_destination: bool = True,
+) -> Path:
+    """AUD-O0-050 (SEC-03/GOV-08): valida o destino de um efeito antes de qualquer escrita.
+
+    Regras (falha com BOUNDARY_VIOLATION, sem criar nada):
+    - o caminho final resolvido precisa ficar dentro do container resolvido: o root do
+      workspace, ou o target_root autorizado de um efeito externo;
+    - todo componente intermediario existente precisa ser diretorio; symlink intermediario
+      so e aceito se resolver para dentro do container;
+    - o diretorio pai imediato, se existir, nao pode ser symlink (mesma regra aplicada por
+      assert_safe_destination no commit);
+    - o destino, se existir, precisa ser arquivo regular (nunca symlink ou diretorio).
+
+    Chamado na preparacao (stage/dry-run), isto e, antes do append de eventos. O commit
+    repete so o confinamento (check_destination=False) e deixa a forma do destino para
+    assert_safe_destination, que continua sendo a ultima barreira.
+    """
+    if final_abs_path:
+        final = Path(final_abs_path)
+        container = Path(target_root) if target_root else None
+    else:
+        final = root / rel_path
+        container = root
+
+    def violation(reason: str) -> ESAAError:
+        return ESAAError("BOUNDARY_VIOLATION", f"unsafe effect destination {rel_path}: {reason}")
+
+    if container is not None:
+        container_real = container.resolve()
+        try:
+            final.resolve().relative_to(container_real)
+        except ValueError as exc:
+            raise violation("resolves outside the authorized root") from exc
+        try:
+            parts = final.relative_to(container).parts
+        except ValueError:
+            parts = ()
+        current = container
+        for part in parts[:-1]:
+            current = current / part
+            if not os.path.lexists(current):
+                break
+            if not current.is_dir():
+                raise violation(f"path component is not a directory: {part}")
+
+    if not check_destination:
+        return final
+    parent = final.parent
+    if parent.is_symlink():
+        raise violation("parent directory is a symlink")
+    if parent.exists() and not parent.is_dir():
+        raise violation("parent is not a directory")
+    if os.path.lexists(final):
+        info = os.lstat(final)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise violation("destination must be absent or a regular file")
+    return final
+
+
+def _assert_update_destination(root: Path, item: dict[str, Any]) -> None:
+    assert_confined_destination(
+        root,
+        str(item["path"]).replace("\\", "/"),
+        final_abs_path=item.get("_esaa_final_abs_path"),
+        target_root=item.get("_esaa_target_root"),
+    )
+
+
 def stage_file_updates(
     root: Path, file_updates: list[dict[str, str]], task_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Stage file_updates em .roadmap/staging/. Returns list of staged records."""
+
+    # AUD-O0-050: todos os destinos sao validados antes de preparar qualquer arquivo.
+    for item in file_updates:
+        _assert_update_destination(root, item)
 
     staging_root = root / STAGING_DIR
 
@@ -139,7 +218,10 @@ def commit_staged(root: Path, staged: list[dict[str, Any]]) -> None:
     from .binary_artifacts import assert_safe_destination
 
     for entry in staged:
-        final = Path(entry["final_abs_path"]) if entry.get("final_abs_path") else root / entry["final_path"]
+        # AUD-O0-050: revalida o confinamento antes de criar diretorios (defesa em profundidade).
+        final = assert_confined_destination(
+            root, entry["final_path"], entry.get("final_abs_path"), entry.get("target_root"), False
+        )
         final.parent.mkdir(parents=True, exist_ok=True)
         assert_safe_destination(final)
         if "binary" in entry:
@@ -222,7 +304,7 @@ def compute_file_metadata(
 ) -> dict[str, Any]:
     """Computa metadados de auditoria para um file_update."""
 
-    final = Path(final_abs_path) if final_abs_path else root / path
+    final = assert_confined_destination(root, path, final_abs_path, (extra or {}).get("target_root"))
 
     if final.exists():
 
@@ -398,7 +480,7 @@ def recover_file_effects(root: Path, events: list[dict[str, Any]], dry_run: bool
                 final = Path(artifact["absolute_path"]).resolve()
                 final.relative_to(target_root)
             else:
-                final = root / rel_path
+                final = assert_confined_destination(root, rel_path)
             after_sha = artifact["after_sha256"]
             if final.exists() and _sha256_bytes(final.read_bytes()) == after_sha:
                 already_applied.append(rel_path)

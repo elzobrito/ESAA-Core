@@ -11,6 +11,10 @@ from .binary_payload import stage_binary
 def dry_run_binary(root: Path, item: dict[str, Any], task_id: str | None) -> dict[str, Any]:
     if not task_id:
         raise ValueError("binary update requires task identity")
+    from .file_effects import assert_confined_destination
+
+    # AUD-O0-050: o dry-run aplica a mesma validacao de destino do caminho real.
+    assert_confined_destination(root, item["path"], item.get("_esaa_final_abs_path"), item.get("_esaa_target_root"))
     binary = item["binary"]
     task_key = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
     with tempfile.TemporaryDirectory() as tmp:
