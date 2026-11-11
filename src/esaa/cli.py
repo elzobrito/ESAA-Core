@@ -367,6 +367,11 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_task_list.add_argument("--limit", type=int, default=100)
     cmd_task_list.add_argument("--cursor")
     cmd_task_list.add_argument("--format", choices=["json","table"], default="json")
+    cmd_release = task_sub.add_parser("release", help="release a stalled claim or reset blocked attempts")
+    cmd_release.add_argument("task_id")
+    cmd_release.add_argument("--reason", required=True)
+    cmd_release.add_argument("--dry-run", action="store_true")
+
     cmd_task_create = task_sub.add_parser("create", help="append an orchestrator task.create event")
     cmd_task_create.add_argument("task_id")
     cmd_task_create.add_argument("--kind", choices=["spec", "impl", "qa"], required=True)
@@ -865,6 +870,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "activity" and args.activity_command == "list":
             result = list_activity(root, task_id=args.task_id, actions=args.actions, exclude_actions=args.exclude_actions,
                                    hide_verify=args.hide_verify, after_seq=args.after_seq, limit=args.limit)
+        elif args.command == "task" and args.task_command == "release":
+            result = service.release_task(args.task_id, reason=args.reason, dry_run=args.dry_run)
         elif args.command == "task" and args.task_command == "create":
             result = service.create_task(
                 args.task_id,

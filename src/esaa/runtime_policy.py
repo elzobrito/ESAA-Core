@@ -105,6 +105,8 @@ def count_penalizing_rejections(events: list[dict[str, Any]], task_id: str) -> i
     """
     n = 0
     for e in events:
+        if e.get("action") == "task.release" and (e.get("payload") or {}).get("task_id") == task_id:
+            n = 0
         if e.get("action") != "output.rejected":
             continue
         p = e.get("payload") or {}
@@ -119,6 +121,8 @@ def count_penalizing_rejections(events: list[dict[str, Any]], task_id: str) -> i
 def last_rejection_ts(events: list[dict[str, Any]], task_id: str) -> datetime | None:
     last = None
     for e in events:
+        if e.get("action") == "task.release" and (e.get("payload") or {}).get("task_id") == task_id:
+            last = None
         if e.get("action") != "output.rejected":
             continue
         p = e.get("payload") or {}

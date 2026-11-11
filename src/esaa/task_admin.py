@@ -114,6 +114,10 @@ class TaskAdminMixin:
 
         return result
 
+    def release_task(self, task_id: str, *, reason: str, dry_run: bool = False) -> dict[str, Any]:
+        from .task_release import release_task
+        return release_task(self, task_id, reason=reason, dry_run=dry_run)
+
     def clear_activity(
         self,
         force: bool = False,

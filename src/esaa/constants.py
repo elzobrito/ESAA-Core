@@ -25,6 +25,7 @@ CANONICAL_ACTIONS = {
     "run.end",
     "task.create",
     "task.amend",
+    "task.release",
     "task.limits.set",
     "claim",
     "complete",

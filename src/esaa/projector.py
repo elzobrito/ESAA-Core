@@ -224,6 +224,23 @@ def _derive_superseded_by(state: dict[str, Any], task: dict[str, Any]) -> None:
             superseded_by.append(task_id)
 
 
+def _apply_task_release(state: dict[str, Any], payload: dict[str, Any]) -> None:
+    task = _task_by_id(state, payload["task_id"])
+    if task["status"] == "done":
+        raise ESAAError("IMMUTABLE_DONE_VIOLATION", "cannot release a done task")
+    if task["status"] not in {"todo", "in_progress"}:
+        raise ESAAError("INVALID_TRANSITION", "release requires todo or in_progress")
+    if not isinstance(payload.get("reason"), str) or not payload["reason"].strip():
+        raise ESAAError("INVALID_ARGUMENT", "task release requires reason")
+    current = {key: task.get(key) for key in ("status", "assigned_to", "started_at")}
+    if payload.get("previous") != current:
+        raise ESAAError("PRIOR_STATUS_MISMATCH", "claim changed since release was prepared")
+    task["status"] = "todo"
+    for key in ("assigned_to", "started_at", "completed_at", "verification"):
+        task.pop(key, None)
+    state.get("_principals", {}).pop(task["task_id"], None)
+
+
 def _ensure_owner(task: dict[str, Any], actor: str) -> None:
     owner = task.get("assigned_to")
     if owner != actor:
@@ -387,6 +404,8 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         task = _new_task(payload)
         _add_task(state, task)
         _derive_superseded_by(state, task)
+    elif action == "task.release":
+        _apply_task_release(state, payload)
     elif action == "task.amend":
         _apply_task_amend(state, payload)
     elif action == "task.limits.set":

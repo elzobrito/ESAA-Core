@@ -82,6 +82,19 @@ class ExecutionMixin:
 
         now = datetime.now(timezone.utc)
 
+        ttl = parse_duration(policy.get("attempt_lifecycle", {}).get("ttl", "PT30M"))
+        def stale_claim(task: dict[str, Any]) -> bool:
+            try:
+                started = datetime.fromisoformat(str(task.get("started_at", "")).replace("Z", "+00:00"))
+                return (now - started) > ttl
+            except (ValueError, TypeError):
+                return False
+
+        stale_claims = [
+            {"task_id": t["task_id"], "assigned_to": t.get("assigned_to"), "started_at": t.get("started_at")}
+            for t in tasks if t.get("status") == "in_progress"
+            and stale_claim(t)
+        ]
         elig = []
 
         for t in list_eligible_tasks(tasks):
@@ -103,6 +116,7 @@ class ExecutionMixin:
         return {
             "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
             "eligible_count": len(elig),
+            "stale_claims": stale_claims,
             "max_parallel": max_parallel,
             "eligible": [
                 {
