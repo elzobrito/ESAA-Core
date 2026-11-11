@@ -24,6 +24,7 @@ from .constants import (
     ROADMAP_PATH,
 )
 from .errors import CorruptedStoreError, ESAAError
+from .durable_io import atomic_write_bytes, sync_directory
 from .project_profile import project_profile_view
 from .provenance import resolve_runner, validate_runner_block
 from .utils import ensure_parent, utc_now_iso
@@ -54,8 +55,7 @@ def _read_json(path: Path) -> Any:
 
 
 def _write_json(path: Path, data: Any) -> None:
-    ensure_parent(path)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    atomic_write_bytes(path, (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
 
 
 def load_roadmap(root: Path) -> dict[str, Any] | None:
@@ -82,6 +82,7 @@ def save_project_profile(root: Path, profile_view: dict[str, Any] | None) -> Non
     if profile_view is None:
         if path.exists():
             path.unlink()
+            sync_directory(path.parent)
         return
     _write_json(path, profile_view)
 
@@ -229,6 +230,7 @@ def init_hash_chain(root: Path, force: bool = False) -> dict[str, Any]:
 # (objetos novos a cada chamada) e a validacao de identidade/trust, que depende de arquivos
 # externos, roda em toda chamada.
 _VALIDATED_STORE_DIGESTS: dict[str, bytes] = {}
+JSONL_REPAIR_HINT = "inspect with `esaa store repair --dry-run`; only a malformed final line can be repaired"
 
 
 def _normalize_validated_event(raw: dict[str, Any]) -> dict[str, Any]:
@@ -240,12 +242,26 @@ def _normalize_validated_event(raw: dict[str, Any]) -> dict[str, Any]:
 
 def parse_event_store(root: Path) -> list[dict[str, Any]]:
     path = ensure_event_store(root)
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise CorruptedStoreError("JSONL_INVALID", f"invalid UTF-8: {exc}; {JSONL_REPAIR_HINT}") from exc
+    return parse_event_store_text(root, text, cache_key=str(path))
+
+
+def parse_event_store_text(
+    root: Path, text: str, *, cache_key: str | None = None
+) -> list[dict[str, Any]]:
+    """Validate a supplied prefix without creating, truncating or projecting files.
+
+    Repair uses the real root so identity and external trust cannot be bypassed
+    by validating a copy in an unenrolled temporary workspace.
+    """
     lines = [ln for ln in text.splitlines() if ln.strip()]
     digest = hashlib.sha256(text.encode("utf-8")).digest()
     from .identity_history import validate_identity_history, validate_identity_representation
 
-    if _VALIDATED_STORE_DIGESTS.get(str(path)) == digest:
+    if cache_key is not None and _VALIDATED_STORE_DIGESTS.get(cache_key) == digest:
         known = [_normalize_validated_event(raw) for raw in json.loads("[" + ",".join(lines) + "]")]
         validate_identity_history(root, known)
         return known
@@ -265,9 +281,14 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
         try:
             raw = raw_events[idx - 1] if raw_events is not None else json.loads(line)
         except json.JSONDecodeError as exc:
-            raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at line {idx}: {exc}") from exc
+            raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at line {idx}: {exc}; {JSONL_REPAIR_HINT}") from exc
 
-        validate_identity_representation(raw)
+        try:
+            validate_identity_representation(raw)
+        except CorruptedStoreError as exc:
+            if exc.code == "JSONL_INVALID":
+                raise CorruptedStoreError(exc.code, f"{exc.message}; {JSONL_REPAIR_HINT}") from exc
+            raise
         event = normalize_legacy_event(raw)
 
         if not isinstance(event.get("event_seq"), int):
@@ -304,7 +325,8 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
 
     _validate_hash_chain(lines, events)
     validate_identity_history(root, events)
-    _VALIDATED_STORE_DIGESTS[str(path)] = digest
+    if cache_key is not None:
+        _VALIDATED_STORE_DIGESTS[cache_key] = digest
     return events
 
 
@@ -491,6 +513,8 @@ def append_events(
                 handle.write("\n")
             for line in serialized_lines:
                 handle.write(line + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
         _verify_appended_lines(path, serialized_lines)
     finally:
         _release_store_lock(lock_path)
@@ -600,6 +624,8 @@ def append_transactional(
                 handle.write("\n")
             for line in serialized_lines:
                 handle.write(line + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
         _verify_appended_lines(path, serialized_lines)
 
         save_roadmap(root, final_roadmap)

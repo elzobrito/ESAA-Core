@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1866,
-      "projection_hash_sha256": "fa2afc8e34eda1b4f8200066a2a2b07fb0a4cca8c3d57e98bd031edb64a6d15c",
+      "last_event_seq": 1879,
+      "projection_hash_sha256": "462a7369aee1f21573d85b2eca50fdb770b82312ad47b525a9995dd9e00aabd7",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T14:38:12Z"
+    "updated_at": "2026-11-11T17:17:59Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4161,7 +4161,7 @@
       "task_kind": "impl",
       "title": "Escrita atomica e duravel das projecoes e do log; comando store repair",
       "description": "Achados ARQ-02 e GOV-06 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: projecoes sao gravadas com write_text direto e o append nao faz fsync; uma ultima linha truncada no log deixa o workspace inutilizavel e nao ha comando de reparo. Gravar projecoes em temporario + fsync + os.replace; flush e fsync no append; novo comando esaa store repair [--dry-run] que, somente quando apenas a ULTIMA linha for invalida, move o fragmento para .roadmap/backups, trunca e reprojeta. Qualquer outra corrupcao continua fatal. A mensagem de JSONL_INVALID cita o comando. Inclui o registro do comando em cli.py. Criterios de aceite: (1) cauda truncada: store repair devolve verify_status ok e preserva o fragmento em backup; (2) linha invalida no meio do log continua fatal e store repair nao altera o arquivo; (3) store repair --dry-run nao grava nada; (4) pytest -q passa; Revisao exigida: functional, por runner distinto do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "AUD-O1-010"
       ],
@@ -4176,7 +4176,22 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T14:46:28Z",
+      "verification": {
+        "checks": [
+          "Candidate isolated at /tmp/esaa-onda1-parallel-s9b8862p/020, source frozen in /tmp/esaa-o1020-freeze.json; no code/event writes to the real workspace by this implementation worker.",
+          "PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider tests/test_store_repair.py: 26 passed in 1.38s. Covers exact quarantine bytes (including truncated UTF-8), middle/semantic/sequence/chain corruption refusal, zero-write dry-run/missing workspace, signed history/trust rollback, strict operator gate, lock coverage, failure injection, permissions, and fsync before append verification.",
+          "Regression subset including replay010, hash chain, serializable lock, signed replay, trust rollback and projection verification: 131 passed, 1 skipped in 38.08s.",
+          "Complete final suite: PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider: 827 passed, 5 skipped in 205.41s. Performance acceptance benchmark intentionally not run during concurrent tasks; parent will check after integrated tests.",
+          "CLI on copied real state: store repair --dry-run => repair_needed=false, verify_status=ok, last_event_seq1872; verify returned ok. No event append or final file effect performed in real workspace.",
+          "mypy src/esaa: same 9 preexisting errors in 4 files, no errors in new modules. ruff new durable_io/store_repair/tests clean; same 5 historical diagnostics in changed store.py/cli.py.",
+          "Durability verified via actual fsync calls and injected fsync/replace failures, not physical power loss. Read models are individually atomic; directory fsync is POSIX-only, Windows retains file fsync plus os.replace.",
+          "Comparacao parent sobre1872eventos reais: parse/materialize do main f83ef66 e candidato020 produzem hash de projecao e bytes indent=2 das3projecoes identicos. SHA256 dos5arquivos coincide com manifesto congelado."
+        ]
+      },
+      "completed_at": "2026-11-11T17:17:59Z"
     },
     {
       "task_id": "AUD-O1-030",
@@ -4227,7 +4242,7 @@
       "task_kind": "impl",
       "title": "Sequencia sob lock em comandos administrativos e output.rejected no submit",
       "description": "Achados GOV-10 e GOV-11 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: _commit_orchestrator_events confere event_seq fora do lock, e 16 task create simultaneos de tarefas distintas resultam em 5 falhas EVENT_SEQ_NON_MONOTONIC; rejeicoes de submit pela CLI nao gravam output.rejected, entao max_attempts e cooldown nao se aplicam a esse fluxo. Recalcular a sequencia dentro do lock (como submit ja faz) e gravar output.rejected para erros penalizantes de submit, exceto os marcados com penalizes_counter=False. Criterios de aceite: (1) 16 task create paralelos de tarefas distintas resultam em 16 aceitos e verify ok; (2) tres complete com BOUNDARY_VIOLATION gravam tres output.rejected e a quarta tentativa retorna MAX_ATTEMPTS_EXCEEDED; (3) PRIOR_STATUS_MISMATCH, DEPENDENCY_NOT_DONE e TASK_SUPERSEDED nao contam tentativa; (4) pytest -q passa; Revisao exigida: regression, por runner distinto do executor.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": [
         "AUD-O1-010"
       ],
@@ -4241,7 +4256,9 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T14:46:29Z"
     },
     {
       "task_id": "AUD-O1-060",
@@ -4364,8 +4381,9 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 127,
-      "todo": 6
+      "done": 128,
+      "in_progress": 1,
+      "todo": 4
     },
     "by_kind": {
       "impl": 82,

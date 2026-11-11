@@ -526,6 +526,10 @@ def _build_parser() -> argparse.ArgumentParser:
     chain_sub = cmd_chain.add_subparsers(dest="chain_command", required=True)
     cmd_chain_init = chain_sub.add_parser("init", help="append a chain.anchor event")
     cmd_chain_init.add_argument("--force", action="store_true")
+    cmd_store = sub.add_parser("store", help="event-store maintenance commands")
+    store_sub = cmd_store.add_subparsers(dest="store_command", required=True)
+    cmd_store_repair = store_sub.add_parser("repair", help="quarantine a malformed final line and reproject")
+    cmd_store_repair.add_argument("--dry-run", action="store_true", help="inspect without writing any files")
     sub.add_parser("eligible", help="list eligible tasks and parallel groups")
     sub.add_parser("metrics", help="emit structured runtime metrics")
 
@@ -928,6 +932,10 @@ def main(argv: list[str] | None = None) -> int:
             result = verify_hash_chain(root) if getattr(args, "chain", False) else service.verify()
         elif args.command == "chain" and args.chain_command == "init":
             result = init_hash_chain(root, force=args.force)
+        elif args.command == "store" and args.store_command == "repair":
+            from .store_repair import repair_event_store
+
+            result = repair_event_store(root, dry_run=args.dry_run)
         elif args.command == "eligible":
             result = service.eligible()
         elif args.command == "metrics":
