@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1958,
-      "projection_hash_sha256": "002bf854b88d1ec58f902db436f19a07e0e94d1d086ccfeeda9923ad7c994a8c",
+      "last_event_seq": 1961,
+      "projection_hash_sha256": "297307c5ca705824f15991241b47a08b0e983049b51dcdca2b1ecd7311cd252f",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T23:45:36Z"
+    "updated_at": "2026-11-11T23:46:56Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4444,7 +4444,7 @@
       "task_kind": "impl",
       "title": "Publish 0.5.0b26 audit hardening and upgrade this notebook",
       "description": "User explicitly authorized commit/push, PyPI publication with token file and notebook upgrade. Prepare version/changelog, build and check distributions, push main/tag, upload and verify PyPI hashes, upgrade user-pip and pipx. Retain documented non-POSIX binary limitation; no identity or contract migration.",
-      "status": "in_progress",
+      "status": "review",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4460,7 +4460,16 @@
         "CHANGELOG.md"
       ],
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-11T23:43:46Z"
+      "started_at": "2026-11-11T23:43:46Z",
+      "verification": {
+        "checks": [
+          "Git push accepted to main and audit/onda-0; annotated tag v0.5.0b26 points to source release commit 935fe86.",
+          "PyPI upload succeeded for wheel and sdist; official PyPI JSON confirms both SHA-256 digests equal locally validated artifacts: {\"esaa_core-0.5.0b26-py3-none-any.whl\": {\"sha256\": \"26eefec05c12c7e28271f02186c976d3bbd33999839eaecafe643b2a6aba328c\", \"size\": 202950}, \"esaa_core-0.5.0b26.tar.gz\": {\"sha256\": \"6a836ac61c82703a6daed960b6e6e40e24e39ca7a47470d1e05ae5c62a086aaa\", \"size\": 507519}}",
+          "User-pip upgraded from 0.5.0b25 to 0.5.0b26 from PyPI; pip install report archive SHA-256 matches wheel; 96 installed package files equal wheel bytes.",
+          "pipx esaa-core upgraded to 0.5.0b26; user PATH esaa and pipx interpreter both report 0.5.0b26. Installed CLI verifies real workspace ok seq1958.",
+          "Prepublication checks: 29 release/CI tests, build, twine check and clean-wheel bootstrap/init/verify smoke passed. Prior full suite917 passed5skipped, coverage88.24. Known non-POSIX binary limitation retained in changelog; no claim of remote Windows validation."
+        ]
+      }
     },
     {
       "task_id": "REL-0.5.0b26-PREP-20261111",
@@ -4497,8 +4506,7 @@
   "indexes": {
     "by_status": {
       "done": 133,
-      "in_progress": 1,
-      "review": 1
+      "review": 2
     },
     "by_kind": {
       "impl": 84,
