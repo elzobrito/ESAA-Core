@@ -222,21 +222,51 @@ def init_hash_chain(root: Path, force: bool = False) -> dict[str, Any]:
     return result
 
 
+# AUD-O1-010: digest do ultimo conteudo do event store que passou por TODA a validacao
+# estrutural (JSON, sequencia, ids, acoes, runner, cadeia de hash), por caminho. Um comando
+# le o log varias vezes; quando os bytes sao os mesmos, repetir essas checagens - funcoes
+# puras do conteudo - nao acrescenta nada. Os eventos sao sempre decodificados de novo
+# (objetos novos a cada chamada) e a validacao de identidade/trust, que depende de arquivos
+# externos, roda em toda chamada.
+_VALIDATED_STORE_DIGESTS: dict[str, bytes] = {}
+
+
+def _normalize_validated_event(raw: dict[str, Any]) -> dict[str, Any]:
+    event = normalize_legacy_event(raw)
+    if "event_id" not in event:
+        event["event_id"] = f"LEGACY-EV-{event['event_seq']:08d}"
+    return event
+
+
 def parse_event_store(root: Path) -> list[dict[str, Any]]:
     path = ensure_event_store(root)
-    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    text = path.read_text(encoding="utf-8")
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    from .identity_history import validate_identity_history, validate_identity_representation
+
+    if _VALIDATED_STORE_DIGESTS.get(str(path)) == digest:
+        known = [_normalize_validated_event(raw) for raw in json.loads("[" + ",".join(lines) + "]")]
+        validate_identity_history(root, known)
+        return known
 
     events: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     last_seq = 0
+    # Decode in C in one pass. Invalid JSON or multiple values on one line fall
+    # back to the line parser, retaining its precise corruption diagnostics.
+    try:
+        decoded = json.loads("[" + ",".join(lines) + "]")
+        raw_events = decoded if len(decoded) == len(lines) else None
+    except json.JSONDecodeError:
+        raw_events = None
 
     for idx, line in enumerate(lines, start=1):
         try:
-            raw = json.loads(line)
+            raw = raw_events[idx - 1] if raw_events is not None else json.loads(line)
         except json.JSONDecodeError as exc:
             raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at line {idx}: {exc}") from exc
 
-        from .identity_history import validate_identity_representation
         validate_identity_representation(raw)
         event = normalize_legacy_event(raw)
 
@@ -273,8 +303,8 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
         events.append(event)
 
     _validate_hash_chain(lines, events)
-    from .identity_history import validate_identity_history
     validate_identity_history(root, events)
+    _VALIDATED_STORE_DIGESTS[str(path)] = digest
     return events
 
 
@@ -499,6 +529,7 @@ def append_transactional(
     timeout: float = 30.0,
     lock_max_age: float = 120.0,
     after_append=None,
+    result_task_id: str | None = None,
 ):
     """FIX-1806 - Serializable append: parse + validate + decide seq + append + project
     sob o mesmo lock. Elimina TOCTOU entre leitura e write.
@@ -514,12 +545,16 @@ def append_transactional(
     Returns:
         dict com last_event_seq, projection_hash_sha256, events_appended.
     """
-    from .projector import materialize  # lazy import: evita ciclo
+    # lazy import: evita ciclo. AUD-O1-010: um unico replay sob o lock; os novos
+    # eventos sao aplicados sobre o estado ja reproduzido.
+    from .projector import apply_events, finalize_views, projection_summary, replay_state
 
     path = ensure_event_store(root)
     lock_path = _acquire_store_lock(path, timeout=timeout, retry_interval=0.05, lock_max_age=lock_max_age)
     try:
         events = parse_event_store(root)
+        state = replay_state(events)
+        current_run = projection_summary(state)
 
         if expected_first_seq is not None:
             actual_next = next_event_seq(events)
@@ -530,8 +565,7 @@ def append_transactional(
                 )
 
         if expected_projection_hash is not None:
-            cur_roadmap, _, _ = materialize(events)
-            cur_hash = cur_roadmap["meta"]["run"]["projection_hash_sha256"]
+            cur_hash = current_run["projection_hash_sha256"]
             if cur_hash != expected_projection_hash:
                 raise ESAAError(
                     "STALE_STATE_HASH",
@@ -540,10 +574,9 @@ def append_transactional(
 
         new_events = _prepare_events_for_append(events, build_events_fn(events))
         if not new_events:
-            roadmap, _, _ = materialize(events)
             return {
-                "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
-                "projection_hash_sha256": roadmap["meta"]["run"]["projection_hash_sha256"],
+                "last_event_seq": current_run["last_event_seq"],
+                "projection_hash_sha256": current_run["projection_hash_sha256"],
                 "events_appended": 0,
             }
 
@@ -551,7 +584,7 @@ def append_transactional(
         final_events = events + new_events
         from .identity_history import validate_identity_history
         validate_identity_history(root, final_events)
-        final_roadmap, final_issues, final_lessons = materialize(final_events)
+        final_roadmap, final_issues, final_lessons = finalize_views(apply_events(state, new_events), copy=False)
         final_project_profile = project_profile_view(final_events)
         from .trust_root import prepare_activation
         prepare_activation(root, events, final_events)
@@ -581,10 +614,14 @@ def append_transactional(
             final_events,
             final_roadmap["meta"]["run"]["projection_hash_sha256"],
         )
-        return {
+        result: dict[str, Any] = {
             "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
             "events_appended": len(new_events),
         }
+        if result_task_id is not None:
+            from copy import deepcopy
+            result["task"] = deepcopy(next(t for t in final_roadmap["tasks"] if t["task_id"] == result_task_id))
+        return result
     finally:
         _release_store_lock(lock_path)

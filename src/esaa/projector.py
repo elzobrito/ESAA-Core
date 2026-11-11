@@ -103,18 +103,23 @@ def _empty_state(project_name: str) -> dict[str, Any]:
         "_issues": {},
         "_lessons": [],
         "_principals": {},
+        # AUD-O1-010: indice task_id -> task (mesmos objetos de "tasks"); so interno.
+        "_task_index": {},
     }
 
 
 def _task_by_id(state: dict[str, Any], task_id: str) -> dict[str, Any]:
-    for task in state["tasks"]:
-        if task["task_id"] == task_id:
-            return task
-    raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
+    task = state["_task_index"].get(task_id)
+    if task is None:
+        raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
+    return task
 
 
-def _existing_task_ids(state: dict[str, Any]) -> set[str]:
-    return {task["task_id"] for task in state["tasks"]}
+def _add_task(state: dict[str, Any], task: dict[str, Any]) -> None:
+    state["tasks"].append(task)
+    # Em task_id repetido (task.create historico duplicado) vale a primeira tarefa,
+    # como na busca linear anterior.
+    state["_task_index"].setdefault(task["task_id"], task)
 
 
 def _apply_task_limits_set(state: dict[str, Any], payload: dict[str, Any]) -> None:
@@ -341,10 +346,9 @@ def _apply_issue_report(state: dict[str, Any], event: dict[str, Any]) -> None:
 def _apply_hotfix_create(state: dict[str, Any], event: dict[str, Any]) -> None:
     payload = event["payload"]
     task_id = payload["task_id"]
-    for task in state["tasks"]:
-        if task["task_id"] == task_id:
-            raise ESAAError("DUPLICATE_TASK", f"task already exists: {task_id}")
-    state["tasks"].append(_new_task(payload))
+    if task_id in state["_task_index"]:
+        raise ESAAError("DUPLICATE_TASK", f"task already exists: {task_id}")
+    _add_task(state, _new_task(payload))
     issue_id = payload.get("issue_id")
     if issue_id and issue_id in state["_issues"]:
         state["_issues"][issue_id]["links"]["hotfix_task_id"] = task_id
@@ -364,6 +368,9 @@ def _apply_issue_resolve(state: dict[str, Any], event: dict[str, Any]) -> None:
 def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     action = event["action"]
     payload = event["payload"]
+    # Estes quatro eventos alteram somente meta, excluido do hash da projecao.
+    if action not in {"run.end", "verify.start", "verify.ok", "verify.fail"}:
+        state.pop("_projection_hash", None)
 
     if action == "run.start":
         state["meta"]["master_correlation_id"] = payload.get("master_correlation_id")
@@ -376,9 +383,9 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     elif action == "run.end":
         state["meta"]["run"]["status"] = payload.get("status", "success")
     elif action == "task.create":
-        validate_g07_task_create_payload(payload, _existing_task_ids(state))
+        validate_g07_task_create_payload(payload, state["_task_index"].keys())
         task = _new_task(payload)
-        state["tasks"].append(task)
+        _add_task(state, task)
         _derive_superseded_by(state, task)
     elif action == "task.amend":
         _apply_task_amend(state, payload)
@@ -438,28 +445,66 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     state["meta"]["updated_at"] = event["ts"]
 
 
-def materialize(
-    events: list[dict[str, Any]], project_name: str = "esaa-core"
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def replay_state(events: list[dict[str, Any]], project_name: str = "esaa-core") -> dict[str, Any]:
+    """AUD-O1-010: estado interno do replay; base para aplicar eventos de forma incremental."""
     state = _empty_state(project_name=project_name)
+    apply_events(state, events)
+    return state
+
+
+def apply_events(state: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aplica eventos adicionais sobre um estado ja reproduzido (mesmas validacoes do replay).
+
+    Se um evento for rejeitado o estado fica parcialmente alterado: quem chama deve
+    descarta-lo, exatamente como descartaria o resultado de um materialize que falhou.
+    """
     for event in events:
         _apply_event(state, event)
+    return state
 
-    state["indexes"]["by_status"] = _index_counts(state["tasks"], "status")
-    state["indexes"]["by_kind"] = _index_counts(state["tasks"], "task_kind")
 
+def _roadmap_view(state: dict[str, Any], *, copy: bool) -> dict[str, Any]:
+    tasks = state["tasks"]
+    indexes = {"by_status": _index_counts(tasks, "status"), "by_kind": _index_counts(tasks, "task_kind")}
+    clone = deepcopy if copy else (lambda value: value)
     roadmap = {
         "meta": deepcopy(state["meta"]),
-        "project": deepcopy(state["project"]),
-        "tasks": deepcopy(state["tasks"]),
-        "indexes": deepcopy(state["indexes"]),
+        "project": clone(state["project"]),
+        "tasks": clone(tasks),
+        "indexes": indexes,
     }
     roadmap["meta"]["run"]["verify_status"] = normalize_legacy_verify_status(
         roadmap["meta"]["run"]["verify_status"]
     )
-    roadmap["meta"]["run"]["projection_hash_sha256"] = compute_projection_hash(roadmap)
+    if "_projection_hash" not in state:
+        state["_projection_hash"] = compute_projection_hash(roadmap)
+    roadmap["meta"]["run"]["projection_hash_sha256"] = state["_projection_hash"]
+    return roadmap
 
-    issues = sorted(state["_issues"].values(), key=lambda issue: issue["issue_id"])
+
+def projection_summary(state: dict[str, Any]) -> dict[str, Any]:
+    """Campos de `meta.run` (com o hash da projecao) sem copiar a lista de tarefas."""
+    return _roadmap_view(state, copy=False)["meta"]["run"]
+
+
+def state_tasks(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Tarefas do estado (somente leitura; nao modificar)."""
+    return state["tasks"]
+
+
+def materialize(
+    events: list[dict[str, Any]], project_name: str = "esaa-core"
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    return finalize_views(replay_state(events, project_name=project_name))
+
+
+def finalize_views(state: dict[str, Any], *, copy: bool = True) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Views independentes por padrao; copy=False consome o estado local do append."""
+    roadmap = _roadmap_view(state, copy=copy)
+    state["indexes"] = deepcopy(roadmap["indexes"])
+
+    clone = deepcopy if copy else (lambda value: value)
+    issues = clone(sorted(state["_issues"].values(), key=lambda issue: issue["issue_id"]))
     open_by_baseline: dict[str, list[str]] = {}
     for issue in issues:
         if issue["status"] != "open":
@@ -482,7 +527,7 @@ def materialize(
 
     by_task_kind: dict[str, list[str]] = {}
     by_enforcement: dict[str, list[str]] = {}
-    lessons = deepcopy(state["_lessons"])
+    lessons = clone(state["_lessons"])
     for lesson in lessons:
         for kind in lesson["scope"].get("task_kinds", []):
             by_task_kind.setdefault(kind, []).append(lesson["lesson_id"])

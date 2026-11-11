@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +19,7 @@ from .file_effects import (
     discard_staged,
     stage_and_compute,
 )
-from .projector import materialize
+from .projector import apply_events, materialize, projection_summary, replay_state, state_tasks
 from .provenance import resolve_runner
 from .runtime_policy import is_blocked_by_max_attempts
 from .seeds import all_tasks_done
@@ -96,7 +97,8 @@ class SubmissionMixin:
             self,
             base_events: list[dict[str, Any]],
             new_events: list[dict[str, Any]],
-            precommit: Any = None, postcommit: Any = None,
+            precommit: Any = None, postcommit: Any = None, base_hash: str | None = None,
+            result_task_id: str | None = None,
         ) -> dict[str, Any]: ...
 
     def _submit_command(
@@ -108,10 +110,8 @@ class SubmissionMixin:
         authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
-        result = self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization)
-        if not dry_run:
-            result["task"] = self.task_state(task_id)["task"]
-        return result
+        return self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization,
+                           include_task=not dry_run)
 
     def submit(
         self,
@@ -119,6 +119,7 @@ class SubmissionMixin:
         actor: str,
         dry_run: bool = False,
         authorization: dict[str, Any] | None = None,
+        *, include_task: bool = False,
     ) -> dict[str, Any]:
 
         events = parse_event_store(self.root)
@@ -126,25 +127,18 @@ class SubmissionMixin:
         contract = load_agent_contract(self.root)
 
         schema = load_agent_result_schema(self.root)
-
-        roadmap, _, _ = materialize(events)
-
+        # AUD-O1-010: um replay do prefixo; os candidatos sao aplicados sobre este estado.
+        state = replay_state(events)
+        base_hash = projection_summary(state)["projection_hash_sha256"]
+        known_tasks = state_tasks(state)
         activity_event = agent_output.get("activity_event", {})
-
         task_id = activity_event.get("task_id")
-
         if not task_id:
-
             raise ESAAError("SCHEMA_INVALID", "activity_event.task_id is required")
-
         task = None
-
-        for t in roadmap["tasks"]:
-
+        for t in known_tasks:
             if t["task_id"] == task_id:
-
-                task = t
-
+                task = deepcopy(t)  # retrato anterior aos candidatos
                 break
 
         if not task:
@@ -177,7 +171,7 @@ class SubmissionMixin:
         try:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
             if validated_event["action"] == "claim":
-                assert_claim_admissible(roadmap["tasks"], task)
+                assert_claim_admissible(known_tasks, task)
             validate_evidence(self.root, events, actor, agent_output)
             file_updates = _normalize_file_updates(self.root, file_updates)
             validate_file_update_resource_limits(file_updates, policy, task)
@@ -203,7 +197,7 @@ class SubmissionMixin:
 
             candidate_events = [agent_event]
 
-            _ = materialize(events + candidate_events)
+            apply_events(state, [agent_event])
 
             if file_updates:
                 if dry_run:
@@ -218,7 +212,7 @@ class SubmissionMixin:
                 )
                 effects_for_result = effects
                 candidate_events.append(write_event)
-                _ = materialize(events + candidate_events)
+                apply_events(state, [write_event])
                 files_written += len(file_updates)
 
             if validated_event["action"] == "issue.report":
@@ -226,7 +220,7 @@ class SubmissionMixin:
                 hotfix_event = build_hotfix_event(events + candidate_events, validated_event)
                 if hotfix_event:
                     candidate_events.append(hotfix_event)
-                    _ = materialize(events + candidate_events)
+                    apply_events(state, [hotfix_event])
 
             if validated_event["action"] == "review":
 
@@ -236,7 +230,7 @@ class SubmissionMixin:
 
                     candidate_events.append(resolve_event)
 
-                    _ = materialize(events + candidate_events)
+                    apply_events(state, [resolve_event])
 
             new_events.extend(candidate_events)
         except Exception:
@@ -254,10 +248,11 @@ class SubmissionMixin:
         new_events.append(verify_start)
 
         from .identity_history import validate_identity_history
-        validate_identity_history(self.root, all_events)
-        final_roadmap, final_issues, final_lessons = materialize(all_events)
+        if dry_run:  # Real writes authenticate the final history under the store lock.
+            validate_identity_history(self.root, all_events)
+        apply_events(state, [verify_start])
 
-        if all_tasks_done(final_roadmap["tasks"]) and final_roadmap["meta"]["run"]["status"] != "success":
+        if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
 
             run_end = make_event(
                 next_event_seq(all_events),
@@ -270,24 +265,25 @@ class SubmissionMixin:
 
             new_events.append(run_end)
 
-            final_roadmap, final_issues, final_lessons = materialize(all_events)
+            apply_events(state, [run_end])
 
         verify_ok = make_event(
             next_event_seq(all_events),
             actor="orchestrator",
             action="verify.ok",
-            payload={"projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"]},
+            payload={"projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]},
         )
 
         all_events.append(verify_ok)
 
         new_events.append(verify_ok)
 
-        final_roadmap, final_issues, final_lessons = materialize(all_events)
+        final_run = projection_summary(apply_events(state, [verify_ok]))
 
         if not dry_run:
             try:
-                self._append_events_transactionally(events, new_events,
+                committed = self._append_events_transactionally(events, new_events, base_hash=base_hash,
+                    result_task_id=task_id if include_task else None,
                     precommit=lambda current: _revalidate_limits_under_lock(self.root, current, [(task, file_updates)] if file_updates else [], load_policy(self.root)),
                     postcommit=lambda: commit_staged(self.root, staged_file_effects))
             except Exception:
@@ -301,9 +297,9 @@ class SubmissionMixin:
             "action": validated_event["action"],
             "events_appended": len(new_events),
             "files_written": files_written,
-            "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
-            "verify_status": final_roadmap["meta"]["run"]["verify_status"],
-            "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
+            "last_event_seq": final_run["last_event_seq"],
+            "verify_status": final_run["verify_status"],
+            "projection_hash_sha256": final_run["projection_hash_sha256"],
         }
         if dry_run:
             result["would_append_events"] = len(new_events)
@@ -322,6 +318,8 @@ class SubmissionMixin:
             ]
             if external_effects:
                 result["external_effects"] = external_effects
+        elif include_task:
+            result["task"] = committed["task"]
         return result
 
     def process(self, dry_run: bool = False) -> dict[str, Any]:

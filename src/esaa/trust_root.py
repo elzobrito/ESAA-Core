@@ -186,7 +186,11 @@ def _history_hash(events: list[dict[str, Any]]) -> str:
 
 def prepare_activation(root: Path, events: list[dict[str, Any]], final_events: list[dict[str, Any]]) -> None:
     """Durably bind the planned first activation before any store append."""
-    if project_registry(events)["active"] or not project_registry(final_events)["active"]:
+    # The registry is active exactly when a bootstrap exists. History has already
+    # been authenticated; no actor/nonce projection is needed for this predicate.
+    if any(e["action"] == "actor.bootstrap" for e in events) or not any(
+        e["action"] == "actor.bootstrap" for e in final_events
+    ):
         return
     with _record_lock(root):
         record = require_pin_record(root)

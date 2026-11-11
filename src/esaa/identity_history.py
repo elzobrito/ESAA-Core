@@ -35,8 +35,40 @@ def validate_identity_representation(raw: dict[str, Any]) -> None:
         raise CorruptedStoreError("AUTH_EPOCH_UNSUPPORTED", "unsupported signed event schema")
 
 
+_REGISTRY_ACTIONS = frozenset({"actor.bootstrap", "actor.register", "actor.bind_alias"})
+_IDENTITY_KEYS = frozenset({"authorization", "_authorization", "identity_epoch"})
+
+
+def _has_identity_material(events: list[dict[str, Any]]) -> bool:
+    """True when any event could make the chronological loop below do something.
+
+    AUD-O1-010: for a purely legacy history (no registry action, no signed envelope, no
+    identity_epoch, well-formed payloads, no legacy `data` field) every iteration of that
+    loop is a no-op: `active` and `present` stay False, so no branch runs and nothing is
+    raised. Anything unusual returns True and takes the full path unchanged.
+    """
+    for event in events:
+        payload = event.get("payload") if isinstance(event, dict) else None
+        if (
+            not isinstance(payload, dict)
+            or "action" not in event
+            or "data" in event
+            or event.get("action") in _REGISTRY_ACTIONS
+            or not _IDENTITY_KEYS.isdisjoint(event)
+            or not _IDENTITY_KEYS.isdisjoint(payload)
+        ):
+            return True
+    return False
+
+
 def validate_identity_history(root: Path, events: list[dict[str, Any]]) -> None:
     """Authenticate each operation against the previously validated prefix."""
+    if not _has_identity_material(events):
+        try:
+            evaluate_trust(root, events)
+        except ESAAError as exc:
+            raise CorruptedStoreError(exc.code, exc.message) from exc
+        return
     prefix: list[dict[str, Any]] = []
     claimants: dict[str, str] = {}
     active = False

@@ -9,6 +9,8 @@ from .validator import validate_file_update_resource_limits
 
 
 def _revalidate_limits_under_lock(root: Path, current_events: list[dict[str, Any]], checks: list[tuple[dict[str, Any], list[dict[str, Any]]]], policy: dict[str, Any]) -> None:
+    if not checks:  # AUD-O1-010: sem file_updates nao ha o que revalidar; evita um replay sob lock
+        return
     current_tasks = {t["task_id"]: t for t in materialize(current_events)[0]["tasks"]}
     for captured_task, updates in checks:
         current = current_tasks.get(captured_task["task_id"])

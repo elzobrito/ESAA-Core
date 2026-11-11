@@ -15,7 +15,7 @@ from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
 from .metrics import compute_metrics
 from .projection_check import REBUILD_HINT, compare_projections
-from .projector import materialize
+from .projector import apply_events, materialize, projection_summary, replay_state, state_tasks
 from .project_profile import project_profile_view
 from .runner_metrics import normalize_runner_metrics
 from .runtime_policy import load_policy, parse_duration
@@ -281,10 +281,12 @@ class ESAAServiceCore:
         self,
         base_events: list[dict[str, Any]],
         new_events: list[dict[str, Any]],
-        precommit=None, postcommit=None,
+        precommit=None, postcommit=None, base_hash: str | None = None,
+        result_task_id: str | None = None,
     ) -> dict[str, Any]:
         expected_first_seq = next_event_seq(base_events)
-        expected_hash = _projection_hash(base_events)
+        # AUD-O1-010: quem ja reproduziu base_events informa o hash e evita outro replay.
+        expected_hash = base_hash or _projection_hash(base_events)
         concurrency = _concurrency_policy(self._policy())
         max_retries = int(concurrency["submit_retries"])
         retry_backoff = float(concurrency["retry_backoff"])
@@ -313,6 +315,7 @@ class ESAAServiceCore:
                     expected_projection_hash=expected_hash if attempt == 0 else None,
                     lock_max_age=lock_max_age,
                     after_append=postcommit,
+                    result_task_id=result_task_id,
                 )
             except ESAAError as exc:
                 if exc.code not in {"STALE_STATE_SEQ", "STALE_STATE_HASH"} or attempt >= max_retries:
@@ -379,46 +382,42 @@ class ESAAServiceCore:
 
         from .identity_history import validate_identity_history
         validate_identity_history(self.root, all_events)
-        final_roadmap, final_issues, final_lessons = materialize(all_events)
-        if all_tasks_done(final_roadmap["tasks"]) and final_roadmap["meta"]["run"]["status"] != "success":
+        # AUD-O1-010: um replay do prefixo; cada evento novo e aplicado uma vez sobre o estado.
+        state = replay_state(events)
+        base_hash = projection_summary(state)["projection_hash_sha256"]
+        apply_events(state, new_events)
+        if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
             run_end = make_event(
                 next_event_seq(all_events),
                 actor="orchestrator",
                 action="run.end",
                 payload={"status": "success"},
             )
-
             all_events.append(run_end)
-
             new_events.append(run_end)
-
-            final_roadmap, final_issues, final_lessons = materialize(all_events)
+            apply_events(state, [run_end])
 
         verify_start = make_event(
             next_event_seq(all_events), actor="orchestrator", action="verify.start", payload={"strict": True}
         )
-
         all_events.append(verify_start)
-
         new_events.append(verify_start)
-
-        final_roadmap, final_issues, final_lessons = materialize(all_events)
+        apply_events(state, [verify_start])
 
         verify_ok = make_event(
             next_event_seq(all_events),
             actor="orchestrator",
             action="verify.ok",
-            payload={"projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"]},
+            payload={"projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]},
         )
-
         all_events.append(verify_ok)
-
         new_events.append(verify_ok)
-
-        final_roadmap, final_issues, final_lessons = materialize(all_events)
+        final_run = projection_summary(apply_events(state, [verify_ok]))
 
         if not dry_run:
-            self._append_events_transactionally(events, new_events, precommit=precommit, postcommit=postcommit)
+            self._append_events_transactionally(
+                events, new_events, precommit=precommit, postcommit=postcommit, base_hash=base_hash
+            )
 
         first = candidate_events[0]
 
@@ -430,9 +429,9 @@ class ESAAServiceCore:
             "action": first["action"],
             "event_id": first["event_id"],
             "events_appended": len(new_events),
-            "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
-            "verify_status": final_roadmap["meta"]["run"]["verify_status"],
-            "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
+            "last_event_seq": final_run["last_event_seq"],
+            "verify_status": final_run["verify_status"],
+            "projection_hash_sha256": final_run["projection_hash_sha256"],
         }
         if dry_run:
             result["would_append_events"] = len(new_events)

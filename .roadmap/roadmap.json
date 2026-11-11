@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1852,
-      "projection_hash_sha256": "a9b4e013ab983ecb136f0ddcc64f30791611c550a96c00ebc54fcc47660599fc",
+      "last_event_seq": 1866,
+      "projection_hash_sha256": "fa2afc8e34eda1b4f8200066a2a2b07fb0a4cca8c3d57e98bd031edb64a6d15c",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T12:31:54Z"
+    "updated_at": "2026-11-11T14:38:12Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4127,7 +4127,7 @@
       "task_kind": "impl",
       "title": "Replay sem custo quadratico: indice de tarefas e materializacao unica por comando",
       "description": "Achado ARQ-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: _task_by_id percorre a lista de tarefas a cada evento e submit rematerializa o log inteiro ate 6 vezes; com 50.000 eventos project/verify levam ~24s e task create passa de 120s. Indexar tarefas por task_id dentro de materialize e reduzir as rematerializacoes por comando aplicando os eventos candidatos de forma incremental. Nao mudar a forma das projecoes. Atencao aos limites de 500 linhas de submission.py e service_core.py. Criterios de aceite: (1) com log sintetico de 50.000 eventos, claim e verify terminam em menos de 3s cada; (2) hash de projecao e conteudo das tres projecoes do log real inalterados; (3) pytest -q passa; Revisao exigida: regression, por runner distinto do executor.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4142,7 +4142,19 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-11T12:09:07Z"
+      "started_at": "2026-11-11T12:09:07Z",
+      "verification": {
+        "checks": [
+          "Suite completa no candidato final: PYTHONPATH=src python -B -m pytest -q -p no:cacheprovider: 801 passed, 5 skipped em 164.83s (4 skips preexistentes e benchmark wall-clock opt-in). Baseline da arvore Claude: 795 passed, 4 skipped.",
+          "Benchmark reproduzivel opt-in em processos CLI novos sobre exatamente 50000 eventos, 8333 tarefas/6 eventos por tarefa: verify 2.940s e claim 2.949s, ambos <3s. ESAA_RUNNER_ID=codex ESAA_RUN_PERFORMANCE_BENCHMARK=1 PYTHONPATH=src python -B -m pytest -q -s tests/test_replay_performance.py::test_acceptance_cli_claim_and_verify_50k: 1 passed. Maquina sob carga, tempos sensiveis ao ambiente.",
+          "HEAD a00f27b e candidato reproduzem o mesmo log real de 1859 eventos: roadmap.json, issues.json e lessons.json byte a byte identicos (JSON indent=2), hash 48a3ab0891e243ebb817364aed72e0042bc3bf34bb01a543c0391b91d29d1ba1.",
+          "118 checks direcionados passaram: replay, lock serializavel, signed replay, trust rollback, canonical identity, closeout trust, limites e verification gate. Depois da correcao do ramo dry_run, 26 passed/1 skipped em external plugin effects, runtime edits e replay performance.",
+          "Novas regressoes cobrem bulk JSONL com multiplos valores/JSON invalido/raiz nao objeto, cache com ancora externa removida e resposta de tarefa independente em claim/complete/review request_changes/approve. 6 checks novos passaram.",
+          "mypy conserva os mesmos 9 erros em 4 arquivos e ruff os mesmos 11 apontamentos por arquivo/codigo, comparados com HEAD usando a mesma configuracao. submission.py 498 linhas; service_core.py 494 linhas, ambos <=500.",
+          "Retomada Codex de request_changes seq1859; entrega anterior Claude preservada. Candidato testado fora do workspace; efeitos finais somente por file_updates. Revisao regression por outro runner ainda pendente."
+        ]
+      },
+      "completed_at": "2026-11-11T14:38:12Z"
     },
     {
       "task_id": "AUD-O1-020",
@@ -4352,8 +4364,7 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 126,
-      "in_progress": 1,
+      "done": 127,
       "todo": 6
     },
     "by_kind": {

@@ -12,7 +12,7 @@ from .notifications import (
     transition_messages_enabled_from_env,
 )
 from .project_profile import project_profile_view
-from .projector import materialize
+from .projector import materialize, projection_summary, replay_state, state_tasks
 from .runner_inputs import load_runtime_capabilities
 from .runtime_policy import require_operator_runner
 from .seeds import (
@@ -143,11 +143,12 @@ class TaskAdminMixin:
 
         events = parse_event_store(self.root)
 
-        roadmap, _, _ = materialize(events)
+        # AUD-O1-010: estado local do replay, sem copiar todas as tarefas para montar as views.
+        state = replay_state(events)
+        run = projection_summary(state)
+        tasks, sources = tasks_with_planned_plugins(self.root, state_tasks(state))
 
-        tasks, sources = tasks_with_planned_plugins(self.root, roadmap["tasks"])
-
-        task = require_task({**roadmap, "tasks": tasks}, task_id)
+        task = require_task({"tasks": tasks}, task_id)
 
         status = task["status"]
 
@@ -156,9 +157,9 @@ class TaskAdminMixin:
             "source": sources.get(task_id, "event_store"),
             "expected_action": expected_action_for(status),
             "allowed_actions": list(allowed_actions_for(status)),
-            "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
-            "verify_status": roadmap["meta"]["run"]["verify_status"],
-            "projection_hash_sha256": roadmap["meta"]["run"]["projection_hash_sha256"],
+            "last_event_seq": run["last_event_seq"],
+            "verify_status": run["verify_status"],
+            "projection_hash_sha256": run["projection_hash_sha256"],
         }
 
     def dispatch_context(self, task_id: str) -> dict[str, Any]:
@@ -469,16 +470,17 @@ class TaskAdminMixin:
 
     def _admit_planned_task_if_needed(self, task_id: str) -> dict[str, Any] | None:
 
-        events = parse_event_store(self.root)
-
-        roadmap, _, _ = materialize(events)
-
-        if any(task["task_id"] == task_id for task in roadmap["tasks"]):
+        # AUD-O1-010: sem tarefa planejada com este id nao ha o que admitir; evita ler o log.
+        planned = find_planned_plugin_task(self.root, task_id)
+        if planned is None:
             return None
 
-        planned = find_planned_plugin_task(self.root, task_id)
-
-        if planned is None:
+        events = parse_event_store(self.root)
+        # Tarefas so nascem de task.create/hotfix.create; basta olhar esses eventos.
+        if any(
+            e["action"] in {"task.create", "hotfix.create"} and (e.get("payload") or {}).get("task_id") == task_id
+            for e in events
+        ):
             return None
 
         event = make_event(
