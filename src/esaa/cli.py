@@ -644,6 +644,25 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_scenario_hotfix.add_argument("--current", action="store_true", help="run in the current workspace")
     cmd_scenario_hotfix.add_argument("--issue-id", default="ISS-HOTFIX-TRACE")
 
+    # AUD-O0-045: curadoria de lessons propostas por agentes (operador).
+    cmd_lesson = sub.add_parser("lesson", help="operator curation of agent-proposed lessons")
+    lesson_sub = cmd_lesson.add_subparsers(dest="lesson_command", required=True)
+    cmd_lesson_list = lesson_sub.add_parser("list", help="list lessons replayed from the event store")
+    cmd_lesson_list.add_argument(
+        "--status",
+        choices=["proposed", "active", "experimental", "superseded", "archived"],
+        default=None,
+        help="filter by lesson status (proposed = waiting for the operator)",
+    )
+    for name, text in (
+        ("approve", "activate a proposed lesson so it reaches the dispatch context"),
+        ("reject", "archive a proposed lesson; it never reaches the dispatch context"),
+    ):
+        cmd_lesson_decide = lesson_sub.add_parser(name, help=text)
+        cmd_lesson_decide.add_argument("lesson_id", help="lesson id, e.g. LES-0004")
+        cmd_lesson_decide.add_argument("--reason", required=True, help="why the operator took this decision")
+        cmd_lesson_decide.add_argument("--dry-run", action="store_true", help="validate without persisting")
+
     cmd_vocabulary = sub.add_parser("vocabulary", help="show protocol vocabulary mappings")
     cmd_vocabulary.add_argument("--profile", default=None)
 
@@ -999,6 +1018,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "scenario" and args.scenario_command == "hotfix":
             result = run_hotfix_trace(
                 root, target_root=root if args.current else None, issue_id=args.issue_id
+            )
+        elif args.command == "lesson" and args.lesson_command == "list":
+            result = service.list_lessons(status=args.status)
+        elif args.command == "lesson":
+            result = service.decide_lesson(
+                args.lesson_id, args.lesson_command, reason=args.reason, dry_run=args.dry_run
             )
         elif args.command == "vocabulary":
             result = vocabulary_payload(profile=args.profile)
