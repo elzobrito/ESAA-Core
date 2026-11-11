@@ -1,5 +1,9 @@
 version: "0.4.1"
 
+# Validada contra o schema distribuido com o pacote (esaa/templates/runtime_policy.schema.json).
+# Chave desconhecida ou valor invalido falham com POLICY_INVALID. Blocos marcados como
+# RESERVADO sao aceitos por compatibilidade, mas nenhum codigo os le nesta versao.
+
 review_authorization: "qa_role"
 
 # AUD-O0-020: com "enforce", o runner que fez claim/complete de uma tarefa nao
@@ -12,6 +16,7 @@ runner_validation: "permissive"
 
 attempt_lifecycle:
   ttl: "PT30M"
+  # RESERVADO: aceito pelo schema, sem efeito nesta versao do runtime.
   on_ttl_exceeded:
     emit_event: "output.rejected"
     error_code: "ATTEMPT_TIMEOUT"
@@ -19,10 +24,12 @@ attempt_lifecycle:
 attempt_limits:
   max_attempts_per_task: 3
   cooldown_between_attempts: "PT2M"
+  # RESERVADO: aceito pelo schema, sem efeito nesta versao do runtime.
   on_limit_exceeded:
     emit_event: "issue.report"
     auto_severity: "high"
 
+# RESERVADO: aceito pelo schema, sem efeito nesta versao do runtime.
 issue_escalation:
   rules:
     - severity: "low"
@@ -34,6 +41,7 @@ issue_escalation:
     - severity: "critical"
       action: "halt_pipeline"
 
+# RESERVADO: aceito pelo schema, sem efeito nesta versao do runtime.
 verify_policy:
   on_mismatch:
     action: "reproject_or_halt"

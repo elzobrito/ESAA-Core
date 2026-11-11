@@ -45,8 +45,11 @@ def test_review_authorization_mode_qa_role() -> None:
     assert review_authorization_mode({"review_authorization": "qa_role"}) == "qa_role"
 
 
-def test_review_authorization_mode_invalid_falls_back() -> None:
-    assert review_authorization_mode({"review_authorization": "weird"}) == "owner"
+def test_review_authorization_mode_invalid_fails_closed() -> None:
+    # AUD-O1-080: valor desconhecido nao cai mais silenciosamente em "owner".
+    with pytest.raises(ESAAError) as exc:
+        review_authorization_mode({"review_authorization": "weird"})
+    assert exc.value.code == "POLICY_INVALID"
 
 
 def _setup_qa_role_policy(contract_bundle: Path) -> None:

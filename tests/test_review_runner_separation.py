@@ -39,11 +39,18 @@ def _status(service: ESAAService) -> str:
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(None, "off"), ("off", "off"), ("enforce", "enforce"), ("ENFORCE", "enforce"), ("bogus", "off")],
+    [(None, "off"), ("off", "off"), ("enforce", "enforce"), ("ENFORCE", "enforce")],
 )
 def test_mode_parsing_defaults_to_off(value: str | None, expected: str) -> None:
     policy = {} if value is None else {"review_runner_separation": value}
     assert review_runner_separation_mode(policy) == expected
+
+
+def test_mode_parsing_rejects_unknown_value() -> None:
+    # AUD-O1-080: erro de digitacao nao desliga mais a regra em silencio.
+    with pytest.raises(ESAAError) as exc:
+        review_runner_separation_mode({"review_runner_separation": "bogus"})
+    assert exc.value.code == "POLICY_INVALID"
 
 
 def test_default_policy_keeps_same_runner_review(

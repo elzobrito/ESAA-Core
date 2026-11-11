@@ -10,14 +10,22 @@ Sem estado em memoria: tudo derivavel do event store (event-sourced).
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
+from jsonschema import Draft202012Validator
 
 from .errors import ESAAError
+
+POLICY_REL_PATH = ".roadmap/RUNTIME_POLICY.yaml"
+POLICY_SCHEMA_PATH = Path(__file__).resolve().parent / "templates" / "runtime_policy.schema.json"
+_SEPARATION_ENFORCE = frozenset({"enforce", "on", "true", "strict"})
+_SEPARATION_OFF = frozenset({"off", "false", "no", "disabled"})
 
 DEFAULT_POLICY = {
     "attempt_lifecycle": {"ttl": "PT30M"},
@@ -28,12 +36,49 @@ DEFAULT_POLICY = {
 }
 
 
+def _policy_invalid(detail: str) -> ESAAError:
+    return ESAAError("POLICY_INVALID", f"{POLICY_REL_PATH} {detail}"[:200])
+
+
+@lru_cache(maxsize=1)
+def _policy_validator() -> Draft202012Validator:
+    """Schema distribuido com o pacote; workspaces existentes nao precisam de arquivo novo."""
+    try:
+        schema = json.loads(POLICY_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ESAAError("POLICY_INVALID", f"packaged policy schema is unavailable: {exc}") from exc
+    return Draft202012Validator(schema)
+
+
+def validate_policy(data: Any) -> dict[str, Any]:
+    """AUD-O1-080 (FUN-01): falha fechado para chave desconhecida ou valor invalido.
+
+    Chaves marcadas como reservadas no schema (x-esaa-reserved) sao aceitas e
+    nao tem efeito nesta versao.
+    """
+    if not isinstance(data, dict):
+        raise _policy_invalid("<root>: policy must be a mapping")
+    errors = sorted(_policy_validator().iter_errors(data), key=lambda error: list(error.absolute_path))
+    if errors:
+        error = errors[0]
+        where = "/".join(str(part) for part in error.absolute_path) or "<root>"
+        raise _policy_invalid(f"{where}: {error.message.splitlines()[0][:140]}")
+    return data
+
+
 def load_policy(root: Path) -> dict[str, Any]:
+    """Le e valida a politica do workspace. Ausente -> DEFAULT_POLICY; vazia -> {}."""
     path = root / ".roadmap" / "RUNTIME_POLICY.yaml"
     if not path.exists():
         return DEFAULT_POLICY
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return data
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        problem = getattr(exc, "problem", None) or "invalid YAML"
+        raise _policy_invalid(f"<root>: not valid YAML ({problem})") from exc
+    except (OSError, UnicodeDecodeError) as exc:
+        raise _policy_invalid(f"<root>: unreadable ({exc.__class__.__name__})") from exc
+    return validate_policy({} if data is None else data)
 
 
 _ISO_DUR = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
@@ -123,8 +168,11 @@ def resolve_role(actor: str, root: Path | None = None) -> str:
 
 
 def runner_validation_mode(policy: dict[str, Any]) -> str:
-    """G08/PROV-02: permissive (default) ou strict."""
-    return str(policy.get("runner_validation", "permissive"))
+    """G08/PROV-02: permissive (default) ou strict. Valor desconhecido falha fechado."""
+    val = policy.get("runner_validation", "permissive")
+    if val not in {"permissive", "strict"}:
+        raise _policy_invalid(f"runner_validation: {val!r} is not one of ['permissive', 'strict']")
+    return str(val)
 
 
 def known_runners(root: Path) -> set[str]:
@@ -189,7 +237,9 @@ def validate_runner_id(runner_id: str, root: Path, policy: dict[str, Any]) -> No
 def review_authorization_mode(policy: dict[str, Any]) -> str:
     """FIX-1807 — modo de autorizacao para review: 'owner' (legado) ou 'qa_role'."""
     val = policy.get("review_authorization", "owner")
-    return val if val in {"owner", "qa_role"} else "owner"
+    if val not in {"owner", "qa_role"}:
+        raise _policy_invalid(f"review_authorization: {val!r} is not one of ['owner', 'qa_role']")
+    return str(val)
 
 
 def review_runner_separation_mode(policy: dict[str, Any]) -> str:
@@ -199,8 +249,15 @@ def review_runner_separation_mode(policy: dict[str, Any]) -> str:
     review_authorization=qa_role; com identidade ativa a separacao e garantida
     por principal assinado.
     """
-    val = str(policy.get("review_runner_separation", "off")).strip().lower()
-    return "enforce" if val in {"enforce", "on", "true", "strict"} else "off"
+    raw = policy.get("review_runner_separation", "off")
+    val = str(raw).strip().lower() if isinstance(raw, (str, bool)) else ""
+    if val in _SEPARATION_ENFORCE:
+        return "enforce"
+    if val in _SEPARATION_OFF:
+        return "off"
+    raise _policy_invalid(
+        f"review_runner_separation: {raw!r} is not one of {sorted(_SEPARATION_ENFORCE | _SEPARATION_OFF)}"
+    )
 
 
 def assert_review_runner_separation(

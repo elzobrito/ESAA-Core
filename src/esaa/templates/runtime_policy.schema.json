@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://esaa.dev/schemas/runtime_policy.schema.json",
+  "title": "ESAA RUNTIME_POLICY",
+  "description": "Schema de .roadmap/RUNTIME_POLICY.yaml (AUD-O1-080). Carregado do pacote esaa; chave desconhecida ou valor invalido falham fechado com POLICY_INVALID. Propriedades com x-esaa-reserved sao aceitas por compatibilidade com workspaces existentes, mas nenhum codigo as le nesta versao. Propriedades com x-esaa-metadata sao informativas.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "x-esaa-metadata": true,
+      "description": "Versao do formato da politica; informativa."
+    },
+    "review_authorization": {
+      "enum": [
+        "owner",
+        "qa_role"
+      ],
+      "description": "Quem pode revisar no modo legado: owner (default; o dono do claim) ou qa_role (actor com papel qa)."
+    },
+    "review_runner_separation": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "pattern": "(?i)^\\s*(enforce|on|true|strict|off|false|no|disabled)\\s*$"
+        }
+      ],
+      "description": "off (default, decisao de arquitetura: papel de QA resolvido pelo actor) ou enforce (runner do claim/complete nao revisa). Aceita enforce/on/true/strict e off/false/no/disabled, alem de booleano YAML."
+    },
+    "runner_validation": {
+      "enum": [
+        "permissive",
+        "strict"
+      ],
+      "description": "permissive (default, decisao de arquitetura: aceita qualquer runner_id) ou strict (runner registrado; comandos de operador exigem kind=human)."
+    },
+    "attempt_lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ttl": {
+          "type": "string",
+          "pattern": "^\\s*PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?\\s*$",
+          "description": "Duracao ISO-8601 limitada a PT<H>H<M>M<S>S."
+        },
+        "on_ttl_exceeded": {
+          "x-esaa-reserved": true,
+          "description": "reservado: sem efeito nesta versao. O runtime emite output.rejected/ATTEMPT_TIMEOUT de forma fixa no run do adaptador."
+        }
+      }
+    },
+    "attempt_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts_per_task": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cooldown_between_attempts": {
+          "type": "string",
+          "pattern": "^\\s*PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?\\s*$",
+          "description": "Duracao ISO-8601 limitada a PT<H>H<M>M<S>S."
+        },
+        "on_limit_exceeded": {
+          "x-esaa-reserved": true,
+          "description": "reservado: sem efeito nesta versao. O runtime apenas bloqueia com MAX_ATTEMPTS_EXCEEDED; nao emite issue.report automatico."
+        }
+      }
+    },
+    "concurrency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "submit_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retry_backoff": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "pattern": "^\\s*PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?\\s*$",
+              "description": "Duracao ISO-8601 limitada a PT<H>H<M>M<S>S."
+            }
+          ],
+          "description": "Segundos (numero) ou duracao ISO."
+        },
+        "lock_max_age": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "pattern": "^\\s*PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?\\s*$",
+              "description": "Duracao ISO-8601 limitada a PT<H>H<M>M<S>S."
+            }
+          ],
+          "description": "Segundos (numero) ou duracao ISO."
+        }
+      }
+    },
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Limites default de file_updates por submissao.",
+      "properties": {
+        "max_file_updates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "max_bytes_per_update": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "max_bytes_total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "resource_limit_caps": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Tetos administrativos para resource_limits por tarefa.",
+      "properties": {
+        "max_file_updates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "max_bytes_per_update": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "max_bytes_total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "external_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_glob_wildcard": {
+          "type": "boolean"
+        }
+      }
+    },
+    "issue_escalation": {
+      "x-esaa-reserved": true,
+      "description": "reservado: sem efeito nesta versao. Escalonamento de issues por severidade nao e aplicado pelo runtime."
+    },
+    "verify_policy": {
+      "x-esaa-reserved": true,
+      "description": "reservado: sem efeito nesta versao. Acoes em mismatch/corrupted e retencao de snapshots nao sao aplicadas pelo runtime."
+    }
+  }
+}
