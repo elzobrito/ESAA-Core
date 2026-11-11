@@ -510,6 +510,8 @@ def authorize_agent_event(
     authorization: Any,
     policy: dict[str, Any],
 ) -> dict[str, Any]:
+    # AUD-O0-040 (SEC-02): 'orchestrator' e reservado ao Orchestrator em toda acao de agente.
+    reject_orchestrator_impersonation(actor)
     if action == "review":
         return authorize_review_event(
             root=root,

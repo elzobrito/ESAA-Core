@@ -7,6 +7,7 @@ from .errors import ESAAError
 from .events import make_event
 from .file_effects import STAGING_DIR
 from .projector import materialize
+from .runtime_policy import require_operator_runner
 from .store import next_event_seq, parse_event_store, require_task
 from .task_resource_limits import _validate, resolve_task_limits
 from .validator import resource_limits_from_policy
@@ -40,6 +41,7 @@ class TaskLimitsAdminMixin:
         authorized_by: str,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "task limits set")
         reason = (reason or "").strip()
         authorized_by = (authorized_by or "").strip()
         if not reason:

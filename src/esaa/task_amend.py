@@ -8,6 +8,7 @@ from .boundary_paths import validate_hotfix_scope_entries
 from .errors import ESAAError
 from .events import make_event
 from .projector import materialize
+from .runtime_policy import require_operator_runner
 from .store import next_event_seq, parse_event_store, require_task
 from .validator import validate_boundary_grant
 
@@ -50,6 +51,7 @@ class TaskAmendMixin:
         executable_checks: list[str] | None = None,
         resource_limits: dict[str, int] | None = None,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "task amend")
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
         task = require_task(roadmap, task_id)

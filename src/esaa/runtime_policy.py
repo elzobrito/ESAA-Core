@@ -140,6 +140,44 @@ def known_runners(root: Path) -> set[str]:
     return {str(k) for k in runners} if isinstance(runners, dict) else set()
 
 
+def runner_kind(root: Path, runner_id: str) -> str | None:
+    """`kind` declarado para o runner em agents_swarm.yaml (None se nao registrado)."""
+    swarm_path = root / ".roadmap" / "agents_swarm.yaml"
+    if not swarm_path.exists():
+        return None
+    try:
+        data = yaml.safe_load(swarm_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return None
+    runners = data.get("runners", {}) or {}
+    entry = runners.get(runner_id) if isinstance(runners, dict) else None
+    kind = entry.get("kind") if isinstance(entry, dict) else None
+    return str(kind) if kind else None
+
+
+def require_operator_runner(root: Path, command: str) -> None:
+    """AUD-O0-040 (GOV-03/GOV-04): comandos de operador exigem runner humano em modo strict.
+
+    Com runner_validation=strict, o runner corrente precisa estar registrado em
+    agents_swarm.yaml com kind=human. Em permissive (default) nada muda. O
+    runner_id e autodeclarado: a regra separa papeis e evita que um runner de
+    agente use comandos administrativos por engano; nao substitui a identidade
+    assinada do proprietario.
+    """
+    if runner_validation_mode(load_policy(root)) != "strict":
+        return
+    from .provenance import resolve_runner
+
+    runner_id = str(resolve_runner()["runner_id"])
+    kind = runner_kind(root, runner_id)
+    if kind != "human":
+        raise ESAAError(
+            "OPERATOR_REQUIRED",
+            f"{command} is an operator command; runner {runner_id} (kind={kind or 'unregistered'}) "
+            "is not a human runner (runner_validation=strict)",
+        )
+
+
 def validate_runner_id(runner_id: str, root: Path, policy: dict[str, Any]) -> None:
     """Em modo strict, runner_id deve estar registrado no swarm."""
     if runner_validation_mode(policy) != "strict":

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -8,7 +9,14 @@ from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .projector import materialize
 from .seeds import BASELINE_LESSONS
-from .store import append_events, ensure_event_store, parse_event_store, save_issues, save_lessons, save_roadmap
+from .store import (
+    append_events,
+    ensure_event_store,
+    parse_event_store,
+    save_issues,
+    save_lessons,
+    save_roadmap,
+)
 from .utils import ensure_parent
 
 
@@ -41,6 +49,7 @@ def plan_activity_clear(root: Path, *, force: bool, dry_run: bool, backup_dir: s
         "event_store": ".roadmap/activity.jsonl",
         "events_removed": events_removed,
         "bytes_removed": len(raw.encode("utf-8")),
+        "previous_log_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         "backup_path": backup_report,
         "_backup_path": backup_path,
         "_raw": raw,
@@ -61,7 +70,17 @@ def apply_activity_clear(root: Path, plan: dict[str, Any]) -> None:
             1,
             actor="orchestrator",
             action="orchestrator.view.mutate",
-            payload={"target": "lessons", "change": "baseline_reseed", "lessons": BASELINE_LESSONS},
+            payload={
+                "target": "lessons",
+                "change": "baseline_reseed",
+                "lessons": BASELINE_LESSONS,
+                # AUD-O0-040 (GOV-03): o novo log registra o que foi apagado.
+                "cleared_log": {
+                    "previous_log_sha256": plan["previous_log_sha256"],
+                    "previous_event_count": plan["events_removed"],
+                    "backup_path": plan["backup_path"],
+                },
+            },
         ),
         make_event(2, actor="orchestrator", action="verify.start", payload={"strict": True}),
     ]

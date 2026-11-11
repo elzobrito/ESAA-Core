@@ -14,6 +14,7 @@ from .errors import ESAAError
 from .events import make_event
 from .projector import materialize
 from .reject_codes import LESSON_NOT_FOUND, LESSON_NOT_PROPOSED
+from .runtime_policy import require_operator_runner
 from .store import next_event_seq, parse_event_store
 
 if TYPE_CHECKING:
@@ -70,6 +71,7 @@ class LessonAdminMixin:
         dry_run: bool = False,
     ) -> dict[str, Any]:
         """Operador aprova ou rejeita uma lesson proposta."""
+        require_operator_runner(self.root, "lesson decision")
         if decision not in LESSON_DECISIONS:
             raise ESAAError("INVALID_ARGUMENT", f"lesson decision must be one of {sorted(LESSON_DECISIONS)}")
         if not isinstance(reason, str) or not reason.strip():

@@ -3,18 +3,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .activity_admin import apply_activity_clear, plan_activity_clear
-from .errors import ESAAError
 from .boundary_paths import validate_hotfix_scope_entries
-from .validator import validate_boundary_grant
+from .errors import ESAAError
 from .events import build_hotfix_event, make_event
 from .notifications import (
     completion_alarm_enabled_from_env,
     play_transition_message,
     transition_messages_enabled_from_env,
 )
-from .projector import materialize
 from .project_profile import project_profile_view
+from .projector import materialize
 from .runner_inputs import load_runtime_capabilities
+from .runtime_policy import require_operator_runner
 from .seeds import (
     build_dispatch_context,
     find_planned_plugin_task,
@@ -29,6 +29,7 @@ from .store import (
     require_task,
 )
 from .task_creation import build_task_create_payload
+from .validator import validate_boundary_grant
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,6 +62,7 @@ class TaskAdminMixin:
         executable_checks: list[str] | None = None,
         resource_limits: dict[str, int] | None = None,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "task create")
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
         tasks, _ = tasks_with_planned_plugins(self.root, roadmap["tasks"])
@@ -118,6 +120,7 @@ class TaskAdminMixin:
         dry_run: bool = False,
         backup_dir: str = ".roadmap/backups",
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "activity clear")
         result = plan_activity_clear(self.root, force=force, dry_run=dry_run, backup_dir=backup_dir)
         if dry_run:
             result.pop("_backup_path", None)
@@ -390,6 +393,7 @@ class TaskAdminMixin:
         message: str,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "reject")
 
         event = make_event(
             next_event_seq(parse_event_store(self.root)),
@@ -416,6 +420,7 @@ class TaskAdminMixin:
         outputs: list[str] | None = None,
         executable_checks: list[str] | None = None,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "hotfix create")
 
         events = parse_event_store(self.root)
         if executable_checks is not None:
@@ -446,6 +451,7 @@ class TaskAdminMixin:
         hotfix_task_id: str | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        require_operator_runner(self.root, "issue resolve")
 
         resolution: dict[str, Any] = {"status": "resolved_by_command"}
 

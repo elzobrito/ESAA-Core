@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1742,
-      "projection_hash_sha256": "f2c7350694d68607cbda54fdc700bb5b5a179a04c726476aba8b29f35858a842",
+      "last_event_seq": 1776,
+      "projection_hash_sha256": "ea8804b615bded93ff4b2578460ec2ce88bc5e67098a695b4d96cc09db4f7bde",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-10T18:44:57Z"
+    "updated_at": "2026-11-11T11:23:51Z"
   },
   "project": {
     "name": "esaa-core",
@@ -3942,7 +3942,7 @@
       "task_kind": "impl",
       "title": "Lessons de agentes nascem proposed e exigem aprovacao do operador",
       "description": "Achado SEC-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: issue.report com category=process e subtype=lesson cria lesson active que entra no dispatch-context de todos os agentes. Lessons vindas de agentes passam a nascer proposed e ficam fora do dispatch-context ate aprovacao por operador (servico lesson_admin; registro do comando na CLI fica em AUD-O0-045). Lessons ja existentes no historico permanecem active. Criterios de aceite: (1) lesson criada por issue.report de agente fica proposed e nao aparece em dispatch-context; (2) apos aprovacao pelo operador a lesson aparece como active; (3) hash de projecao do log real inalterado e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -3955,14 +3955,24 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-10T18:47:36Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 685 passed, 4 skipped (antes 676)",
+          "tests/test_lesson_curation.py: 9 testes (proposed fora do dispatch, agente nao declara status, approve, reject, guardas, replay historico, determinismo, schema)",
+          "replay do log real com o candidato: verify_status ok; ruff limpo nos arquivos alterados; mypy com os mesmos 9 erros do baseline"
+        ]
+      },
+      "completed_at": "2026-11-10T18:58:19Z"
     },
     {
       "task_id": "AUD-O0-040",
       "task_kind": "impl",
       "title": "Comandos de operador exigem runner humano e activity clear auditado",
       "description": "Achados GOV-03, GOV-04 e SEC-02 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: reject, task create/amend, issue resolve, hotfix create e activity clear --force nao tem controle de acesso e gravam actor=orchestrator. Com runner_validation: strict, exigir runner kind=human (OPERATOR_REQUIRED); activity clear grava no novo log o hash e a contagem do log anterior; submit rejeita actor=orchestrator em toda acao (ORCHESTRATOR_IMPERSONATION). Criterios de aceite: (1) com runner_validation strict, --runner codex reject e activity clear --force retornam OPERATOR_REQUIRED; (2) novo log apos clear autorizado contem previous_log_sha256; (3) submit com --actor orchestrator retorna ORCHESTRATOR_IMPERSONATION; (4) modo permissive preserva o comportamento atual e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -3975,7 +3985,17 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T11:06:38Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 698 passed, 4 skipped (antes 685)",
+          "tests/test_operator_commands.py: 13 testes (strict bloqueia 8 comandos para runner de agente, nao registrado e unattended; humano passa; transicoes de agente nao sao gateadas; permissive inalterado; CLI exit 1; trilha do clear; impersonacao em 4 acoes)",
+          "replay do log real com o candidato: verify_status ok; mypy com os mesmos 9 erros do baseline; ruff sem erros novos"
+        ]
+      },
+      "completed_at": "2026-11-11T11:20:09Z"
     },
     {
       "task_id": "AUD-O0-045",
@@ -4003,7 +4023,7 @@
       "task_kind": "impl",
       "title": "Confinar efeitos ao root real e validar destino antes do append",
       "description": "Achados SEC-03 e GOV-08 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: file_update em src/link/sub/x com src/link sendo symlink para fora do workspace grava fora do root; e quando o destino e invalido o evento orchestrator.file.write e gravado sem o arquivo existir. Resolver o caminho final e exigir que fique dentro do root para efeitos de escopo workspace; validar o destino antes do append. Criterios de aceite: (1) file_update atraves de symlink ancestral para fora do root retorna BOUNDARY_VIOLATION e nada e criado fora; (2) destino invalido nao anexa nenhum evento ao log; (3) efeitos externos autorizados (runtime://) continuam funcionando e pytest -q passa; Revisao exigida: security, por actor e runner distintos do executor.",
-      "status": "todo",
+      "status": "review",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4015,6 +4035,15 @@
       },
       "immutability": {
         "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T11:17:59Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 711 passed, 4 skipped (baseline 698)",
+          "tests/test_symlink_confinement.py: 13 testes (symlink ancestral e pai imediato para fora, destino symlink/diretorio, componente arquivo, dry-run, CLI sem traceback, recover, externo confinado ao target_root, casos aceitos)",
+          "replay do log real com o candidato: verify_status ok; ruff check limpo em file_effects.py e binary_dry_run.py; mypy com os mesmos 9 erros do baseline"
+        ]
       }
     },
     {
@@ -4022,7 +4051,7 @@
       "task_kind": "impl",
       "title": "verify compara o conteudo das tres projecoes",
       "description": "Achado GOV-05 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: verify compara apenas o campo projection_hash_sha256 armazenado em roadmap.json com o hash do replay; editar tarefas em roadmap.json, ou qualquer conteudo de issues.json e lessons.json, mantem verify_status ok. Comparar o JSON canonico de cada projecao armazenada com o materializado (ignorando meta.updated_at) e listar os arquivos divergentes. Criterios de aceite: (1) adulterar roadmap.json, issues.json ou lessons.json resulta em verify_status mismatch, exit 2 e campo divergent; (2) verify do repositorio real continua ok; (3) pytest -q passa; Revisao exigida: governance, por actor e runner distintos do executor.",
-      "status": "todo",
+      "status": "review",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4033,6 +4062,16 @@
       },
       "immutability": {
         "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T11:18:00Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 714 passed, 4 skipped (baseline 698); nenhum teste existente alterado",
+          "tests/test_verify_projection_content.py: 16 testes (adulteracao de roadmap com hash intacto, lessons, issues, duas ao mesmo tempo, truncado, ausente, nao-objeto, reformatado continua ok, project restaura, store vazio, exit code 2 da CLI)",
+          "replay do log real com o candidato: verify_status ok sem divergent; as tres projecoes versionadas sao identicas ao materialize",
+          "mypy src/esaa: mesmos 9 erros em 4 arquivos do baseline; ruff sem erros nos arquivos novos e service_core.py sem erro novo"
+        ]
       }
     },
     {
@@ -4064,8 +4103,9 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 118,
-      "todo": 6
+      "done": 120,
+      "review": 2,
+      "todo": 2
     },
     "by_kind": {
       "impl": 74,
