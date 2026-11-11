@@ -290,6 +290,12 @@ def validate_agent_output(
             raise ESAAError("SCHEMA_INVALID", f"invalid review decision: {decision}")
         validate_g07_review_mode(task, event)
 
+    if action == "issue.report" and "lesson" in event:
+        # AUD-O0-030 (SEC-01): lesson vinda de agente nasce proposta; so entra no
+        # dispatch-context apos aprovacao do operador. Carimbado na admissao para
+        # que o replay de lessons historicas (sem o campo) continue 'active'.
+        event["_lesson_status"] = "proposed"
+
     updates = list(output.get("file_updates", []))
     _validate_boundaries(updates, contract, task)
     return event, updates

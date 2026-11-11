@@ -9,6 +9,7 @@ from .events import (
     validate_hotfix_request,
 )
 from .execution import ExecutionMixin
+from .lesson_admin import LessonAdminMixin
 from .project_profile_service import ProjectProfileMixin
 from .seeds import (
     BASELINE_LESSONS,
@@ -34,6 +35,7 @@ from .verification_service import VerificationMixin
 
 class ESAAService(
     VerificationMixin,
+    LessonAdminMixin,
     ActorAdminMixin,
     TaskLimitsAdminMixin,
     TaskAmendMixin,

@@ -326,7 +326,7 @@ def _apply_issue_report(state: dict[str, Any], event: dict[str, Any]) -> None:
         state["_lessons"].append(
             {
                 "lesson_id": lesson_id,
-                "status": "active",
+                "status": "proposed" if payload.get("_lesson_status") == "proposed" else "active",
                 "created_at": event["ts"],
                 "title": payload.get("title", lesson_id),
                 "mistake": lesson_payload["mistake"],
@@ -406,6 +406,10 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         # deriva-las do event store (e nao de edicao manual do read model).
         if isinstance(payload.get("lessons"), list):
             state["_lessons"] = deepcopy(payload["lessons"])
+        elif payload.get("change") == "lesson_status":
+            from .lesson_admin import apply_lesson_status
+
+            apply_lesson_status(state["_lessons"], payload)
     elif action in {
         "output.rejected",
         "orchestrator.file.write",

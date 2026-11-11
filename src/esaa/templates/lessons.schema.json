@@ -63,6 +63,7 @@
             "type": "string",
             "enum": [
               "active",
+              "proposed",
               "experimental",
               "superseded",
               "archived"
