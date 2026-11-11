@@ -183,6 +183,11 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_init.add_argument("--master-correlation-id", default="CID-ESAA-INIT")
     cmd_init.add_argument("--force", action="store_true")
     cmd_init.add_argument(
+        "--with-chain",
+        action="store_true",
+        help="also anchor the event-store hash chain (opt-in; unanchored stays the default)",
+    )
+    cmd_init.add_argument(
         "--with-demo-tasks",
         action="store_true",
         help="seed demo tasks T-1000/T-1010/T-1020 (ignored when a plugin roadmap supplies tasks)",
@@ -715,6 +720,9 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 with_demo_tasks=args.with_demo_tasks,
             )
+            if args.with_chain:
+                # AUD-O1-030: ancora opt-in; a cadeia sem ancora continua sendo o padrao.
+                result["chain"] = init_hash_chain(root)
         elif args.command == "run":
             steps = None if args.until_done else args.steps
             result = service.run(steps=steps, dry_run=args.dry_run, parallel=args.parallel)

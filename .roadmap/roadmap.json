@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1879,
-      "projection_hash_sha256": "462a7369aee1f21573d85b2eca50fdb770b82312ad47b525a9995dd9e00aabd7",
+      "last_event_seq": 1889,
+      "projection_hash_sha256": "acc22ea1a46d84dd6f4f0801b83cc13c3a30922319de282c209bd8e486a7bf99",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T17:17:59Z"
+    "updated_at": "2026-11-11T17:45:45Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4198,7 +4198,7 @@
       "task_kind": "impl",
       "title": "chain_status na saida de verify, ancora opcional no init e aviso de ts regressivo",
       "description": "Achado GOV-07 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md, reenquadrado: a cadeia de hash sem ancora e o padrao por decisao de arquitetura e continua assim. Entregar apenas visibilidade e opt-in: (a) verify inclui chain_status (unanchored, ok) na resposta padrao; (b) init aceita --with-chain para ancorar na criacao; (c) verify emite warning, sem falhar, quando o ts de um evento e anterior ao do evento precedente. Nenhuma mudanca de comportamento para workspaces existentes. Criterios de aceite: (1) verify de workspace sem ancora retorna ok com chain_status unanchored; (2) init --with-chain seguido de verify retorna chain_status ok; adulterar uma linha retorna corrupted; (3) ts regressivo gera warning e nao muda verify_status; (4) pytest -q passa; Revisao exigida: governance, por runner distinto do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "AUD-O1-020"
       ],
@@ -4213,7 +4213,17 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T17:18:13Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 834 passed, 5 skipped (antes 827)",
+          "tests/test_chain_visibility.py: 7 testes (unanchored por padrao, init sem flag nao ancora, init --with-chain + adulteracao => corrupted CHAIN_BROKEN exit 2, ancora posterior, mismatch traz chain_status, ts regressivo e aviso sem mudar status, casos de borda de ts)",
+          "verify do log real no candidato: ok com chain_status unanchored e sem warnings; mypy com os mesmos 9 erros do baseline; ruff limpo nos arquivos novos"
+        ]
+      },
+      "completed_at": "2026-11-11T17:45:45Z"
     },
     {
       "task_id": "AUD-O1-040",
@@ -4381,9 +4391,9 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 128,
+      "done": 129,
       "in_progress": 1,
-      "todo": 4
+      "todo": 3
     },
     "by_kind": {
       "impl": 82,

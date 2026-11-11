@@ -9,7 +9,6 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .adapters import AgentAdapter, MockAgentAdapter
-from .boundary_paths import legacy_scope_warnings
 from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .file_effects import recover_file_effects as recover_file_effects_from_events
@@ -20,6 +19,7 @@ from .project_profile import project_profile_view
 from .runner_metrics import normalize_runner_metrics
 from .runtime_policy import load_policy, parse_duration
 from .seeds import BASELINE_LESSONS, all_tasks_done, load_plugin_seeds, seed_tasks
+from .verify_annotations import chain_status, verify_annotations
 from .store import (
     append_events,
     append_transactional,
@@ -257,7 +257,7 @@ class ESAAServiceCore:
                 "last_event_seq": computed_seq,
                 "projection_hash_sha256": computed_hash,
                 "project_profile": projected_profile is not None,
-                **legacy_scope_warnings(projected.get("tasks", [])),
+                **verify_annotations(events, projected.get("tasks", [])),
             }
         return {
             "verify_status": "mismatch",
@@ -267,6 +267,7 @@ class ESAAServiceCore:
             "stored_projection_hash_sha256": stored_hash,
             "project_profile_mismatch": not profile_matches,
             "divergent": check["divergent"],
+            "chain_status": chain_status(events),
             **({"unreadable": check["problems"]} if check["problems"] else {}),
             "hint": REBUILD_HINT,
         }
