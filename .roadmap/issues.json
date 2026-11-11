@@ -4,10 +4,37 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 1923,
-    "updated_at": "2026-11-11T21:31:52Z"
+    "last_event_seq": 1939,
+    "updated_at": "2026-11-11T22:00:38Z"
   },
   "issues": [
+    {
+      "issue_id": "ISS-AUD-O1-070-RESOURCE-LIMIT",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Validated full CI candidate exceeds submission file ceiling",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Dry-run complete rejected RESOURCE_LIMIT_EXCEEDED: 124 file updates exceed default 32; active policy ceiling is 64. Candidate passes 917 tests, coverage 88.07%, lint, format, mypy and pip-audit. Applying requires operator decision on resource limits.",
+        "repro_steps": [
+          "Run --runner codex submit --actor agent-impl --dry-run /tmp/esaa070-candidate/complete.json",
+          "Inspect resource_limit_caps.max_file_updates=64 in .roadmap/RUNTIME_POLICY.yaml"
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command"
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O1-070",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 1927,
+        "resolved_event_seq": 1937
+      }
+    },
     {
       "issue_id": "ISS-AUDIO-SPEECH-MESSAGES",
       "status": "resolved",

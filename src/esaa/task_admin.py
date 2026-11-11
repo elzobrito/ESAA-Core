@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .activity_admin import apply_activity_clear, plan_activity_clear
-from .boundary_paths import validate_hotfix_scope_entries
 from .errors import ESAAError
 from .events import build_hotfix_event, make_event
 from .notifications import (
@@ -38,11 +37,25 @@ if TYPE_CHECKING:
 class TaskAdminMixin:
     if TYPE_CHECKING:
         root: Path
-        def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
-        def _commit_orchestrator_events(self, candidate_events: list[dict[str, Any]], dry_run: bool = False, precommit: Any = None, postcommit: Any = None) -> dict[str, Any]: ...
-        def verify(self) -> dict[str, Any]: ...
-        def _submit_command(self, output: dict[str, Any], actor: str, task_id: str, dry_run: bool, authorization: dict[str, Any] | None = None) -> dict[str, Any]: ...
 
+        def _policy(self) -> dict[str, Any]: ...
+        def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None: ...
+        def _commit_orchestrator_events(
+            self,
+            candidate_events: list[dict[str, Any]],
+            dry_run: bool = False,
+            precommit: Any = None,
+            postcommit: Any = None,
+        ) -> dict[str, Any]: ...
+        def verify(self) -> dict[str, Any]: ...
+        def _submit_command(
+            self,
+            output: dict[str, Any],
+            actor: str,
+            task_id: str,
+            dry_run: bool,
+            authorization: dict[str, Any] | None = None,
+        ) -> dict[str, Any]: ...
     def create_task(
         self,
         task_id: str,
@@ -66,19 +79,19 @@ class TaskAdminMixin:
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
         tasks, _ = tasks_with_planned_plugins(self.root, roadmap["tasks"])
-
         if any(task["task_id"] == task_id for task in tasks):
             raise ESAAError("DUPLICATE_TASK", f"task already exists: {task_id}")
-
         if resource_limits is not None:
             from .task_resource_limits import resolve_task_limits
             from .validator import resource_limits_from_policy
+
             policy = self._policy()
             try:
-                resolve_task_limits(resource_limits_from_policy(policy), policy.get("resource_limit_caps"), resource_limits)
+                resolve_task_limits(
+                    resource_limits_from_policy(policy), policy.get("resource_limit_caps"), resource_limits
+                )
             except ValueError as exc:
                 raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
-
         payload = build_task_create_payload(
             task_id=task_id,
             task_kind=task_kind,
@@ -95,27 +108,22 @@ class TaskAdminMixin:
             existing_task_ids={task["task_id"] for task in tasks},
             resource_limits=resource_limits,
         )
-
         if executable_checks is not None:
             from .verification_config import validate_check_ids
-            payload["executable_checks"] = validate_check_ids(executable_checks, events)
 
+            payload["executable_checks"] = validate_check_ids(executable_checks, events)
         event = make_event(
             next_event_seq(events), actor="orchestrator", action="task.create", payload=payload
         )
-
         preview_roadmap, _, _ = materialize(events + [event])
-
         self._validate_roadmap_projection_schema(preview_roadmap)
-
         result = self._commit_orchestrator_events([event], dry_run=dry_run)
-
         result["schema_validated"] = ".roadmap/roadmap.schema.json"
-
         return result
 
     def release_task(self, task_id: str, *, reason: str, dry_run: bool = False) -> dict[str, Any]:
         from .task_release import release_task
+
         return release_task(self, task_id, reason=reason, dry_run=dry_run)
 
     def clear_activity(
@@ -130,7 +138,6 @@ class TaskAdminMixin:
             result.pop("_backup_path", None)
             result.pop("_raw", None)
             return result
-
         apply_activity_clear(self.root, result)
         verify = self.verify()
         result.update(
@@ -140,22 +147,16 @@ class TaskAdminMixin:
                 "projection_hash_sha256": verify["projection_hash_sha256"],
             }
         )
-
         return result
 
     def task_state(self, task_id: str) -> dict[str, Any]:
-
         events = parse_event_store(self.root)
-
         # AUD-O1-010: estado local do replay, sem copiar todas as tarefas para montar as views.
         state = replay_state(events)
         run = projection_summary(state)
         tasks, sources = tasks_with_planned_plugins(self.root, state_tasks(state))
-
         task = require_task({"tasks": tasks}, task_id)
-
         status = task["status"]
-
         return {
             "task": task,
             "source": sources.get(task_id, "event_store"),
@@ -167,22 +168,14 @@ class TaskAdminMixin:
         }
 
     def dispatch_context(self, task_id: str) -> dict[str, Any]:
-
         events = parse_event_store(self.root)
-
         roadmap, issues, lessons = materialize(events)
         project_profile = project_profile_view(events)
-
         tasks, sources = tasks_with_planned_plugins(self.root, roadmap["tasks"])
-
         roadmap = {**roadmap, "tasks": tasks}
-
         task = require_task(roadmap, task_id)
-
         contract = load_agent_contract(self.root)
-
         schema = load_agent_result_schema(self.root)
-
         context = build_dispatch_context(
             roadmap,
             task,
@@ -192,15 +185,11 @@ class TaskAdminMixin:
             issues=issues.get("issues", []),
             project_profile=project_profile,
         )
-
         context["last_event_seq"] = roadmap["meta"]["run"]["last_event_seq"]
-
         context["source"] = sources.get(task_id, "event_store")
-
         runtime_capabilities = load_runtime_capabilities(self.root)
         if runtime_capabilities:
             context["runtime_capabilities"] = runtime_capabilities
-
         return context
 
     def claim_task(
@@ -212,18 +201,14 @@ class TaskAdminMixin:
         dry_run: bool = False,
         authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-
         admission = None if dry_run else self._admit_planned_task_if_needed(task_id)
-
         activity_event: dict[str, Any] = {
             "action": "claim",
             "task_id": task_id,
             "prior_status": "todo",
         }
-
         if notes:
             activity_event["notes"] = notes
-
         result = self._submit_command(
             {"activity_event": activity_event},
             actor=actor,
@@ -231,22 +216,18 @@ class TaskAdminMixin:
             dry_run=dry_run,
             authorization=authorization,
         )
-
         if admission:
             result["admission"] = {
                 "action": "task.create",
                 "task_id": task_id,
                 "events_appended": admission["events_appended"],
             }
-
             result["events_appended_total"] = result["events_appended"] + admission["events_appended"]
-
         should_notify = notify_transition
         if should_notify is None:
             should_notify = transition_messages_enabled_from_env()
         if should_notify and not dry_run and result.get("task", {}).get("status") == "in_progress":
             result["transition_notification"] = play_transition_message("in_progress")
-
         return result
 
     def complete_task(
@@ -263,12 +244,9 @@ class TaskAdminMixin:
         execution_id: str | None = None,
         authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-
         if not checks:
             raise ESAAError("INVALID_ARGUMENT", "complete requires at least one --check")
-
         task = self.task_state(task_id)["task"]
-
         activity_event: dict[str, Any] = {
             "action": "complete",
             "task_id": task_id,
@@ -276,25 +254,17 @@ class TaskAdminMixin:
             "notes": notes or f"Deterministic complete for {task_id}",
             "verification": {"checks": checks},
         }
-
         if execution_id is not None:
             activity_event["verification"]["execution_id"] = execution_id
-
         resolved_issue_id = issue_id or task.get("issue_id")
-
         resolved_fixes = fixes or task.get("fixes")
-
         if resolved_issue_id:
             activity_event["issue_id"] = resolved_issue_id
-
         if resolved_fixes:
             activity_event["fixes"] = resolved_fixes
-
         output: dict[str, Any] = {"activity_event": activity_event}
-
         if file_updates is not None:
             output["file_updates"] = file_updates
-
         result = self._submit_command(
             output, actor=actor, task_id=task_id, dry_run=dry_run, authorization=authorization
         )
@@ -317,7 +287,6 @@ class TaskAdminMixin:
         dry_run: bool = False,
         authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-
         previous_status = self.task_state(task_id)["task"]["status"]
         activity_event = {
             "action": "review",
@@ -328,18 +297,19 @@ class TaskAdminMixin:
         }
         if review_mode:
             activity_event["review_mode"] = review_mode
-
         result = self._submit_command(
-            {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run, authorization=authorization
+            {"activity_event": activity_event},
+            actor=actor,
+            task_id=task_id,
+            dry_run=dry_run,
+            authorization=authorization,
         )
         should_notify_transition = notify_transition
         if should_notify_transition is None:
             should_notify_transition = transition_messages_enabled_from_env()
-
         should_notify_completion = notify_completion
         if should_notify_completion is None:
             should_notify_completion = completion_alarm_enabled_from_env()
-
         final_status = result.get("task", {}).get("status")
         if (
             not dry_run
@@ -365,14 +335,10 @@ class TaskAdminMixin:
         fixes: str | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
-
         if not repro_steps:
             raise ESAAError("INVALID_ARGUMENT", "issue report requires at least one --repro-step")
-
         task = self.task_state(task_id)["task"]
-
         prior_status = task["status"]
-
         activity_event: dict[str, Any] = {
             "action": "issue.report",
             "task_id": task_id,
@@ -382,10 +348,8 @@ class TaskAdminMixin:
             "title": title,
             "evidence": {"symptom": symptom, "repro_steps": repro_steps},
         }
-
         if fixes:
             activity_event["fixes"] = fixes
-
         return self._submit_command(
             {"activity_event": activity_event}, actor=actor, task_id=task_id, dry_run=dry_run
         )
@@ -399,7 +363,6 @@ class TaskAdminMixin:
         dry_run: bool = False,
     ) -> dict[str, Any]:
         require_operator_runner(self.root, "reject")
-
         event = make_event(
             next_event_seq(parse_event_store(self.root)),
             actor="orchestrator",
@@ -411,7 +374,6 @@ class TaskAdminMixin:
                 "source_action": source_action,
             },
         )
-
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 
     def create_hotfix(
@@ -426,12 +388,11 @@ class TaskAdminMixin:
         executable_checks: list[str] | None = None,
     ) -> dict[str, Any]:
         require_operator_runner(self.root, "hotfix create")
-
         events = parse_event_store(self.root)
         if executable_checks is not None:
             from .verification_config import validate_check_ids
-            executable_checks = validate_check_ids(executable_checks, events)
 
+            executable_checks = validate_check_ids(executable_checks, events)
         # M-03: validacao agora ocorre dentro de build_hotfix_event.
         event = build_hotfix_event(
             events,
@@ -444,10 +405,10 @@ class TaskAdminMixin:
                 **({"executable_checks": executable_checks} if executable_checks is not None else {}),
             },
         )
-
         if event is None:
-            raise ESAAError("HOTFIX_ALREADY_EXISTS", f"HF-{issue_id} already exists; use state and task amend while todo")
-
+            raise ESAAError(
+                "HOTFIX_ALREADY_EXISTS", f"HF-{issue_id} already exists; use state and task amend while todo"
+            )
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 
     def resolve_issue(
@@ -457,41 +418,34 @@ class TaskAdminMixin:
         dry_run: bool = False,
     ) -> dict[str, Any]:
         require_operator_runner(self.root, "issue resolve")
-
         resolution: dict[str, Any] = {"status": "resolved_by_command"}
-
         if hotfix_task_id:
             resolution["hotfix_task_id"] = hotfix_task_id
-
         event = make_event(
             next_event_seq(parse_event_store(self.root)),
             actor="orchestrator",
             action="issue.resolve",
             payload={"issue_id": issue_id, "resolution": resolution},
         )
-
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 
     def _admit_planned_task_if_needed(self, task_id: str) -> dict[str, Any] | None:
-
         # AUD-O1-010: sem tarefa planejada com este id nao ha o que admitir; evita ler o log.
         planned = find_planned_plugin_task(self.root, task_id)
         if planned is None:
             return None
-
         events = parse_event_store(self.root)
         # Tarefas so nascem de task.create/hotfix.create; basta olhar esses eventos.
         if any(
-            e["action"] in {"task.create", "hotfix.create"} and (e.get("payload") or {}).get("task_id") == task_id
+            e["action"] in {"task.create", "hotfix.create"}
+            and (e.get("payload") or {}).get("task_id") == task_id
             for e in events
         ):
             return None
-
         event = make_event(
             next_event_seq(events),
             actor="orchestrator",
             action="task.create",
             payload=planned,
         )
-
         return self._commit_orchestrator_events([event], dry_run=False)

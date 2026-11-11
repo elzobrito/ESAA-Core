@@ -8,9 +8,9 @@ import socket
 import sys
 import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .compat import normalize_legacy_event
 from .constants import (
@@ -254,9 +254,7 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
     return parse_event_store_text(root, text, cache_key=str(path))
 
 
-def parse_event_store_text(
-    root: Path, text: str, *, cache_key: str | None = None
-) -> list[dict[str, Any]]:
+def parse_event_store_text(root: Path, text: str, *, cache_key: str | None = None) -> list[dict[str, Any]]:
     """Validate a supplied prefix without creating, truncating or projecting files.
 
     Repair uses the real root so identity and external trust cannot be bypassed
@@ -286,7 +284,9 @@ def parse_event_store_text(
         try:
             raw = raw_events[idx - 1] if raw_events is not None else json.loads(line)
         except json.JSONDecodeError as exc:
-            raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at line {idx}: {exc}; {JSONL_REPAIR_HINT}") from exc
+            raise CorruptedStoreError(
+                "JSONL_INVALID", f"invalid JSON at line {idx}: {exc}; {JSONL_REPAIR_HINT}"
+            ) from exc
 
         try:
             validate_identity_representation(raw)
@@ -340,7 +340,7 @@ def _lock_path(path: Path) -> Path:
 
 
 def _lock_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_lock_timestamp(value: Any) -> float | None:
@@ -369,7 +369,7 @@ def _pid_is_alive(pid: int) -> bool:
         return False
     if os.name == "nt":
         process_query_limited_information = 0x1000
-        windll = getattr(ctypes, "windll")
+        windll = cast(Any, ctypes).windll
         handle = windll.kernel32.OpenProcess(process_query_limited_information, False, pid)
         if not handle:
             return False
@@ -505,8 +505,10 @@ def append_events(
         current_events = parse_event_store(root)
         prepared = _prepare_events_for_append(current_events, events)
         from .identity_history import validate_identity_history
+
         validate_identity_history(root, current_events + prepared)
         from .trust_root import prepare_activation
+
         prepare_activation(root, current_events, current_events + prepared)
         serialized_lines = [
             json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in prepared
@@ -612,10 +614,14 @@ def append_transactional(
         # Validacao via materialize antes de persistir
         final_events = events + new_events
         from .identity_history import validate_identity_history
+
         validate_identity_history(root, final_events)
-        final_roadmap, final_issues, final_lessons = finalize_views(apply_events(state, new_events), copy=False)
+        final_roadmap, final_issues, final_lessons = finalize_views(
+            apply_events(state, new_events), copy=False
+        )
         final_project_profile = project_profile_view(final_events)
         from .trust_root import prepare_activation
+
         prepare_activation(root, events, final_events)
 
         # Append (reentrante sob lock atual; usa a logica de newline-guard)
@@ -640,6 +646,7 @@ def append_transactional(
         if after_append is not None:
             after_append()
         from .trust_root import advance_checkpoint
+
         advance_checkpoint(
             root,
             final_events,
@@ -652,7 +659,10 @@ def append_transactional(
         }
         if result_task_id is not None:
             from copy import deepcopy
-            result["task"] = deepcopy(next(t for t in final_roadmap["tasks"] if t["task_id"] == result_task_id))
+
+            result["task"] = deepcopy(
+                next(t for t in final_roadmap["tasks"] if t["task_id"] == result_task_id)
+            )
         return result
     finally:
         _release_store_lock(lock_path)

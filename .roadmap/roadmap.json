@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1923,
-      "projection_hash_sha256": "0fd9b0fe49cef11213564f91a549f3f4c97725261d1e2d2ee2868e8329fff55a",
+      "last_event_seq": 1939,
+      "projection_hash_sha256": "ba16934e8809da1955792addf3ac6eff770fae277782f7a243a661b60a903959",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T21:31:52Z"
+    "updated_at": "2026-11-11T22:00:38Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4398,7 +4398,7 @@
       "task_kind": "impl",
       "title": "CI completo: lint e formatacao em todo o codigo, mypy bloqueante, Windows, cobertura e pip-audit",
       "description": "Achados ENG-02, ENG-05 e SEC-04 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: o CI roda ruff e black em 3 de 66 arquivos, mypy nao bloqueia (9 erros em 4 arquivos), a matriz e so Linux e nao ha cobertura nem auditoria de dependencias. Depende das demais tarefas de codigo da Onda 1 porque a formatacao integral toca todos os arquivos. Entregar: commit mecanico de ruff check --fix e formatacao em src e tests; correcao dos 9 erros de mypy; ci.yml com lint em src e tests, mypy bloqueante, windows-latest na matriz, pytest com cobertura e limite igual ao valor medido, e job pip-audit; corrigir target-version para py311 em pyproject. Criterios de aceite: (1) ruff check e verificacao de formatacao em src e tests saem com exit 0; (2) mypy src/esaa sem erros e sem continue-on-error no CI; (3) ci.yml inclui windows-latest, cobertura com limite e pip-audit; (4) pytest -q passa e o hash de projecao do log real fica inalterado; Revisao exigida: release, por runner distinto do executor.",
-      "status": "todo",
+      "status": "review",
       "depends_on": [
         "AUD-O1-010",
         "AUD-O1-020",
@@ -4422,13 +4422,27 @@
       "boundary_grant": [
         ".github/workflows/ci.yml",
         "pyproject.toml"
-      ]
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T21:51:53Z",
+      "resource_limits": {
+        "max_file_updates": 124
+      },
+      "verification": {
+        "checks": [
+          "Full isolated candidate suite: 917 passed, 5 skipped in 185.75s; measured coverage 88.07%, enforced at that value in CI and verified via coverage report --fail-under=88.07.",
+          "ruff check src tests and black --check src tests pass across 202 Python files; mypy src/esaa succeeds for 75 modules. Four CI scope tests pass. Dependency audit in fresh isolated environment: no known vulnerabilities.",
+          "CI includes Linux/Windows x Python 3.11/3.12/3.13, blocking mypy, coverage gate and strict pip-audit; target py311. Remote Windows/CI execution not performed locally.",
+          "Historical replay unchanged at seq 1926, projection hash 3eae519ebe9a4e1ecd9557e7ce2972572523a8250e461fe61328eeeec24f79f1. 124 frozen file updates, 821 KB; release review intentionally deferred to agy by user.",
+          "User authorized policy ceiling 500; task.limits.set set max_file_updates=124 at seq1930. Candidate and current projector agree on real seq1932 hash7a0d368d14ae55679382a0d7d3d147f582dd30efbc4b0f7477d2fa305d3d9d9a."
+        ]
+      }
     }
   ],
   "indexes": {
     "by_status": {
       "done": 132,
-      "todo": 1
+      "review": 1
     },
     "by_kind": {
       "impl": 82,

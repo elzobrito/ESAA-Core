@@ -27,7 +27,7 @@ import json
 import os
 import stat
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +40,7 @@ ARTIFACT_DIR = ".roadmap/artifacts/file-effects"
 
 def _utc_now_iso() -> str:
 
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -138,7 +138,7 @@ def _assert_update_destination(root: Path, item: dict[str, Any]) -> None:
 
 
 def stage_file_updates(
-    root: Path, file_updates: list[dict[str, str]], task_id: str | None = None
+    root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Stage file_updates em .roadmap/staging/. Returns list of staged records."""
 
@@ -514,7 +514,7 @@ def recover_file_effects(root: Path, events: list[dict[str, Any]], dry_run: bool
 
 
 def stage_and_compute(
-    root: Path, file_updates: list[dict[str, str]], task_id: str | None = None
+    root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Atomico: stage + compute metadata + write_artifact em uma chamada.
 

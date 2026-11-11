@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
-from .runtime_policy import load_policy
 from .events import make_event
 from .file_effects import commit_staged, discard_staged
-from .projector import materialize
 from .project_profile import project_profile_view
+from .projector import materialize
 from .runtime_policy import (
     attempt_expired,
     is_blocked_by_max_attempts,
     is_in_cooldown,
+    load_policy,
     parse_duration,
 )
 from .seeds import (
@@ -43,7 +43,8 @@ class ExecutionMixin:
             self,
             base_events: list[dict[str, Any]],
             new_events: list[dict[str, Any]],
-            precommit: Any = None, postcommit: Any = None,
+            precommit: Any = None,
+            postcommit: Any = None,
         ) -> dict[str, Any]: ...
 
         def _accept_agent_output(
@@ -57,6 +58,7 @@ class ExecutionMixin:
             dry_run: bool,
             wave_write_set: list[str] | None = None,
             staged_file_effects: list[dict[str, Any]] | None = None,
+            limit_checks: list[tuple[dict[str, Any], list[dict[str, Any]]]] | None = None,
         ) -> int: ...
 
     def eligible(self) -> dict[str, Any]:
@@ -80,9 +82,10 @@ class ExecutionMixin:
 
         cooldown = parse_duration(policy.get("attempt_limits", {}).get("cooldown_between_attempts", "PT2M"))
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         ttl = parse_duration(policy.get("attempt_lifecycle", {}).get("ttl", "PT30M"))
+
         def stale_claim(task: dict[str, Any]) -> bool:
             try:
                 started = datetime.fromisoformat(str(task.get("started_at", "")).replace("Z", "+00:00"))
@@ -92,8 +95,8 @@ class ExecutionMixin:
 
         stale_claims = [
             {"task_id": t["task_id"], "assigned_to": t.get("assigned_to"), "started_at": t.get("started_at")}
-            for t in tasks if t.get("status") == "in_progress"
-            and stale_claim(t)
+            for t in tasks
+            if t.get("status") == "in_progress" and stale_claim(t)
         ]
         elig = []
 
@@ -184,7 +187,7 @@ class ExecutionMixin:
             effective_tasks, _ = tasks_with_planned_plugins(self.root, roadmap["tasks"])
             effective_roadmap = {**roadmap, "tasks": effective_tasks}
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # R2: filtra elegiveis por attempt_lifecycle
 
@@ -437,9 +440,15 @@ class ExecutionMixin:
         if not dry_run:
             try:
                 from .limit_revalidation import _revalidate_limits_under_lock
-                self._append_events_transactionally(events, new_events,
-                    precommit=lambda current: _revalidate_limits_under_lock(self.root, current, limit_checks, load_policy(self.root)),
-                    postcommit=lambda: commit_staged(self.root, staged_file_effects))
+
+                self._append_events_transactionally(
+                    events,
+                    new_events,
+                    precommit=lambda current: _revalidate_limits_under_lock(
+                        self.root, current, limit_checks, load_policy(self.root)
+                    ),
+                    postcommit=lambda: commit_staged(self.root, staged_file_effects),
+                )
             except Exception:
                 discard_staged(staged_file_effects)
                 raise

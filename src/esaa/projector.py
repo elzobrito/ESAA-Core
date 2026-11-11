@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 
+from .boundary_paths import validate_hotfix_scope_entries
 from .compat import normalize_legacy_verify_status
 from .constants import ESAA_VERSION, SCHEMA_VERSION
 from .errors import ESAAError
 from .state_machine import (
-    REJECT_IMMUTABLE_DONE,
     REJECT_LOCK,
-    REJECT_MISSING_CLAIM,
     REJECT_WORKFLOW_GATE,
     classify_transition,
 )
 from .utils import sha256_hex, utc_now_iso
-from .validator import validate_g07_review_mode, validate_g07_task_create_payload, validate_boundary_grant
-from .boundary_paths import validate_hotfix_scope_entries
+from .validator import validate_boundary_grant, validate_g07_review_mode, validate_g07_task_create_payload
 
 
 def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
@@ -46,8 +44,11 @@ def _new_task(payload: dict[str, Any]) -> dict[str, Any]:
             task[field] = deepcopy(payload[field])
     if "resource_limits" in payload:
         from .task_resource_limits import _validate
+
         try:
-            task["resource_limits"] = _validate(payload["resource_limits"], name="resource_limits", require_all=False)
+            task["resource_limits"] = _validate(
+                payload["resource_limits"], name="resource_limits", require_all=False
+            )
         except ValueError as exc:
             raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
     if payload.get("is_hotfix"):
@@ -130,7 +131,9 @@ def _apply_task_limits_set(state: dict[str, Any], payload: dict[str, Any]) -> No
     if task["status"] == "done":
         raise ESAAError("IMMUTABLE_DONE_VIOLATION", f"cannot change limits of done task: {task_id}")
     if task["status"] != "in_progress":
-        raise ESAAError("INVALID_TRANSITION", f"task.limits.set only allowed for in_progress tasks: {task_id}")
+        raise ESAAError(
+            "INVALID_TRANSITION", f"task.limits.set only allowed for in_progress tasks: {task_id}"
+        )
     previous = payload.get("previous")
     current = dict(task["resource_limits"]) if "resource_limits" in task else None
     if previous != current:
@@ -142,8 +145,11 @@ def _apply_task_limits_set(state: dict[str, Any], payload: dict[str, Any]) -> No
     if not isinstance(authorized_by, str) or not authorized_by.strip():
         raise ESAAError("SCHEMA_INVALID", "task.limits.set requires authorized_by")
     from .task_resource_limits import _validate
+
     try:
-        task["resource_limits"] = _validate(payload.get("resource_limits"), name="resource_limits", require_all=False)
+        task["resource_limits"] = _validate(
+            cast(dict[str, int], payload.get("resource_limits")), name="resource_limits", require_all=False
+        )
     except ValueError as exc:
         raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
     if not task["resource_limits"]:
@@ -209,8 +215,11 @@ def _apply_task_amend(state: dict[str, Any], payload: dict[str, Any]) -> None:
             task["required_verification"] = verification
     if "resource_limits" in payload:
         from .task_resource_limits import _validate
+
         try:
-            task["resource_limits"] = _validate(payload["resource_limits"], name="resource_limits", require_all=False)
+            task["resource_limits"] = _validate(
+                payload["resource_limits"], name="resource_limits", require_all=False
+            )
         except ValueError as exc:
             raise ESAAError("RESOURCE_LIMIT_INVALID", str(exc)) from exc
 
@@ -517,7 +526,9 @@ def materialize(
     return finalize_views(replay_state(events, project_name=project_name))
 
 
-def finalize_views(state: dict[str, Any], *, copy: bool = True) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def finalize_views(
+    state: dict[str, Any], *, copy: bool = True
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Views independentes por padrao; copy=False consome o estado local do append."""
     roadmap = _roadmap_view(state, copy=copy)
     state["indexes"] = deepcopy(roadmap["indexes"])

@@ -34,6 +34,8 @@ Homepage = "https://github.com/elzobrito/ESAA---Event-Sourcing-Agent-Architectur
 [project.optional-dependencies]
 dev = [
   "pytest>=8.2.0",
+  "pytest-cov>=5.0",
+  "pip-audit>=2.7",
   "build>=1.2.0",
   "twine>=5.1.0",
   "ruff>=0.4.0",
@@ -57,21 +59,27 @@ where = ["src"]
 [tool.setuptools.package-data]
 esaa = ["templates/*", "workspace/*"]
 
-# QUA-01: formatacao e lint - escopo adotado gradualmente (ver docs/spec/G01-hygiene-tooling-ci.md)
+# Lint and formatting cover all source and test files.
 [tool.black]
 line-length = 110
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
 ignore = ["E501"]  # comprimento de linha e responsabilidade do black
 
-# QUA-01: mypy pragmatico (job nao-bloqueante no CI inicialmente)
+# Type checking is a blocking CI gate.
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
 check_untyped_defs = false
+
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.report]
+precision = 2
