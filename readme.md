@@ -34,6 +34,29 @@ Em projetos existentes, escolha explicitamente preservar ou mesclar guias;
 `--force` sobrescreve os arquivos permitidos. Detalhes na referência CLI.
 Nenhum desses comandos autoriza publicação. O pacote permanece em beta.
 
+## Garantias por modo
+
+O ESAA separa, por decisão de arquitetura, o que vale sempre do que o operador
+liga quando o projeto pede mais rigor. O modo padrão privilegia adoção simples
+com um único operador; o modo endurecido é opt-in, por configuração.
+
+Valem nos dois modos: máquina de estados das tarefas, dependências exigidas no
+`claim`, boundaries de escrita por tipo de tarefa, efeitos de arquivo confinados
+ao workspace e lessons de agentes aguardando curadoria (`esaa lesson`).
+
+| Aspecto | Modo padrão | Modo endurecido (opt-in) |
+| --- | --- | --- |
+| Identidade do actor | Nome declarado em `--actor` | Chaves Ed25519 e autorização assinada, após `actor bootstrap` |
+| Executor e revisor | Papel de QA pelo nome do actor | `review_runner_separation: "enforce"` exige runner distinto |
+| Comandos de operador | Qualquer runner | `runner_validation: "strict"` exige runner `kind: human` |
+| Integridade do histórico | Replay e `verify` do conteúdo das projeções | `chain init` e pin de confiança externo ao workspace |
+
+No modo padrão, `--runner` e `--actor` são autodeclarados: registram
+proveniência e separam papéis, sem provar posse de chave. As duas chaves de
+política ficam em `.roadmap/RUNTIME_POLICY.yaml`. Limites, pré-requisitos e o
+estado da revisão de identidade estão no
+[modelo de ameaças](docs/security/threat-model.md).
+
 ## Documentação sob demanda
 
 | Necessidade | Referência |

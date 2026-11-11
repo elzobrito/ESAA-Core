@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1829,
-      "projection_hash_sha256": "89317c515b5d9ed6ff0af23593039e0aa5f45fd7059ee90d28cf6e4e26347b79",
+      "last_event_seq": 1852,
+      "projection_hash_sha256": "a9b4e013ab983ecb136f0ddcc64f30791611c550a96c00ebc54fcc47660599fc",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T12:04:45Z"
+    "updated_at": "2026-11-11T12:31:54Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4127,7 +4127,7 @@
       "task_kind": "impl",
       "title": "Replay sem custo quadratico: indice de tarefas e materializacao unica por comando",
       "description": "Achado ARQ-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: _task_by_id percorre a lista de tarefas a cada evento e submit rematerializa o log inteiro ate 6 vezes; com 50.000 eventos project/verify levam ~24s e task create passa de 120s. Indexar tarefas por task_id dentro de materialize e reduzir as rematerializacoes por comando aplicando os eventos candidatos de forma incremental. Nao mudar a forma das projecoes. Atencao aos limites de 500 linhas de submission.py e service_core.py. Criterios de aceite: (1) com log sintetico de 50.000 eventos, claim e verify terminam em menos de 3s cada; (2) hash de projecao e conteudo das tres projecoes do log real inalterados; (3) pytest -q passa; Revisao exigida: regression, por runner distinto do executor.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4140,7 +4140,9 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T12:09:07Z"
     },
     {
       "task_id": "AUD-O1-020",
@@ -4258,7 +4260,7 @@
       "task_kind": "impl",
       "title": "Validacao da RUNTIME_POLICY: chaves e valores desconhecidos, chaves reservadas",
       "description": "Achado FUN-01 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md e recomendacao do revisor da AUD-O0-020: o template declara dez chaves sem leitura no codigo (issue_escalation, verify_policy, on_limit_exceeded, on_ttl_exceeded e subchaves) e um valor invalido em review_runner_separation cai silenciosamente em off. Entregar: schema da politica distribuido com o pacote; load_policy rejeita chave desconhecida e valor invalido com POLICY_INVALID (falha fechada); as chaves sem implementacao saem do template ou ficam marcadas como reservadas no schema e na documentacao. Nao implementar escalonamento de issues nesta tarefa. Criterios de aceite: (1) review_runner_separation ou runner_validation com valor invalido retornam POLICY_INVALID; (2) chave desconhecida na politica retorna POLICY_INVALID; a politica ativa deste repositorio continua valida; (3) teste garante que toda chave do template e lida pelo codigo ou esta marcada como reservada; (4) pytest -q passa; Revisao exigida: governance, por runner distinto do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4272,14 +4274,24 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T12:09:06Z",
+      "verification": {
+        "checks": [
+          "pytest -q no candidato: 784 passed, 4 skipped (antes 741)",
+          "tests/test_policy_schema.py: 41 casos (enum invalido, chave desconhecida raiz e aninhada, YAML invalido, ausente/vazia, politica ativa do repo, bootstrap public e production, reservadas, inventario template x codigo x schema, CLI com exit 1 sem traceback)",
+          "politica ativa real: verify ok e eligible funcionam com o candidato; mypy com os mesmos 9 erros do baseline; ruff limpo em runtime_policy.py, reject_codes.py e nos testes novos"
+        ]
+      },
+      "completed_at": "2026-11-11T12:31:22Z"
     },
     {
       "task_id": "AUD-O1-090",
       "task_kind": "spec",
       "title": "Changelog b23 a b25 e Onda 0, garantias por modo no README e registro de drift de contratos",
       "description": "Achados DOC-01, DOC-02 e DOC-03 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: CHANGELOG.md para em 0.5.0b22 enquanto o pacote esta em 0.5.0b25; o README nao distingue o que vale no modo padrao do que vale com as opcoes de endurecimento; contratos ativos em .roadmap divergem dos templates sem registro. Entregar: entradas de changelog para b23, b24, b25 e para as mudancas da Onda 0 (incluindo o efeito da AUD-O0-060 em workspaces antigos: rodar esaa project); secao no README apresentando o modo padrao e o modo endurecido como decisoes de arquitetura, com as chaves review_runner_separation e runner_validation; docs/operations/contract-drift.md listando as divergencias aceitas entre .roadmap e src/esaa/templates. Criterios de aceite: (1) primeira secao versionada do CHANGELOG corresponde a PACKAGE_VERSION ou a uma secao Unreleased acima dela; (2) README tem a tabela modo padrao x modo endurecido sem tratar o padrao como defeito; (3) contract-drift.md lista cada arquivo divergente com o motivo; Revisao exigida: docs, por runner distinto do executor.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4294,7 +4306,17 @@
       },
       "boundary_grant": [
         "CHANGELOG.md"
-      ]
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-11-11T12:09:05Z",
+      "verification": {
+        "checks": [
+          "pytest -q na copia candidata: 741 passed, 4 skipped (baseline 741)",
+          "tests de README/distribuicao (test_public_beta_release, test_guidance_distribution, test_repository_hygiene, test_version_single_source): 55 passed",
+          "links relativos novos de readme.md e contract-drift.md conferidos contra arquivos existentes; enums de lessons.schema e diffs de contratos conferidos por script"
+        ]
+      },
+      "completed_at": "2026-11-11T12:31:54Z"
     },
     {
       "task_id": "AUD-O1-070",
@@ -4330,8 +4352,9 @@
   ],
   "indexes": {
     "by_status": {
-      "done": 124,
-      "todo": 9
+      "done": 126,
+      "in_progress": 1,
+      "todo": 6
     },
     "by_kind": {
       "impl": 82,

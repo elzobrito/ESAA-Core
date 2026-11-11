@@ -1,3 +1,44 @@
+## Unreleased
+
+Governance hardening from the 2026-11-10 technical audit (`docs/audit/ESAA-CORE-AUDIT-2026-11-10.md`). Protocol and storage versions are unchanged.
+
+- `claim` is rejected while any `depends_on` task is not `done` (`DEPENDENCY_NOT_DONE`) or when the task has `superseded_by` (`TASK_SUPERSEDED`). The rule applies at admission; historical claims keep replaying.
+- New optional policy key `review_runner_separation` (default `off`). With `enforce`, in legacy `qa_role` review mode, the runner that performed the current `claim` or `complete` of a task cannot review it (`SELF_REVIEW_FORBIDDEN`).
+- Lessons reported by agents through `issue.report` start as `proposed` and stay out of the dispatch context until the operator decides. New commands `esaa lesson list|approve|reject`; the decision is an `orchestrator.view.mutate` event (`change: lesson_status`). Lessons recorded by earlier versions keep replaying as `active`. The packaged `lessons.schema.json` accepts the `proposed` status.
+- With `runner_validation: strict`, operator commands (`task create`, `task amend`, `task set-limits`, `reject`, `issue resolve`, `hotfix create`, `activity clear`, lesson decisions) require a runner registered with `kind: human` (`OPERATOR_REQUIRED`). `permissive` (default) is unchanged.
+- `activity clear` records the previous log SHA-256, event count and backup path in the first event of the new log.
+- `actor=orchestrator` is rejected for every agent action submitted through `submit` (`ORCHESTRATOR_IMPERSONATION`).
+- File effects are confined to the resolved workspace root, or to the authorized external target root. Destinations that resolve outside it, pass through a non-directory component, or target a symlink or directory are rejected with `BOUNDARY_VIOLATION` before staging, artifacts or events.
+- `verify` compares the content of `roadmap.json`, `issues.json` and `lessons.json` with the event-store replay and reports `mismatch` with a `divergent` list; unreadable projections are reported as mismatch instead of raising.
+- Upgrade note: a workspace whose projections were written by an earlier version in a different shape may report `mismatch` until `esaa project` rebuilds them.
+- Governance property tests (`tests/test_governance_properties.py`) with evidence in `docs/qa/AUD-O0-governance.md`.
+
+## 0.5.0b25
+
+Beta that keeps the packaged policy ceilings historical. Recommended install over 0.5.0b23 and 0.5.0b24.
+
+- Packaged `RUNTIME_POLICY.yaml` ships without `resource_limit_caps`, so new workspaces keep the 32 updates / 2 MiB per update / 8 MiB total ceilings.
+- The `resource_limit_caps` in the ESAA-Core repository's own `.roadmap/RUNTIME_POLICY.yaml` remain an intentional workspace divergence from the packaged template.
+- Supersedes 0.5.0b24. Publication evidence: `docs/qa/core-binary-release-20261102.md`.
+
+## 0.5.0b24
+
+Intermediate beta, superseded by 0.5.0b25.
+
+- Added `resource_limit_caps` to the packaged `RUNTIME_POLICY.yaml` to match the live workspace policy.
+- Known issue: the packaged caps changed the default administrative ceiling and a policy regression test failed in CI; reverted in 0.5.0b25.
+
+## 0.5.0b23
+
+Beta with binary file effects and per-task resource limits. Superseded by 0.5.0b25.
+
+- Binary `file_updates` variant (`source`, `size`, `sha256`) applied by the Orchestrator; `esaa input binary` stages the input for a claimed task.
+- Per-task `resource_limits` through `--max-file-bytes`, `--max-total-bytes` and `--max-file-updates` on `task create` and `task amend`; optional `resource_limit_caps` policy ceilings.
+- `task set-limits`: audited `task.limits.set` event for an `in_progress` task, with `--reason` and `--authorized-by`.
+- `contract migrate` and `contract revert`: selective migration of the active schemas without `bootstrap --force`.
+- New reject codes `RESOURCE_LIMIT_INVALID`, `LIMITS_CHANGE_BLOCKED`, `CONTRACT_MIGRATE_CONFLICT` and `CONTRACT_MIGRATE_INVALID`.
+- Known issue: the packaged `RUNTIME_POLICY.yaml` did not match the live policy and the template parity test failed in CI.
+
 ## 0.5.0b22
 
 Beta with external trust pin, canonical actor principal, and preactivation evidence.
