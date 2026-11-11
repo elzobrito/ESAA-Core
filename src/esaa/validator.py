@@ -143,10 +143,13 @@ def _file_update_size(item: dict[str, Any]) -> int:
     return 0
 
 
-def validate_file_update_resource_limits(file_updates: list[dict[str, Any]], policy: dict[str, Any], task: dict[str, Any] | None = None) -> None:
+def validate_file_update_resource_limits(
+    file_updates: list[dict[str, Any]], policy: dict[str, Any], task: dict[str, Any] | None = None
+) -> None:
     limits = resource_limits_from_policy(policy)
     if task is not None and "resource_limits" in task:
         from .task_resource_limits import resolve_task_limits
+
         try:
             limits = resolve_task_limits(limits, policy.get("resource_limit_caps"), task["resource_limits"])
         except ValueError as exc:

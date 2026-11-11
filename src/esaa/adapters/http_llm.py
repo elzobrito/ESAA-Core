@@ -26,7 +26,7 @@ class HttpLlmAdapter(AgentAdapter):
         self.max_response_bytes = int(max_response_bytes)
 
     @classmethod
-    def from_env(cls) -> "HttpLlmAdapter":
+    def from_env(cls) -> HttpLlmAdapter:
         url = os.environ.get("ESAA_LLM_URL")
         if not url:
             raise ValueError("ESAA_LLM_URL is required for HttpLlmAdapter")

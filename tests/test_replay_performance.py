@@ -300,7 +300,7 @@ def test_changed_store_content_is_fully_validated_again(contract_bundle: Path, r
     assert len(parse_event_store(contract_bundle)) == len(lines)
 
 
-@pytest.mark.parametrize("line", ['{}, {}', '{"event_seq":1', '[]', 'null'])
+@pytest.mark.parametrize("line", ["{}, {}", '{"event_seq":1', "[]", "null"])
 def test_bulk_decode_preserves_line_validation(contract_bundle: Path, line: str) -> None:
     path = contract_bundle / ".roadmap" / "activity.jsonl"
     path.write_text(line + "\n", encoding="utf-8")
@@ -473,10 +473,19 @@ def test_acceptance_cli_claim_and_verify_50k(contract_bundle: Path, repo_root: P
             make_event(1, actor="orchestrator", action="verify.ok", payload={"projection_hash_sha256": "x"}),
         ]
         events.extend(cycle)
-    events.append(make_event(50_000, actor="orchestrator", action="task.create", payload={
-        "task_id": "T-NEXT", "task_kind": "impl", "title": "next",
-        "outputs": {"files": ["src/next.txt"]},
-    }))
+    events.append(
+        make_event(
+            50_000,
+            actor="orchestrator",
+            action="task.create",
+            payload={
+                "task_id": "T-NEXT",
+                "task_kind": "impl",
+                "title": "next",
+                "outputs": {"files": ["src/next.txt"]},
+            },
+        )
+    )
     for seq, event in enumerate(events, 1):
         event["event_seq"], event["event_id"] = seq, f"EV-{seq:08d}"
     assert len(events) == 50_000
@@ -486,8 +495,21 @@ def test_acceptance_cli_claim_and_verify_50k(contract_bundle: Path, repo_root: P
     for command in (["verify"], ["claim", "T-NEXT", "--actor", "agent-impl"]):
         started = time.perf_counter()
         result = subprocess.run(
-            [sys.executable, "-B", "-m", "esaa", "--root", str(contract_bundle), "--runner", env.get("ESAA_RUNNER_ID", "unattended"), *command],
-            env=env, capture_output=True, text=True, check=True,
+            [
+                sys.executable,
+                "-B",
+                "-m",
+                "esaa",
+                "--root",
+                str(contract_bundle),
+                "--runner",
+                env.get("ESAA_RUNNER_ID", "unattended"),
+                *command,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         elapsed = time.perf_counter() - started
         output = json.loads(result.stdout)

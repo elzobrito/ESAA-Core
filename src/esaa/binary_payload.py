@@ -2,6 +2,7 @@
 
 This module is a building block; it does not authorize or commit file effects.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,8 +43,15 @@ def stage_binary(root: Path, relative: str, staging: Path, *, size: int, sha256:
     staging must be a private directory owned by the orchestrator. Size and hash
     are checked against bytes actually copied, and failed stages are deleted.
     """
-    if (type(size) is not int or type(limit) is not int or size < 0 or limit < 0 or size > limit
-            or not isinstance(sha256, str) or not _HASH.fullmatch(sha256)):
+    if (
+        type(size) is not int
+        or type(limit) is not int
+        or size < 0
+        or limit < 0
+        or size > limit
+        or not isinstance(sha256, str)
+        or not _HASH.fullmatch(sha256)
+    ):
         raise ValueError("invalid size, limit or SHA-256")
     source_fd = _open_confined(Path(root), relative)
     staged_path = None

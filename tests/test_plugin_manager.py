@@ -10,10 +10,10 @@ from esaa.plugins import (
     activate_roadmap,
     effective_task_id,
     install_plugin,
-    load_active_roadmap_tasks,
     list_available_plugins,
     list_installed_plugins,
     list_roadmaps,
+    load_active_roadmap_tasks,
     remove_plugin,
     scaffold_plugin,
     validate_plugin,
@@ -71,9 +71,7 @@ def test_activate_roadmap_exposes_namespaced_tasks(tmp_path: Path, repo_root: Pa
     assert all(":" not in task["task_id"] for task in seed["tasks"])
 
 
-def test_activate_roadmap_preserves_validated_task_boundary_grant(
-    tmp_path: Path, repo_root: Path
-) -> None:
+def test_activate_roadmap_preserves_validated_task_boundary_grant(tmp_path: Path, repo_root: Path) -> None:
     plugin_dir = tmp_path / "sso-client"
     scaffold_plugin(tmp_path, "sso-client", repo_root=repo_root)
     roadmap_path = plugin_dir / "roadmap.template.json"

@@ -36,9 +36,7 @@ class _Handler(BaseHTTPRequestHandler):
                     "prior_status": "in_progress",
                     "verification": {"checks": ["http-adapter-ok"]},
                 },
-                "file_updates": [
-                    {"path": "docs/spec/T-1000.md", "content": "# HTTP adapter\n"}
-                ],
+                "file_updates": [{"path": "docs/spec/T-1000.md", "content": "# HTTP adapter\n"}],
             }
 
         body = json.dumps(response).encode("utf-8")
@@ -68,10 +66,12 @@ def test_http_llm_adapter_runs_claim_and_complete_against_fake_server(contract_b
         assert result["steps_executed"] == 2
         assert (contract_bundle / "docs/spec/T-1000.md").read_text(encoding="utf-8") == "# HTTP adapter\n"
         events = parse_event_store(contract_bundle)
-        assert [event["action"] for event in events if event["actor"] == "agent-http"] == ["claim", "complete"]
+        assert [event["action"] for event in events if event["actor"] == "agent-http"] == [
+            "claim",
+            "complete",
+        ]
         assert [context["expected_action"] for context in _Handler.contexts] == ["claim", "complete"]
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
-

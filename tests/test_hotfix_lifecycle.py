@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
 from esaa.service import ESAAService
 from esaa.store import parse_event_store
 

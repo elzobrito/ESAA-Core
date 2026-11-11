@@ -10,7 +10,6 @@ from esaa.dispatch import build_minimal_context, filter_lessons
 from esaa.events import make_event
 from esaa.projector import materialize
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -176,6 +175,4 @@ def test_projector_accepts_g07_lesson_without_legacy_applies_to() -> None:
     _, _, lessons_view = materialize(events)
 
     assert lessons_view["lessons"] == lessons
-    assert lessons_view["indexes"]["by_enforcement_applies_to"] == {
-        "require_review_mode": ["LES-0100"]
-    }
+    assert lessons_view["indexes"]["by_enforcement_applies_to"] == {"require_review_mode": ["LES-0100"]}

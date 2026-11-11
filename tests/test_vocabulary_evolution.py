@@ -39,4 +39,3 @@ def test_vocabulary_cli_is_read_only(contract_bundle: Path) -> None:
     assert result["canonical_profile"] == "core-v0.4.1"
     assert "paper-v0.3" in result["profiles"]
     assert activity_path.read_text(encoding="utf-8") == before
-

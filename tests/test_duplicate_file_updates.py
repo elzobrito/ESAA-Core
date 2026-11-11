@@ -5,6 +5,7 @@ aceito: o staging aplicava ambos os efeitos e o ultimo write vencia
 silenciosamente. Agora o Orchestrator rejeita com FILE_UPDATE_DUPLICATE_PATH
 apos a resolucao de edits e antes de resource limits / staging.
 """
+
 from __future__ import annotations
 
 import hashlib

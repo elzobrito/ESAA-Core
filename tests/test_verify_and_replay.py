@@ -35,4 +35,3 @@ def test_replay_until_seq(contract_bundle: Path) -> None:
     out = service.replay(until="2", write_views=False)
     assert out["events_replayed"] == 2
     assert out["last_event_seq"] == 2
-

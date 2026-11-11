@@ -1,4 +1,5 @@
 """Shared assertions for audited, unapplied agent deliveries (AUD-O1-050)."""
+
 from pathlib import Path
 
 from esaa.projector import materialize
@@ -14,8 +15,14 @@ def assert_only_rejection_events(root: Path, before: int | bytes, code: str, *, 
     else:
         start = before
     added = events[start:]
-    assert [event["action"] for event in added] == ["output.rejected", "verify.start", "verify.ok"] * repetitions
-    assert all(event["payload"]["error_code"] == code for event in added if event["action"] == "output.rejected")
+    assert [event["action"] for event in added] == [
+        "output.rejected",
+        "verify.start",
+        "verify.ok",
+    ] * repetitions
+    assert all(
+        event["payload"]["error_code"] == code for event in added if event["action"] == "output.rejected"
+    )
     # A rejection changes operational metadata only, never task status or content.
     old = materialize(events[:start])[0]
     new = materialize(events)[0]

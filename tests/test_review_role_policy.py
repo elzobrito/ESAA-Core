@@ -1,10 +1,11 @@
 """FIX-1807-QA — Independent QA review role policy."""
+
 from __future__ import annotations
 
 from pathlib import Path
-import yaml
 
 import pytest
+import yaml
 
 from esaa.errors import ESAAError
 from esaa.runtime_policy import resolve_role, review_authorization_mode
@@ -67,19 +68,36 @@ def test_owner_review_rejected_when_qa_role(contract_bundle: Path) -> None:
     # Invalida cache de policy
     svc._policy_cache = None
 
-    svc.submit({"activity_event": {
-        "action": "claim", "task_id": "T-1000", "prior_status": "todo"
-    }}, actor="agent-spec")
-    svc.submit({"activity_event": {
-        "action": "complete", "task_id": "T-1000", "prior_status": "in_progress",
-        "verification": {"checks": ["ok"]},
-    }, "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}]}, actor="agent-spec")
+    svc.submit(
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
+        actor="agent-spec",
+    )
+    svc.submit(
+        {
+            "activity_event": {
+                "action": "complete",
+                "task_id": "T-1000",
+                "prior_status": "in_progress",
+                "verification": {"checks": ["ok"]},
+            },
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}],
+        },
+        actor="agent-spec",
+    )
 
     with pytest.raises(ESAAError) as exc:
-        svc.submit({"activity_event": {
-            "action": "review", "task_id": "T-1000", "prior_status": "review",
-            "decision": "approve", "tasks": ["T-1000"],
-        }}, actor="agent-spec")
+        svc.submit(
+            {
+                "activity_event": {
+                    "action": "review",
+                    "task_id": "T-1000",
+                    "prior_status": "review",
+                    "decision": "approve",
+                    "tasks": ["T-1000"],
+                }
+            },
+            actor="agent-spec",
+        )
     assert exc.value.code == "REVIEW_ROLE_VIOLATION"
 
 
@@ -90,19 +108,36 @@ def test_qa_actor_can_review_when_qa_role(contract_bundle: Path) -> None:
     _setup_qa_role_policy(contract_bundle)
     svc._policy_cache = None
 
-    svc.submit({"activity_event": {
-        "action": "claim", "task_id": "T-1000", "prior_status": "todo"
-    }}, actor="agent-spec")
-    svc.submit({"activity_event": {
-        "action": "complete", "task_id": "T-1000", "prior_status": "in_progress",
-        "verification": {"checks": ["ok"]},
-    }, "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}]}, actor="agent-spec")
+    svc.submit(
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
+        actor="agent-spec",
+    )
+    svc.submit(
+        {
+            "activity_event": {
+                "action": "complete",
+                "task_id": "T-1000",
+                "prior_status": "in_progress",
+                "verification": {"checks": ["ok"]},
+            },
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}],
+        },
+        actor="agent-spec",
+    )
 
     # agent-qa faz review (nao foi o owner)
-    r = svc.submit({"activity_event": {
-        "action": "review", "task_id": "T-1000", "prior_status": "review",
-        "decision": "approve", "tasks": ["T-1000"],
-    }}, actor="agent-qa")
+    r = svc.submit(
+        {
+            "activity_event": {
+                "action": "review",
+                "task_id": "T-1000",
+                "prior_status": "review",
+                "decision": "approve",
+                "tasks": ["T-1000"],
+            }
+        },
+        actor="agent-qa",
+    )
     assert r["status"] == "accepted"
 
 
@@ -111,15 +146,32 @@ def test_default_owner_mode_backward_compat(contract_bundle: Path) -> None:
     svc = ESAAService(contract_bundle)
     svc.init(force=True, with_demo_tasks=True)
 
-    svc.submit({"activity_event": {
-        "action": "claim", "task_id": "T-1000", "prior_status": "todo"
-    }}, actor="agent-spec")
-    svc.submit({"activity_event": {
-        "action": "complete", "task_id": "T-1000", "prior_status": "in_progress",
-        "verification": {"checks": ["ok"]},
-    }, "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}]}, actor="agent-spec")
-    r = svc.submit({"activity_event": {
-        "action": "review", "task_id": "T-1000", "prior_status": "review",
-        "decision": "approve", "tasks": ["T-1000"],
-    }}, actor="agent-spec")
+    svc.submit(
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
+        actor="agent-spec",
+    )
+    svc.submit(
+        {
+            "activity_event": {
+                "action": "complete",
+                "task_id": "T-1000",
+                "prior_status": "in_progress",
+                "verification": {"checks": ["ok"]},
+            },
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}],
+        },
+        actor="agent-spec",
+    )
+    r = svc.submit(
+        {
+            "activity_event": {
+                "action": "review",
+                "task_id": "T-1000",
+                "prior_status": "review",
+                "decision": "approve",
+                "tasks": ["T-1000"],
+            }
+        },
+        actor="agent-spec",
+    )
     assert r["status"] == "accepted"

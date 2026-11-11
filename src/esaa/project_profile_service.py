@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
 from .events import make_event
-from .projector import materialize
 from .project_profile import (
     build_onboarding_tasks,
     normalize_project_profile,
     project_profile_view,
     validate_project_profile,
 )
+from .projector import materialize
 from .store import load_project_profile, next_event_seq, parse_event_store
 
 
@@ -34,11 +34,15 @@ class ProjectProfileMixin:
     def onboard(self, answers: dict[str, Any], dry_run: bool = False) -> dict[str, Any]:
         roadmap_dir = self.root / ".roadmap"
         if not roadmap_dir.is_dir():
-            raise ESAAError("ROADMAP_DIR_MISSING", f".roadmap not found under {self.root}; run esaa bootstrap first")
+            raise ESAAError(
+                "ROADMAP_DIR_MISSING", f".roadmap not found under {self.root}; run esaa bootstrap first"
+            )
 
         schema_path = roadmap_dir / "project_profile.schema.json"
         if not schema_path.exists():
-            schema_path = Path(str(resources.files("esaa").joinpath("templates", "project_profile.schema.json")))
+            schema_path = Path(
+                str(resources.files("esaa").joinpath("templates", "project_profile.schema.json"))
+            )
 
         events = parse_event_store(self.root)
         roadmap, _, _ = materialize(events)
@@ -68,7 +72,9 @@ class ProjectProfileMixin:
         ]
 
         seq = next_event_seq(events)
-        candidate_events = [make_event(seq, actor="orchestrator", action="project.profile.set", payload=profile)]
+        candidate_events = [
+            make_event(seq, actor="orchestrator", action="project.profile.set", payload=profile)
+        ]
         seq += 1
         for task in tasks:
             candidate_events.append(make_event(seq, actor="orchestrator", action="task.create", payload=task))

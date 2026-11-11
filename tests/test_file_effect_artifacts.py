@@ -1,4 +1,5 @@
 """FIX-1808-QA — File effect artifact auditability (content-addressed)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -37,7 +38,7 @@ def test_before_after_hash_for_existing_file(tmp_path: Path) -> None:
 
 def test_bytes_and_encoding_in_metadata(tmp_path: Path) -> None:
     meta = compute_file_metadata(tmp_path, "x.md", "ola\n")
-    expected_bytes = len("ola\n".encode("utf-8"))
+    expected_bytes = len(b"ola\n")
     assert meta["bytes"] == expected_bytes
     assert meta["encoding"] == "utf-8"
 

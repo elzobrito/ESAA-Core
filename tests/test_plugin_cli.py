@@ -13,15 +13,20 @@ def test_plugin_cli_install_and_roadmap_activate(tmp_path, repo_root, capsys) ->
     installed = json.loads(capsys.readouterr().out)
     assert installed["status"] == "installed"
 
-    assert main([
-        "--root",
-        str(tmp_path),
-        "roadmap",
-        "activate",
-        "sso-client",
-        "--execution-id",
-        "default",
-    ]) == 0
+    assert (
+        main(
+            [
+                "--root",
+                str(tmp_path),
+                "roadmap",
+                "activate",
+                "sso-client",
+                "--execution-id",
+                "default",
+            ]
+        )
+        == 0
+    )
     activated = json.loads(capsys.readouterr().out)
     assert activated["status"] == "active"
     assert activated["execution_id"] == "default"

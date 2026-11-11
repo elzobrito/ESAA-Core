@@ -137,9 +137,12 @@ class VerificationMixin:
             "status": (
                 "cancelled"
                 if any(r["status"] == "cancelled" for r in results)
-                else "passed"
-                if len(results) == len(prepared["checks"]) and all(r["status"] == "passed" for r in results)
-                else "failed"
+                else (
+                    "passed"
+                    if len(results) == len(prepared["checks"])
+                    and all(r["status"] == "passed" for r in results)
+                    else "failed"
+                )
             ),
             "results": results,
         }

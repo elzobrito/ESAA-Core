@@ -4,6 +4,7 @@ RF01: transicoes locais; RF02: IMMUTABLE_DONE_VIOLATION; RF03: request_changes;
 RF04: slice_schema; RF05: dep_interfaces; RF06: filter_lessons/issues;
 RF07: PRIOR_STATUS_MISMATCH.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,10 +35,12 @@ def _load_schema() -> dict:
 
 def _load_contract() -> dict:
     import yaml
+
     return yaml.safe_load((ROOT / ".roadmap/AGENT_CONTRACT.yaml").read_text(encoding="utf-8"))
 
 
 # --- Maquina de estado ------------------------------------------------------
+
 
 def test_expected_action_per_status():
     assert expected_action_for("todo") == "claim"
@@ -66,6 +69,7 @@ def test_classify_transition_reject_codes():
 
 # --- RF04: slice_schema -----------------------------------------------------
 
+
 def test_slice_schema_for_claim_omits_complete_and_file_updates():
     schema = _load_schema()
     sliced = slice_schema(schema, {"claim", "issue.report"})
@@ -90,13 +94,26 @@ def test_slice_schema_for_complete_keeps_file_updates():
 
 # --- RF05: dep_interfaces ---------------------------------------------------
 
+
 def test_dep_interfaces_returns_only_done_deps():
-    roadmap = {"tasks": [
-        {"task_id": "A", "task_kind": "spec", "title": "Spec A", "status": "done",
-         "outputs": {"files": ["docs/spec/A.md"]}},
-        {"task_id": "B", "task_kind": "impl", "title": "Impl B", "status": "todo",
-         "outputs": {"files": ["src/B.py"]}},
-    ]}
+    roadmap = {
+        "tasks": [
+            {
+                "task_id": "A",
+                "task_kind": "spec",
+                "title": "Spec A",
+                "status": "done",
+                "outputs": {"files": ["docs/spec/A.md"]},
+            },
+            {
+                "task_id": "B",
+                "task_kind": "impl",
+                "title": "Impl B",
+                "status": "todo",
+                "outputs": {"files": ["src/B.py"]},
+            },
+        ]
+    }
     task = {"task_id": "C", "depends_on": ["A", "B"]}
     deps = dep_interfaces(roadmap, task)
     assert [d["task_id"] for d in deps] == ["A"]  # B nao esta done
@@ -105,19 +122,26 @@ def test_dep_interfaces_returns_only_done_deps():
 
 # --- RF06: filter_lessons / filter_issues -----------------------------------
 
+
 def test_filter_lessons_respects_task_kind_and_applies_to():
     lessons = [
-        {"lesson_id": "LES-1", "status": "active",
-         "scope": {"task_kinds": ["impl"]},
-         "enforcement": {"mode": "reject", "applies_to": "output_contract"},
-         "rule": "regra X"},
-        {"lesson_id": "LES-2", "status": "active",
-         "scope": {"task_kinds": ["qa"]},
-         "enforcement": {"mode": "reject", "applies_to": "workflow_gate"},
-         "rule": "regra Y"},
+        {
+            "lesson_id": "LES-1",
+            "status": "active",
+            "scope": {"task_kinds": ["impl"]},
+            "enforcement": {"mode": "reject", "applies_to": "output_contract"},
+            "rule": "regra X",
+        },
+        {
+            "lesson_id": "LES-2",
+            "status": "active",
+            "scope": {"task_kinds": ["qa"]},
+            "enforcement": {"mode": "reject", "applies_to": "workflow_gate"},
+            "rule": "regra Y",
+        },
     ]
     out = filter_lessons(lessons, task_kind="impl", expected_action="complete")
-    assert [l["lesson_id"] for l in out] == ["LES-1"]
+    assert [lesson["lesson_id"] for lesson in out] == ["LES-1"]
 
 
 def test_filter_issues_only_open_and_linked():
@@ -132,14 +156,22 @@ def test_filter_issues_only_open_and_linked():
 
 # --- Integracao: build_minimal_context muda com o estado --------------------
 
+
 def test_minimal_context_changes_with_state():
     schema = _load_schema()
     contract = _load_contract()
     roadmap = {"meta": {"master_correlation_id": None}, "tasks": []}
 
-    todo_task = {"task_id": "T-1", "task_kind": "impl", "status": "todo",
-                 "depends_on": [], "title": "X", "description": "Y",
-                 "targets": [], "outputs": {"files": ["src/X.py"]}}
+    todo_task = {
+        "task_id": "T-1",
+        "task_kind": "impl",
+        "status": "todo",
+        "depends_on": [],
+        "title": "X",
+        "description": "Y",
+        "targets": [],
+        "outputs": {"files": ["src/X.py"]},
+    }
     ctx_todo = build_minimal_context(roadmap, todo_task, contract, schema, lessons=[], issues=[])
     assert ctx_todo["expected_action"] == "claim"
     assert "boundaries" not in ctx_todo  # sem boundaries em claim

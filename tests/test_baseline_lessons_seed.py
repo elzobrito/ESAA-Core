@@ -1,4 +1,5 @@
 """FIX-1813-QA — Baseline lessons reseed."""
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,7 @@ from esaa.store import parse_event_store
 
 
 def test_baseline_lessons_constant_has_three_lessons() -> None:
-    ids = {l["lesson_id"] for l in BASELINE_LESSONS}
+    ids = {lesson["lesson_id"] for lesson in BASELINE_LESSONS}
     assert ids == {"LES-0001", "LES-0002", "LES-0003"}
 
 
@@ -26,14 +27,15 @@ def test_init_appends_baseline_lessons_event(contract_bundle: Path) -> None:
     svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     matching = [
-        e for e in events
+        e
+        for e in events
         if e["action"] == "orchestrator.view.mutate"
         and (e.get("payload") or {}).get("target") == "lessons"
         and "lessons" in (e.get("payload") or {})
     ]
     assert len(matching) >= 1
     lessons = matching[0]["payload"]["lessons"]
-    ids = {l["lesson_id"] for l in lessons}
+    ids = {lesson["lesson_id"] for lesson in lessons}
     assert ids == {"LES-0001", "LES-0002", "LES-0003"}
 
 
@@ -43,11 +45,11 @@ def test_lessons_json_has_three_active_lessons_after_init(contract_bundle: Path)
     data = json.loads((contract_bundle / ".roadmap" / "lessons.json").read_text(encoding="utf-8"))
     lessons = data.get("lessons", [])
     assert len(lessons) >= 3
-    ids = {l["lesson_id"] for l in lessons}
+    ids = {lesson["lesson_id"] for lesson in lessons}
     assert {"LES-0001", "LES-0002", "LES-0003"}.issubset(ids)
-    for l in lessons:
-        if l["lesson_id"] in {"LES-0001", "LES-0002", "LES-0003"}:
-            assert l.get("status") == "active"
+    for lesson in lessons:
+        if lesson["lesson_id"] in {"LES-0001", "LES-0002", "LES-0003"}:
+            assert lesson.get("status") == "active"
 
 
 def test_lessons_survive_clean_replay(contract_bundle: Path) -> None:
@@ -56,5 +58,5 @@ def test_lessons_survive_clean_replay(contract_bundle: Path) -> None:
     svc.init(force=True, with_demo_tasks=True)
     events = parse_event_store(contract_bundle)
     _, _, lessons_view = materialize(events)
-    ids = {l["lesson_id"] for l in lessons_view["lessons"]}
+    ids = {lesson["lesson_id"] for lesson in lessons_view["lessons"]}
     assert {"LES-0001", "LES-0002", "LES-0003"}.issubset(ids)

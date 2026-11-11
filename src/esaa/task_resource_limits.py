@@ -1,4 +1,5 @@
 """Strict per-task resource limit resolution independent of persistence."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -20,8 +21,11 @@ def _validate(values: Mapping[str, int], *, name: str, require_all: bool) -> dic
     return result
 
 
-def resolve_task_limits(defaults: Mapping[str, int], ceilings: Mapping[str, int] | None = None,
-                        requested: Mapping[str, int] | None = None) -> dict[str, int]:
+def resolve_task_limits(
+    defaults: Mapping[str, int],
+    ceilings: Mapping[str, int] | None = None,
+    requested: Mapping[str, int] | None = None,
+) -> dict[str, int]:
     """Resolve explicit task limits under operator ceilings; absent caps equal defaults.
 
     The caller must use verified workspace policy and validate the returned limits

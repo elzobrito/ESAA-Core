@@ -1,4 +1,5 @@
 """HF-ISS-ESAA-B21-LEGACY-ABS-SCOPE — legacy absolute scope_patch replay."""
+
 from __future__ import annotations
 
 import json
@@ -14,15 +15,33 @@ LEGACY_SCOPE = "/home/user/.local/share/applications/"
 
 
 def _drive_to_done(svc: ESAAService, task_id: str = "T-1000", actor: str = "agent-spec") -> None:
-    svc.submit({"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}}, actor=actor)
-    svc.submit({"activity_event": {
-        "action": "complete", "task_id": task_id, "prior_status": "in_progress",
-        "verification": {"checks": ["ok"]},
-    }, "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}]}, actor=actor)
-    svc.submit({"activity_event": {
-        "action": "review", "task_id": task_id, "prior_status": "review",
-        "decision": "approve", "tasks": [task_id],
-    }}, actor=actor)
+    svc.submit(
+        {"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}}, actor=actor
+    )
+    svc.submit(
+        {
+            "activity_event": {
+                "action": "complete",
+                "task_id": task_id,
+                "prior_status": "in_progress",
+                "verification": {"checks": ["ok"]},
+            },
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "#\n"}],
+        },
+        actor=actor,
+    )
+    svc.submit(
+        {
+            "activity_event": {
+                "action": "review",
+                "task_id": task_id,
+                "prior_status": "review",
+                "decision": "approve",
+                "tasks": [task_id],
+            }
+        },
+        actor=actor,
+    )
 
 
 def _hotfix_store(root: Path) -> ESAAService:

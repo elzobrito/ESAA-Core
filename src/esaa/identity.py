@@ -109,14 +109,24 @@ def load_authorization(blob: Any) -> dict[str, Any]:
             raise ESAAError("ACTOR_AUTH_FAILED", f"authorization payload missing {field}")
     if not isinstance(payload["scope"], dict):
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization scope must be an object")
-    if set(blob) != {"payload", "signature_hex"} or set(payload) != {"alg", "nonce", "operation", "project_id", "scope"}:
+    if set(blob) != {"payload", "signature_hex"} or set(payload) != {
+        "alg",
+        "nonce",
+        "operation",
+        "project_id",
+        "scope",
+    }:
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization has unknown fields")
     if not all(isinstance(payload[k], str) for k in ("alg", "nonce", "operation", "project_id")):
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization fields must be strings")
     if not isinstance(blob["signature_hex"], str):
         raise ESAAError("ACTOR_AUTH_FAILED", "signature must be a string")
-    canonical = canonical_authorization_payload(operation=payload["operation"],
-        project_id=payload["project_id"], nonce=payload["nonce"], scope=payload["scope"])
+    canonical = canonical_authorization_payload(
+        operation=payload["operation"],
+        project_id=payload["project_id"],
+        nonce=payload["nonce"],
+        scope=payload["scope"],
+    )
     if payload != canonical:
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization payload is not canonical")
     _parse_hex(signature_hex, "signature_hex")
@@ -144,7 +154,9 @@ def project_registry(events: list[dict[str, Any]]) -> dict[str, Any]:
         payload = event.get("payload") or {}
         auth = payload.get("authorization") or payload.get("_authorization")
         if isinstance(auth, dict):
-            nonce = str((auth.get("payload") or {}).get("nonce") or payload.get("nonce") or "").strip().lower()
+            nonce = (
+                str((auth.get("payload") or {}).get("nonce") or payload.get("nonce") or "").strip().lower()
+            )
             if nonce:
                 used_nonces.add(nonce)
         if action == "actor.bootstrap":
@@ -230,6 +242,7 @@ def verify_privileged_authorization(
         if registry["active"]:
             raise ESAAError("ACTOR_BOOTSTRAP_EXISTS", "bootstrap authority is already established")
         from .trust_root import require_pin_for_activation
+
         pin = require_pin_for_activation(root)
         anchor = load_anchor(root)
         if payload["project_id"] != pin["fingerprint_sha256"]:
@@ -381,7 +394,9 @@ def authorize_actor_transition(
     expected_scope = {"actor_id": actor, "task_id": task_id}
     auth = load_authorization(authorization)
     if auth["payload"]["operation"] != operation:
-        raise ESAAError("ACTOR_AUTH_FAILED", f"authorization operation mismatch: {auth['payload']['operation']}")
+        raise ESAAError(
+            "ACTOR_AUTH_FAILED", f"authorization operation mismatch: {auth['payload']['operation']}"
+        )
     if auth["payload"]["scope"] != expected_scope:
         raise ESAAError("ACTOR_AUTH_FAILED", "authorization scope does not match the requested operation")
     if auth["payload"]["project_id"] != registry["bootstrap"]["fingerprint_sha256"]:
@@ -479,7 +494,9 @@ def authorize_review_event(
         }
 
     if authorization is not None:
-        raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract")
+        raise ESAAError(
+            "ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract"
+        )
     extras: dict[str, Any] = {}
     mode = review_authorization_mode(policy)
     role = resolve_role(actor, root=root)
@@ -526,7 +543,9 @@ def authorize_agent_event(
         registry = project_registry(events)
         if not registry["active"]:
             if authorization is not None:
-                raise ESAAError("ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract")
+                raise ESAAError(
+                    "ACTOR_BOOTSTRAP_REQUIRED", "supplied authorization requires an active identity contract"
+                )
             return {}
         assert_anchor_matches_registry(root, registry)
         extras = authorize_actor_transition(

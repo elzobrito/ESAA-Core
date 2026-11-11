@@ -203,7 +203,9 @@ def _activated(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, 
         role="qa",
         authorization_scope=["review"],
         actor_public_key_hex=reviewer_pub,
-        authorization=_register_auth(owner, anchor["fingerprint_sha256"], "bb" * 16, "reviewer-qa", "qa", reviewer_pub),
+        authorization=_register_auth(
+            owner, anchor["fingerprint_sha256"], "bb" * 16, "reviewer-qa", "qa", reviewer_pub
+        ),
     )
     svc.register_actor(
         actor_id="agent-spec",
@@ -211,7 +213,13 @@ def _activated(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, 
         authorization_scope=["claim"],
         actor_public_key_hex=spec_pub,
         authorization=_register_auth(
-            owner, anchor["fingerprint_sha256"], "b0" * 16, "agent-spec", "implementation", spec_pub, ["claim"]
+            owner,
+            anchor["fingerprint_sha256"],
+            "b0" * 16,
+            "agent-spec",
+            "implementation",
+            spec_pub,
+            ["claim"],
         ),
     )
     return svc, {
@@ -239,9 +247,7 @@ def test_history_without_bootstrap_keeps_qa_role_review(tmp_path: Path, repo_roo
 def test_bootstrap_and_independent_review(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
     _ready_task(svc, keys=keys)
-    auth = _review_auth(
-        keys["reviewer"], keys["project_id"], "cc" * 16, "reviewer-qa", "T-1000", "approve"
-    )
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "cc" * 16, "reviewer-qa", "T-1000", "approve")
     result = svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth)
     assert result["status"] == "accepted"
     assert result["task"]["status"] == "done"
@@ -307,9 +313,7 @@ def test_anchor_substitution_rejected(tmp_path: Path, repo_root: Path) -> None:
     _ready_task(svc, keys=keys)
     attacker, attacker_pub = _key()
     _write_anchor(tmp_path, attacker_pub)
-    auth = _review_auth(
-        keys["reviewer"], keys["project_id"], "11" * 16, "reviewer-qa", "T-1000", "approve"
-    )
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "11" * 16, "reviewer-qa", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth)
     assert exc.value.code == "ANCHOR_MISMATCH"
@@ -357,9 +361,7 @@ def test_claimant_qa_cannot_self_approve(tmp_path: Path, repo_root: Path) -> Non
 def test_orchestrator_impersonation_rejected(tmp_path: Path, repo_root: Path) -> None:
     svc, keys = _activated(tmp_path, repo_root)
     _ready_task(svc, keys=keys)
-    auth = _review_auth(
-        keys["reviewer"], keys["project_id"], "66" * 16, "orchestrator", "T-1000", "approve"
-    )
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "66" * 16, "orchestrator", "T-1000", "approve")
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="orchestrator", decision="approve", authorization=auth)
     assert exc.value.code == "ORCHESTRATOR_IMPERSONATION"
@@ -414,9 +416,7 @@ def test_dry_run_review_validates_identity(tmp_path: Path, repo_root: Path) -> N
     with pytest.raises(ESAAError) as exc:
         svc.review_task("T-1000", actor="reviewer-qa", decision="approve", dry_run=True)
     assert exc.value.code == "ACTOR_AUTH_FAILED"
-    auth = _review_auth(
-        keys["reviewer"], keys["project_id"], "ab" * 16, "reviewer-qa", "T-1000", "approve"
-    )
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "ab" * 16, "reviewer-qa", "T-1000", "approve")
     result = svc.review_task(
         "T-1000", actor="reviewer-qa", decision="approve", authorization=auth, dry_run=True
     )
@@ -424,7 +424,9 @@ def test_dry_run_review_validates_identity(tmp_path: Path, repo_root: Path) -> N
     assert len(parse_event_store(tmp_path)) == before
 
 
-def test_cli_actor_register_exists_and_bootstrap_roundtrip(tmp_path: Path, repo_root: Path, monkeypatch) -> None:
+def test_cli_actor_register_exists_and_bootstrap_roundtrip(
+    tmp_path: Path, repo_root: Path, monkeypatch
+) -> None:
     _copy_runtime(tmp_path, repo_root)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ESAA_RUNNER_ID", "grok")

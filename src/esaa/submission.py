@@ -51,11 +51,14 @@ def _normalize_file_updates(root: Path, file_updates: list[dict[str, Any]]) -> l
     return normalized
 
 
-def _dry_run_file_effects(root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None) -> list[dict[str, Any]]:
+def _dry_run_file_effects(
+    root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None
+) -> list[dict[str, Any]]:
     effects: list[dict[str, Any]] = []
     for item in file_updates:
         if "binary" in item:
             from .binary_dry_run import dry_run_binary
+
             effects.append(dry_run_binary(root, item, task_id))
             continue
         extra = {
@@ -77,6 +80,7 @@ def _dry_run_file_effects(root: Path, file_updates: list[dict[str, Any]], task_i
         effects.append(meta)
     return effects
 
+
 def _file_write_payload(task_id: str, effects: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "task_id": task_id,
@@ -84,23 +88,23 @@ def _file_write_payload(task_id: str, effects: list[dict[str, Any]]) -> dict[str
         "effects": effects,
     }
 
+
 class SubmissionMixin:
     if TYPE_CHECKING:
         root: Path
         adapter: AgentAdapter
 
         def _policy(self) -> dict[str, Any]: ...
-
         def task_state(self, task_id: str) -> dict[str, Any]: ...
-
         def _append_events_transactionally(
             self,
             base_events: list[dict[str, Any]],
             new_events: list[dict[str, Any]],
-            precommit: Any = None, postcommit: Any = None, base_hash: str | None = None,
+            precommit: Any = None,
+            postcommit: Any = None,
+            base_hash: str | None = None,
             result_task_id: str | None = None,
         ) -> dict[str, Any]: ...
-
     def _submit_command(
         self,
         output: dict[str, Any],
@@ -109,9 +113,9 @@ class SubmissionMixin:
         dry_run: bool,
         authorization: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-
-        return self.submit(output, actor=actor, dry_run=dry_run, authorization=authorization,
-                           include_task=not dry_run)
+        return self.submit(
+            output, actor=actor, dry_run=dry_run, authorization=authorization, include_task=not dry_run
+        )
 
     def submit(
         self,
@@ -119,9 +123,9 @@ class SubmissionMixin:
         actor: str,
         dry_run: bool = False,
         authorization: dict[str, Any] | None = None,
-        *, include_task: bool = False,
+        *,
+        include_task: bool = False,
     ) -> dict[str, Any]:
-
         events = parse_event_store(self.root)
         contract = load_agent_contract(self.root)
         schema = load_agent_result_schema(self.root)
@@ -138,32 +142,24 @@ class SubmissionMixin:
             if t["task_id"] == task_id:
                 task = deepcopy(t)  # retrato anterior aos candidatos
                 break
-
         if not task:
             raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
-
         # R2: bloqueia se ja atingiu max_attempts
-
         policy = self._policy()
         max_attempts = policy.get("attempt_limits", {}).get("max_attempts_per_task", 3)
-
         if is_blocked_by_max_attempts(events, task_id, max_attempts):
-
             raise ESAAError(
                 "MAX_ATTEMPTS_EXCEEDED", f"task {task_id} reached {max_attempts} penalizing rejections"
             )
-
         # G08/PROV-02: valida runner contra o registro do swarm quando strict
         from .runtime_policy import validate_runner_id
 
         validate_runner_id(resolve_runner()["runner_id"], root=self.root, policy=policy)
-
         current_seq = next_event_seq(events)
         new_events: list[dict[str, Any]] = []
         files_written = 0
         staged_file_effects: list[dict[str, Any]] = []
         effects_for_result: list[dict[str, Any]] = []
-
         try:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
             if validated_event["action"] == "claim":
@@ -174,6 +170,7 @@ class SubmissionMixin:
             file_updates = resolve_external_file_updates(self.root, task, file_updates)
             validate_resolved_file_boundaries(file_updates, contract, task)
             from .identity import authorize_agent_event
+
             validated_event.update(
                 authorize_agent_event(
                     root=self.root,
@@ -186,20 +183,18 @@ class SubmissionMixin:
                     policy=policy,
                 )
             )
-
             agent_event = make_event(
                 current_seq, actor=actor, action=validated_event["action"], payload=validated_event
             )
-
             candidate_events = [agent_event]
-
             apply_events(state, [agent_event])
-
             if file_updates:
                 if dry_run:
                     effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
                 else:
-                    staged_file_effects, effects = stage_and_compute(self.root, file_updates, task_id=task["task_id"])
+                    staged_file_effects, effects = stage_and_compute(
+                        self.root, file_updates, task_id=task["task_id"]
+                    )
                 write_event = make_event(
                     current_seq + 1,
                     actor="orchestrator",
@@ -210,85 +205,77 @@ class SubmissionMixin:
                 candidate_events.append(write_event)
                 apply_events(state, [write_event])
                 files_written += len(file_updates)
-
             if validated_event["action"] == "issue.report":
                 # M-03: validacao interna em build_hotfix_event (raise_on_invalid=True).
                 hotfix_event = build_hotfix_event(events + candidate_events, validated_event)
                 if hotfix_event:
                     candidate_events.append(hotfix_event)
                     apply_events(state, [hotfix_event])
-
             if validated_event["action"] == "review":
-
                 resolve_event = build_issue_resolve_event(events + candidate_events, task, validated_event)
-
                 if resolve_event:
-
                     candidate_events.append(resolve_event)
-
                     apply_events(state, [resolve_event])
-
             new_events.extend(candidate_events)
         except Exception as exc:
             discard_staged(staged_file_effects)
-            record_submission_rejection(self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization)
+            record_submission_rejection(
+                self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization
+            )
             raise
-
         all_events = events + new_events
-
         verify_start = make_event(
             next_event_seq(all_events), actor="orchestrator", action="verify.start", payload={"strict": True}
         )
-
         all_events.append(verify_start)
-
         new_events.append(verify_start)
-
         from .identity_history import validate_identity_history
+
         if dry_run:  # Real writes authenticate the final history under the store lock.
             validate_identity_history(self.root, all_events)
         apply_events(state, [verify_start])
-
         if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
-
             run_end = make_event(
                 next_event_seq(all_events),
                 actor="orchestrator",
                 action="run.end",
                 payload={"status": "success"},
             )
-
             all_events.append(run_end)
-
             new_events.append(run_end)
-
             apply_events(state, [run_end])
-
         verify_ok = make_event(
             next_event_seq(all_events),
             actor="orchestrator",
             action="verify.ok",
             payload={"projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]},
         )
-
         all_events.append(verify_ok)
-
         new_events.append(verify_ok)
-
         final_run = projection_summary(apply_events(state, [verify_ok]))
-
         if not dry_run:
             try:
-                committed = self._append_events_transactionally(events, new_events, base_hash=base_hash,
+                committed = self._append_events_transactionally(
+                    events,
+                    new_events,
+                    base_hash=base_hash,
                     result_task_id=task_id if include_task else None,
                     precommit=lambda current: revalidate_submission(self.root, current, task, file_updates),
-                    postcommit=lambda: commit_staged(self.root, staged_file_effects))
+                    postcommit=lambda: commit_staged(self.root, staged_file_effects),
+                )
             except Exception as exc:
                 discard_staged(staged_file_effects)
-                record_submission_rejection(self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization)
+                record_submission_rejection(
+                    self.root,
+                    exc,
+                    activity_event,
+                    actor,
+                    events,
+                    dry_run=dry_run,
+                    authorization=authorization,
+                )
                 raise
             final_run.update({key: committed[key] for key in ("last_event_seq", "projection_hash_sha256")})
-
         result = {
             "status": "dry_run" if dry_run else "accepted",
             "actor": actor,
@@ -322,73 +309,39 @@ class SubmissionMixin:
         return result
 
     def process(self, dry_run: bool = False) -> dict[str, Any]:
-
         inbox = self.root / ".roadmap" / "inbox"
-
         if not inbox.exists():
-
             return {"processed": 0, "accepted": 0, "rejected": 0, "results": []}
-
         done_dir = inbox / "done"
-
         rejected_dir = inbox / "rejected"
-
         done_dir.mkdir(parents=True, exist_ok=True)
-
         rejected_dir.mkdir(parents=True, exist_ok=True)
-
         files = sorted(inbox.glob("*.json"))
-
         results: list[dict[str, Any]] = []
-
         accepted = 0
-
         rejected = 0
-
         for filepath in files:
-
             name = filepath.stem
-
             if "__" in name:
-
                 actor, _task_id = name.split("__", 1)
-
             else:
-
                 actor = "agent-external"
-
             try:
-
                 agent_output = json.loads(filepath.read_text(encoding="utf-8"))
-
                 result = self.submit(agent_output, actor=actor, dry_run=dry_run)
-
                 results.append(result)
-
                 accepted += 1
-
                 if not dry_run:
-
                     filepath.rename(done_dir / filepath.name)
-
             except (ESAAError, json.JSONDecodeError) as exc:
-
                 error_info = {"status": "rejected", "file": filepath.name, "error": str(exc)}
-
                 if isinstance(exc, ESAAError):
-
                     error_info["error_code"] = exc.code
-
                     error_info["error"] = exc.message
-
                 results.append(error_info)
-
                 rejected += 1
-
                 if not dry_run:
-
                     filepath.rename(rejected_dir / filepath.name)
-
         return {"processed": len(files), "accepted": accepted, "rejected": rejected, "results": results}
 
     def _accept_agent_output(
@@ -428,7 +381,10 @@ class SubmissionMixin:
                 task_payload["resource_limits"] = dict(task["resource_limits"])
             if task.get("executable_checks"):
                 from .verification_config import validate_check_ids
-                task_payload["executable_checks"] = validate_check_ids(task["executable_checks"], events + new_events)
+
+                task_payload["executable_checks"] = validate_check_ids(
+                    task["executable_checks"], events + new_events
+                )
             candidate_events.append(
                 make_event(current_seq, actor="orchestrator", action="task.create", payload=task_payload)
             )
@@ -438,9 +394,9 @@ class SubmissionMixin:
         )
         candidate_events.append(agent_event)
         from .identity_history import validate_identity_history
+
         validate_identity_history(self.root, events + new_events + candidate_events)
         _ = materialize(events + new_events + candidate_events)
-
         files_written = 0
         local_staged: list[dict[str, Any]] = []
         accepted_write_set: list[str] = []
@@ -452,12 +408,12 @@ class SubmissionMixin:
                     raise ESAAError(
                         "WRITE_CONFLICT", json.dumps(conflict, ensure_ascii=False, sort_keys=True)
                     )
-
                 if dry_run:
                     effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
                 else:
-                    local_staged, effects = stage_and_compute(self.root, file_updates, task_id=task["task_id"])
-
+                    local_staged, effects = stage_and_compute(
+                        self.root, file_updates, task_id=task["task_id"]
+                    )
                 write_event = make_event(
                     next_event_seq(events + new_events + candidate_events),
                     actor="orchestrator",
@@ -468,14 +424,12 @@ class SubmissionMixin:
                 _ = materialize(events + new_events + candidate_events)
                 files_written += len(file_updates)
                 accepted_write_set = current_write_set
-
             if activity_event["action"] == "issue.report":
                 # M-03: validacao interna em build_hotfix_event (raise_on_invalid=True).
                 hotfix_event = build_hotfix_event(events + new_events + candidate_events, activity_event)
                 if hotfix_event:
                     candidate_events.append(hotfix_event)
                     _ = materialize(events + new_events + candidate_events)
-
             if activity_event["action"] == "review":
                 resolve_event = build_issue_resolve_event(
                     events + new_events + candidate_events, task, activity_event
@@ -483,7 +437,6 @@ class SubmissionMixin:
                 if resolve_event:
                     candidate_events.append(resolve_event)
                     _ = materialize(events + new_events + candidate_events)
-
             if staged_file_effects is not None:
                 staged_file_effects.extend(local_staged)
             if wave_write_set is not None:

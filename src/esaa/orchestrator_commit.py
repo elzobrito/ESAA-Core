@@ -22,8 +22,11 @@ def prepare_orchestrator_events(
     pending: list[dict[str, Any]] = []
     first_seq = next_event_seq(events)
     for candidate in candidates:
-        event = {**candidate, "event_seq": first_seq + len(pending),
-                 "event_id": f"EV-{first_seq + len(pending):08d}"}
+        event = {
+            **candidate,
+            "event_seq": first_seq + len(pending),
+            "event_id": f"EV-{first_seq + len(pending):08d}",
+        }
         if event["action"] in {"task.create", "hotfix.create"}:
             task_id = event["payload"]["task_id"]
             if task_id in known_ids:
@@ -38,16 +41,26 @@ def prepare_orchestrator_events(
     event = make_event(first_seq + len(pending), "orchestrator", "verify.start", {"strict": True})
     apply_events(state, [event])
     pending.append(event)
-    event = make_event(first_seq + len(pending), "orchestrator", "verify.ok", {
-        "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"],
-    })
+    event = make_event(
+        first_seq + len(pending),
+        "orchestrator",
+        "verify.ok",
+        {
+            "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"],
+        },
+    )
     pending.append(event)
     return pending
 
 
 def commit_orchestrator_events(
-    root: Path, candidates: list[dict[str, Any]], append_transactionally: Any,
-    *, dry_run: bool = False, precommit: Any = None, postcommit: Any = None,
+    root: Path,
+    candidates: list[dict[str, Any]],
+    append_transactionally: Any,
+    *,
+    dry_run: bool = False,
+    precommit: Any = None,
+    postcommit: Any = None,
     lock_max_age: float = 120.0,
 ) -> dict[str, Any]:
     if not candidates:
@@ -72,13 +85,19 @@ def commit_orchestrator_events(
         committed = append_transactionally(root, build, lock_max_age=lock_max_age, after_append=postcommit)
     first = pending[0]
     result = {
-        "status": "dry_run" if dry_run else "accepted", "actor": first["actor"],
-        "action": first["action"], "event_id": first["event_id"],
-        **committed, "verify_status": "ok",
+        "status": "dry_run" if dry_run else "accepted",
+        "actor": first["actor"],
+        "action": first["action"],
+        "event_id": first["event_id"],
+        **committed,
+        "verify_status": "ok",
     }
     if dry_run:
-        result.update(would_append_events=len(pending), simulated_last_event_seq=result["last_event_seq"],
-                      simulated_projection_hash_sha256=result["projection_hash_sha256"])
+        result.update(
+            would_append_events=len(pending),
+            simulated_last_event_seq=result["last_event_seq"],
+            simulated_projection_hash_sha256=result["projection_hash_sha256"],
+        )
     for key in ("task_id", "issue_id", "error_code", "source_action"):
         if key in first["payload"]:
             result[key] = first["payload"][key]
@@ -86,12 +105,15 @@ def commit_orchestrator_events(
 
 
 def refresh_verification_hashes(
-    events: list[dict[str, Any]], pending: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+    pending: list[dict[str, Any]],
 ) -> None:
     """Rebind verification records when a stale submission is retried on a new prefix."""
     state = replay_state(events)
     for event in pending:
         if event["action"] == "verify.ok":
-            event["payload"] = {**event["payload"],
-                                "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]}
+            event["payload"] = {
+                **event["payload"],
+                "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"],
+            }
         apply_events(state, [event])

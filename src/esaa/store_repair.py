@@ -68,7 +68,11 @@ def _repair_locked(root: Path, path: Path, *, dry_run: bool) -> dict[str, Any]:
         "truncated_bytes": len(fragment),
     }
     if not fragment:
-        compared = compare_projections(root, {"roadmap.json": roadmap, "issues.json": issues, "lessons.json": lessons}, ignore_updated_at=not events)
+        compared = compare_projections(
+            root,
+            {"roadmap.json": roadmap, "issues.json": issues, "lessons.json": lessons},
+            ignore_updated_at=not events,
+        )
         try:
             profile_matches = load_project_profile(root) == profile
         except (ValueError, OSError):
@@ -77,7 +81,14 @@ def _repair_locked(root: Path, path: Path, *, dry_run: bool) -> dict[str, Any]:
         return result
     backup = f".roadmap/backups/tail-{uuid4().hex}.txt"
     # Validate every destination before the first write (including symlinks).
-    destinations = [backup, EVENT_STORE_PATH, ".roadmap/roadmap.json", ".roadmap/issues.json", ".roadmap/lessons.json", ".roadmap/project_profile.json"]
+    destinations = [
+        backup,
+        EVENT_STORE_PATH,
+        ".roadmap/roadmap.json",
+        ".roadmap/issues.json",
+        ".roadmap/lessons.json",
+        ".roadmap/project_profile.json",
+    ]
     for relative in destinations:
         assert_confined_destination(root, relative)
     result["backup_path"] = backup

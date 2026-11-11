@@ -1,4 +1,5 @@
 """Consumer guidance must work without the ESAA-Core checkout or its docs tree."""
+
 from __future__ import annotations
 
 import json
@@ -72,7 +73,11 @@ def test_profile_identity_and_top_level_compatibility(name: str) -> None:
     packaged = yaml.safe_load((REPO / "src/esaa/templates" / name).read_text())
     assert set(packaged) == set(active)
     assert packaged["parcer_profile"] == active["parcer_profile"]
-    role_key = "persona" if "persona" in active else "agent_profile" if "agent_profile" in active else "runtime_actor"
+    role_key = (
+        "persona"
+        if "persona" in active
+        else "agent_profile" if "agent_profile" in active else "runtime_actor"
+    )
     assert packaged[role_key]["role"]
 
 
@@ -92,6 +97,14 @@ def test_bilingual_runner_examples_are_identical_and_valid() -> None:
 
 
 def test_bilingual_runtime_supplement_examples_are_identical() -> None:
-    pt = (REPO / "docs/guides/esaa-cli-reference.md").read_text().split("## Arquitetura e operações do runtime\n", 1)[1]
-    en = (REPO / "docs/guides/esaa-cli-reference.en.md").read_text().split("## Runtime architecture and operations\n", 1)[1]
+    pt = (
+        (REPO / "docs/guides/esaa-cli-reference.md")
+        .read_text()
+        .split("## Arquitetura e operações do runtime\n", 1)[1]
+    )
+    en = (
+        (REPO / "docs/guides/esaa-cli-reference.en.md")
+        .read_text()
+        .split("## Runtime architecture and operations\n", 1)[1]
+    )
     assert FENCE.findall(pt) == FENCE.findall(en)

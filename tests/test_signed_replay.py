@@ -1,28 +1,35 @@
 """Historical signature regressions; every edit is confined to tmp_path."""
+
 import copy
 import json
 
 import pytest
+from test_actor_registration import _activated, _ready_task, _review_auth
 
 from esaa.errors import ESAAError
 from esaa.events import make_event
-from esaa.store import append_events, compute_event_hash, parse_event_store, init_hash_chain
+from esaa.store import append_events, compute_event_hash, init_hash_chain, parse_event_store
 from esaa.utils import canonical_json_bytes
-from test_actor_registration import _activated, _ready_task, _review_auth, _sign
 
 
 def _reviewed(tmp_path, repo_root):
     svc, keys = _activated(tmp_path, repo_root)
     _ready_task(svc, keys=keys)
-    svc.review_task("T-1000", actor="reviewer-qa", decision="approve",
-        authorization=_review_auth(keys["reviewer"], keys["project_id"], "cc" * 16,
-                                   "reviewer-qa", "T-1000", "approve"))
+    svc.review_task(
+        "T-1000",
+        actor="reviewer-qa",
+        decision="approve",
+        authorization=_review_auth(
+            keys["reviewer"], keys["project_id"], "cc" * 16, "reviewer-qa", "T-1000", "approve"
+        ),
+    )
     return svc, keys
 
 
 def _write(root, events):
     (root / ".roadmap/activity.jsonl").write_text(
-        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events), encoding="utf-8")
+        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events), encoding="utf-8"
+    )
 
 
 def _auth(event):
@@ -31,7 +38,9 @@ def _auth(event):
 
 
 @pytest.mark.parametrize("action", ["actor.bootstrap", "actor.register", "review"])
-@pytest.mark.parametrize("tamper", ["signature", "missing", "project", "operation", "scope", "nonce", "alg", "type"])
+@pytest.mark.parametrize(
+    "tamper", ["signature", "missing", "project", "operation", "scope", "nonce", "alg", "type"]
+)
 def test_invalid_historical_auth_is_not_legacy(tmp_path, repo_root, action, tamper):
     svc, _ = _reviewed(tmp_path, repo_root)
     events = parse_event_store(tmp_path)
@@ -65,19 +74,23 @@ def test_recalculated_hash_chain_does_not_replace_signature(tmp_path, repo_root)
     init_hash_chain(tmp_path)
     # An event after the chain anchor must have both hashes recomputed.
     from esaa.events import make_event
+
     events = parse_event_store(tmp_path)
-    append_events(tmp_path, [make_event(len(events) + 1, actor="orchestrator",
-                                      action="verify.start", payload={"strict": True})])
+    append_events(
+        tmp_path,
+        [make_event(len(events) + 1, actor="orchestrator", action="verify.start", payload={"strict": True})],
+    )
     events = parse_event_store(tmp_path)
     bootstrap = next(e for e in events if e["action"] == "actor.bootstrap")
     _auth(bootstrap)["signature_hex"] = "00" * 64
     import hashlib
+
     anchor = next(e for e in events if e["action"] == "chain.anchor")
     n = anchor["payload"]["anchored_through_seq"]
     raw = "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events[:n])
     anchor["payload"]["anchor_sha256"] = hashlib.sha256(raw.encode()).hexdigest()
     prev = anchor["payload"]["anchor_sha256"]
-    for event in events[anchor["event_seq"]:]:
+    for event in events[anchor["event_seq"] :]:
         event["prev_event_hash"] = prev
         event["event_hash"] = compute_event_hash(event)
         prev = event["event_hash"]
@@ -116,8 +129,12 @@ def test_candidate_append_rejects_unsigned_review_without_effect(tmp_path, repo_
     events = parse_event_store(tmp_path)
     path = tmp_path / ".roadmap/activity.jsonl"
     before = path.read_bytes()
-    forged = make_event(len(events) + 1, actor="reviewer-qa", action="review",
-        payload={"task_id": "T-1000", "tasks": ["T-1000"], "decision": "approve"})
+    forged = make_event(
+        len(events) + 1,
+        actor="reviewer-qa",
+        action="review",
+        payload={"task_id": "T-1000", "tasks": ["T-1000"], "decision": "approve"},
+    )
     with pytest.raises(ESAAError):
         append_events(tmp_path, [forged])
     assert path.read_bytes() == before
@@ -138,13 +155,13 @@ def test_valid_history_replay_deterministic_and_dryrun_rejects_invalid(tmp_path,
     svc, keys = _activated(tmp_path, repo_root)
     _ready_task(svc, keys=keys)
     before = (tmp_path / ".roadmap/activity.jsonl").read_bytes()
-    auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16,
-                       "reviewer-qa", "T-1000", "approve")
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16, "reviewer-qa", "T-1000", "approve")
     invalid = copy.deepcopy(auth)
     invalid["signature_hex"] = "00" * 64
     with pytest.raises(ESAAError, match="signature"):
-        svc.review_task("T-1000", actor="reviewer-qa", decision="approve",
-                        authorization=invalid, dry_run=True)
+        svc.review_task(
+            "T-1000", actor="reviewer-qa", decision="approve", authorization=invalid, dry_run=True
+        )
     assert (tmp_path / ".roadmap/activity.jsonl").read_bytes() == before
     one = svc.replay(write_views=False)
     two = svc.replay(write_views=False)
@@ -156,11 +173,16 @@ def test_dryrun_cannot_broaden_signed_review_to_other_tasks(tmp_path, repo_root)
     svc, keys = _activated(tmp_path, repo_root)
     _ready_task(svc, keys=keys)
     before = (tmp_path / ".roadmap/activity.jsonl").read_bytes()
-    auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16,
-                       "reviewer-qa", "T-1000", "approve")
+    auth = _review_auth(keys["reviewer"], keys["project_id"], "dd" * 16, "reviewer-qa", "T-1000", "approve")
     with pytest.raises(ESAAError):
-        svc.review_task("T-1000", actor="reviewer-qa", decision="approve",
-                        tasks=["T-1000", "T-1001"], authorization=auth, dry_run=True)
+        svc.review_task(
+            "T-1000",
+            actor="reviewer-qa",
+            decision="approve",
+            tasks=["T-1000", "T-1001"],
+            authorization=auth,
+            dry_run=True,
+        )
     assert (tmp_path / ".roadmap/activity.jsonl").read_bytes() == before
 
 
@@ -205,7 +227,9 @@ def test_data_only_legacy_representation_preserved(tmp_path, repo_root):
     assert svc.verify()["verify_status"] == "ok"
 
 
-@pytest.mark.parametrize("tamper", ["unknown_actor", "wrong_key", "wrong_role", "scope_signed", "project_signed", "unknown_field"])
+@pytest.mark.parametrize(
+    "tamper", ["unknown_actor", "wrong_key", "wrong_role", "scope_signed", "project_signed", "unknown_field"]
+)
 def test_valid_signature_cannot_bypass_context(tmp_path, repo_root, tamper):
     svc, keys = _reviewed(tmp_path, repo_root)
     events = parse_event_store(tmp_path)
@@ -245,8 +269,13 @@ def test_duplicate_bootstrap_rejected_by_history(tmp_path, repo_root):
 
 def test_candidate_gate_also_rejects_discardable_signed_metadata(tmp_path):
     from esaa.identity_history import validate_identity_history
-    event = {"action": "review", "event_seq": 1, "actor": "agent-qa",
-             "payload": {"task_id": "T", "decision": "approve"},
-             "data": {"_authorization": {"signature_hex": "invalid"}}}
+
+    event = {
+        "action": "review",
+        "event_seq": 1,
+        "actor": "agent-qa",
+        "payload": {"task_id": "T", "decision": "approve"},
+        "data": {"_authorization": {"signature_hex": "invalid"}},
+    }
     with pytest.raises(ESAAError):
         validate_identity_history(tmp_path, [event])

@@ -6,11 +6,11 @@ from typing import Any
 from .boundary_paths import validate_hotfix_scope_entries
 from .constants import SCHEMA_VERSION
 from .errors import ESAAError
-from .validator import validate_boundary_grant
 from .projector import materialize
 from .provenance import resolve_runner
 from .store import next_event_seq
 from .utils import utc_now_iso
+from .validator import validate_boundary_grant
 
 
 def make_event(event_seq: int, actor: str, action: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -157,14 +157,20 @@ def build_hotfix_event(
             "depends_on": [],
             "targets": [issue_id],
             "outputs": issue_payload.get("outputs", {"files": [f"src/hotfix/{hotfix_task_id}.txt"]}),
-            **({"boundary_grant": validate_boundary_grant(issue_payload["boundary_grant"])} if "boundary_grant" in issue_payload else {}),
-            **({"executable_checks": issue_payload["executable_checks"]} if "executable_checks" in issue_payload else {}),
+            **(
+                {"boundary_grant": validate_boundary_grant(issue_payload["boundary_grant"])}
+                if "boundary_grant" in issue_payload
+                else {}
+            ),
+            **(
+                {"executable_checks": issue_payload["executable_checks"]}
+                if "executable_checks" in issue_payload
+                else {}
+            ),
             "is_hotfix": True,
             "issue_id": issue_id,
             "fixes": fixes,
-            "scope_patch": validate_hotfix_scope_entries(
-                issue_payload.get("scope_patch", ["src/hotfix/"])
-            ),
+            "scope_patch": validate_hotfix_scope_entries(issue_payload.get("scope_patch", ["src/hotfix/"])),
             "required_verification": issue_payload.get("required_verification", ["unit", "regression"]),
             "baseline_id": issue_payload.get("affected", {}).get("baseline_id", "B-000"),
         },

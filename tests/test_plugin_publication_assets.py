@@ -9,7 +9,11 @@ from esaa.plugins import list_available_plugins
 
 def test_publication_bundle_does_not_require_bundled_plugins(repo_root: Path) -> None:
     bundled_dir = repo_root / "src" / "esaa" / "bundled_plugins"
-    ids = {plugin["id"] for plugin in list_available_plugins(repo_root, source_filter="bundled") if plugin.get("valid", True)}
+    ids = {
+        plugin["id"]
+        for plugin in list_available_plugins(repo_root, source_filter="bundled")
+        if plugin.get("valid", True)
+    }
 
     assert bundled_dir.exists()
     assert ids == set()

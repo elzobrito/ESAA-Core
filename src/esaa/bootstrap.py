@@ -73,7 +73,9 @@ def bootstrap_workspace(
     if profile not in PROFILES:
         raise ESAAError("BOOTSTRAP_PROFILE_INVALID", f"profile must be one of {sorted(PROFILES)}")
     if preserve_guides and merge_guides:
-        raise ESAAError("BOOTSTRAP_FLAGS_CONFLICT", "--preserve-guides and --merge-guides are mutually exclusive")
+        raise ESAAError(
+            "BOOTSTRAP_FLAGS_CONFLICT", "--preserve-guides and --merge-guides are mutually exclusive"
+        )
 
     root = Path(root)
     roadmap_dir = root / ".roadmap"
@@ -86,7 +88,9 @@ def bootstrap_workspace(
         (target_rel, root / target_rel, "workspace", source_name)
         for source_name, target_rel in AGENT_GUIDE_TEMPLATE_FILES
     ]
-    existing_targets = governance_targets if preserve_guides or merge_guides else [*governance_targets, *guide_targets]
+    existing_targets = (
+        governance_targets if preserve_guides or merge_guides else [*governance_targets, *guide_targets]
+    )
     existing = [rel for rel, path, _kind, _source in existing_targets if path.exists()]
     if existing and not force:
         raise ESAAError(

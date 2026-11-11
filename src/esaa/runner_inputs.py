@@ -21,7 +21,9 @@ def _commands_dir(root: Path) -> Path:
 def _runner_id(value: str | None = None) -> str:
     runner_id = (value or resolve_runner()["runner_id"] or "").strip()
     if not runner_id or not _RUNNER_ID_RE.fullmatch(runner_id):
-        raise ESAAError("RUNNER_INVALID", "runner_id must contain only letters, digits, dot, underscore, or dash")
+        raise ESAAError(
+            "RUNNER_INVALID", "runner_id must contain only letters, digits, dot, underscore, or dash"
+        )
     return runner_id
 
 

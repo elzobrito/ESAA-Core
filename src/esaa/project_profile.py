@@ -36,8 +36,7 @@ def _string_list(value: Any) -> list[str]:
 def detect_guide_topology(root: Path) -> dict[str, Any]:
     return {
         "guides": [
-            {"path": path, "exists": (root / path).exists(), "role": role}
-            for path, role in GUIDE_PATHS
+            {"path": path, "exists": (root / path).exists(), "role": role} for path, role in GUIDE_PATHS
         ]
     }
 
@@ -87,8 +86,7 @@ def normalize_project_profile(root: Path, payload: dict[str, Any]) -> dict[str, 
         or _existing_paths(root, SOURCE_CANDIDATES),
         "output_surfaces": _string_list(payload.get("output_surfaces"))
         or _existing_paths(root, OUTPUT_CANDIDATES, "/**"),
-        "protected_paths": _string_list(payload.get("protected_paths"))
-        or list(PROTECTED_DEFAULTS),
+        "protected_paths": _string_list(payload.get("protected_paths")) or list(PROTECTED_DEFAULTS),
         "workflow_preferences": dict(workflow),
         "guide_topology": payload.get("guide_topology") or detect_guide_topology(root),
     }

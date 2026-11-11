@@ -7,10 +7,9 @@ Cobre:
 - lock timeout -> STORE_LOCK_TIMEOUT
 - nenhum duplicate event_seq, nenhum gap
 """
+
 from __future__ import annotations
 
-import os
-import time
 from pathlib import Path
 
 import pytest
@@ -108,9 +107,11 @@ def test_append_transactional_no_duplicate_seq(contract_bundle: Path) -> None:
     svc.init(force=True, with_demo_tasks=True)
 
     for _ in range(3):
+
         def build_fn(current_events):
             seq = next_event_seq(current_events)
             return [_event(seq, "verify.start", {"strict": True})]
+
         append_transactional(contract_bundle, build_fn)
 
     events = parse_event_store(contract_bundle)

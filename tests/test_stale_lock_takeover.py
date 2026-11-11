@@ -3,18 +3,24 @@ from __future__ import annotations
 import json
 import os
 import socket
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from esaa.errors import ESAAError
 from esaa.service import make_event
-from esaa.store import _lock_path, append_events, ensure_event_store, parse_event_store, reset_concurrency_metrics
+from esaa.store import (
+    _lock_path,
+    append_events,
+    ensure_event_store,
+    parse_event_store,
+    reset_concurrency_metrics,
+)
 
 
 def _lock_metadata(pid: int, hostname: str, acquired_at: datetime | None = None) -> str:
-    ts = acquired_at or datetime.now(timezone.utc)
+    ts = acquired_at or datetime.now(UTC)
     return json.dumps(
         {
             "pid": pid,
@@ -31,7 +37,9 @@ def _run_start(seq: int = 1) -> dict:
     return make_event(seq, "orchestrator", "run.start", {"run_id": f"RUN-{seq}"})
 
 
-def test_dead_local_pid_lock_is_taken_over_quickly(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_dead_local_pid_lock_is_taken_over_quickly(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     reset_concurrency_metrics()
     store = ensure_event_store(tmp_path)
     lock = _lock_path(store)
@@ -49,7 +57,7 @@ def test_dead_local_pid_lock_is_taken_over_quickly(tmp_path: Path, capsys: pytes
 def test_live_local_pid_lock_is_not_taken_even_after_max_age(tmp_path: Path) -> None:
     store = ensure_event_store(tmp_path)
     lock = _lock_path(store)
-    old = datetime.now(timezone.utc) - timedelta(minutes=10)
+    old = datetime.now(UTC) - timedelta(minutes=10)
     lock.write_text(_lock_metadata(os.getpid(), socket.gethostname(), old), encoding="utf-8")
 
     with pytest.raises(ESAAError) as excinfo:
@@ -65,7 +73,9 @@ def test_live_local_pid_lock_is_not_taken_even_after_max_age(tmp_path: Path) -> 
     assert lock.exists()
 
 
-def test_cross_host_lock_waits_for_ttl_then_takes_over(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cross_host_lock_waits_for_ttl_then_takes_over(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     store = ensure_event_store(tmp_path)
     lock = _lock_path(store)
     lock.write_text(_lock_metadata(999999, "other-host.invalid"), encoding="utf-8")

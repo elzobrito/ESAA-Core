@@ -4,6 +4,8 @@ from pathlib import Path
 
 from test_hotfix_create_validation import (
     test_validate_scope_invalid_empty as _scope_invalid,
+)
+from test_hotfix_create_validation import (
     test_validate_valid_hotfix_for_done_open_issue as _valid_hotfix,
 )
 from test_post_survey_fixes import test_create_hotfix_rejects_orphan_request as _orphan

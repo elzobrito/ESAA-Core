@@ -55,7 +55,9 @@ def _minimal_plugin(plugin_dir: Path, plugin_id: str = "security") -> Path:
     return plugin_dir
 
 
-def test_plugin_package_is_a_plain_directory_with_plugin_json_at_root(repo_root: Path, tmp_path: Path) -> None:
+def test_plugin_package_is_a_plain_directory_with_plugin_json_at_root(
+    repo_root: Path, tmp_path: Path
+) -> None:
     plugin_dir = _minimal_plugin(tmp_path / "security")
 
     result = validate_plugin_dir(plugin_dir, repo_root)
@@ -66,7 +68,9 @@ def test_plugin_package_is_a_plain_directory_with_plugin_json_at_root(repo_root:
     assert result["manifest"]["entrypoints"]["roadmap"] == "roadmap.template.json"
 
 
-def test_plugin_package_rejects_archive_file_even_with_plugin_extension(repo_root: Path, tmp_path: Path) -> None:
+def test_plugin_package_rejects_archive_file_even_with_plugin_extension(
+    repo_root: Path, tmp_path: Path
+) -> None:
     archive = tmp_path / "security.esaaplugin"
     archive.write_text("not a directory", encoding="utf-8")
 

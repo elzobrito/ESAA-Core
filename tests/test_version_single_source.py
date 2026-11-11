@@ -1,4 +1,5 @@
 """QUA-02: constants.PACKAGE_VERSION e a fonte unica de versao do pacote."""
+
 from __future__ import annotations
 
 from pathlib import Path

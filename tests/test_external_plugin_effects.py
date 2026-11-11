@@ -77,9 +77,7 @@ def _external_plugin(plugin_dir: Path) -> Path:
                     "outputs": {
                         "files": ["runtime://outputs.client"],
                         "target": "target_system",
-                        "external_files": [
-                            {"target": "target_system", "path": "runtime://outputs.client"}
-                        ],
+                        "external_files": [{"target": "target_system", "path": "runtime://outputs.client"}],
                     },
                 }
             ],

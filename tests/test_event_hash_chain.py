@@ -151,14 +151,17 @@ def test_chain_init_immediately_preserves_projection_consistency(contract_bundle
 
 def test_chain_anchor_hash_is_computed_under_lock(contract_bundle: Path, monkeypatch) -> None:
     import esaa.store as store
+
     svc = ESAAService(contract_bundle)
     svc.init()
     original = store._anchor_hash
     observed = []
+
     def checked(lines, seq):
         assert (contract_bundle / ".roadmap/activity.jsonl.lock").exists()
         observed.append(seq)
         return original(lines, seq)
+
     with monkeypatch.context() as patch:
         patch.setattr(store, "_anchor_hash", checked)
         init_hash_chain(contract_bundle)

@@ -114,6 +114,7 @@ def test_set_limits_requires_migrated_schema(tmp_path):
 
 def test_cli_set_limits(tmp_path):
     env = dict(os.environ)
+
     def run(*args):
         return subprocess.run(
             [sys.executable, "-B", "-m", "esaa", "--root", str(tmp_path), *args],
@@ -121,6 +122,7 @@ def test_cli_set_limits(tmp_path):
             text=True,
             capture_output=True,
         )
+
     assert run("bootstrap").returncode == 0
     assert run("init").returncode == 0
     created = run("task", "create", "CLI", "--kind", "impl", "--title", "CLI")

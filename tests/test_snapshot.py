@@ -21,4 +21,3 @@ def test_create_snapshot_writes_projection_checkpoint(contract_bundle: Path) -> 
     assert payload["snapshot"]["events_included"] == 3
     assert payload["roadmap"]["meta"]["run"]["last_event_seq"] == 3
     assert payload["roadmap"]["meta"]["run"]["projection_hash_sha256"]
-

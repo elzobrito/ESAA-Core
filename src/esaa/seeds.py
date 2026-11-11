@@ -45,7 +45,6 @@ BASELINE_LESSONS: list[dict[str, Any]] = [
 def seed_tasks() -> list[dict[str, Any]]:
     """Demo baseline tasks for `init --with-demo-tasks` (not used by default init)."""
 
-
     return [
         {
             "task_id": "T-1000",
@@ -307,7 +306,9 @@ def select_next_task(tasks: list[dict[str, Any]]) -> dict[str, Any] | None:
 
             return candidates[0]
 
-    todo = sorted([task for task in active_tasks if task["status"] == "todo"], key=lambda item: item["task_id"])
+    todo = sorted(
+        [task for task in active_tasks if task["status"] == "todo"], key=lambda item: item["task_id"]
+    )
 
     for task in todo:
 

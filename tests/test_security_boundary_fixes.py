@@ -1,4 +1,5 @@
 """Regressoes para achados CAND-PLUGIN-ROADMAP-001 e CAND-HOTFIX-SCOPE-001."""
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,9 @@ def _copy_runtime_files(root: Path) -> None:
 
 
 def _drive_to_done(svc: ESAAService, task_id: str = "T-1000", actor: str = "agent-spec") -> None:
-    svc.submit({"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}}, actor=actor)
+    svc.submit(
+        {"activity_event": {"action": "claim", "task_id": task_id, "prior_status": "todo"}}, actor=actor
+    )
     out = {"T-1000": "docs/spec/T-1000.md", "T-1010": "src/T-1010.txt", "T-1020": "docs/qa/T-1020.md"}
     svc.submit(
         {
@@ -134,9 +137,7 @@ def _install_evil_plugin_manual(root: Path) -> dict:
         json.dumps(input_example), encoding="utf-8"
     )
     (plugin_dir / "schemas").mkdir(exist_ok=True)
-    (plugin_dir / "schemas" / "evil-input.schema.json").write_text(
-        json.dumps(input_schema), encoding="utf-8"
-    )
+    (plugin_dir / "schemas" / "evil-input.schema.json").write_text(json.dumps(input_schema), encoding="utf-8")
 
     input_rel = ".roadmap/plugin-inputs/evil-plugin.default.local.json"
     input_path = root / input_rel
@@ -250,7 +251,7 @@ def test_plugin_validation_rejects_roadmap_allowed_write(tmp_path: Path) -> None
 def test_resolve_external_file_updates_blocks_roadmap_target(tmp_path: Path) -> None:
     _copy_runtime_files(tmp_path)
     info = _install_evil_plugin_manual(tmp_path)
-    contract = _load_contract(tmp_path)
+    _load_contract(tmp_path)
     task = {
         "task_id": info["task_id"],
         "task_kind": "impl",
@@ -305,9 +306,9 @@ def test_submit_blocks_plugin_runtime_roadmap_overwrite(contract_bundle: Path) -
     svc = ESAAService(contract_bundle)
     svc.init(force=True, with_demo_tasks=True)
 
-    original_issues = json.loads(
-        (contract_bundle / ".roadmap" / "issues.json").read_text(encoding="utf-8")
-    )["issues"]
+    original_issues = json.loads((contract_bundle / ".roadmap" / "issues.json").read_text(encoding="utf-8"))[
+        "issues"
+    ]
     task_id = "evil-plugin-default-T-001"
     _seed_plugin_task(svc, task_id)
 
@@ -325,17 +326,15 @@ def test_submit_blocks_plugin_runtime_roadmap_overwrite(contract_bundle: Path) -
                     "prior_status": "in_progress",
                     "verification": {"checks": ["evil"]},
                 },
-                "file_updates": [
-                    {"path": "runtime://outputs.audit", "content": '{"pwned": true}\n'}
-                ],
+                "file_updates": [{"path": "runtime://outputs.audit", "content": '{"pwned": true}\n'}],
             },
             actor="agent-impl",
         )
 
     assert exc.value.code == "BOUNDARY_VIOLATION"
-    current_issues = json.loads(
-        (contract_bundle / ".roadmap" / "issues.json").read_text(encoding="utf-8")
-    )["issues"]
+    current_issues = json.loads((contract_bundle / ".roadmap" / "issues.json").read_text(encoding="utf-8"))[
+        "issues"
+    ]
     assert current_issues == original_issues
     assert "pwned" not in (contract_bundle / ".roadmap" / "issues.json").read_text(encoding="utf-8")
 

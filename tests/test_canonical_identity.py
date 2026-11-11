@@ -8,12 +8,6 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from esaa.cli import main
-from esaa.errors import ESAAError
-from esaa.identity import public_key_fingerprint
-from esaa.service import ESAAService
-from esaa.store import parse_event_store
 from test_actor_registration import (
     _activated,
     _alias_auth,
@@ -27,6 +21,12 @@ from test_actor_registration import (
     _transition_auth,
     _write_anchor,
 )
+
+from esaa.cli import main
+from esaa.errors import ESAAError
+from esaa.identity import public_key_fingerprint
+from esaa.service import ESAAService
+from esaa.store import parse_event_store
 
 
 def _nonce() -> str:
@@ -97,7 +97,9 @@ def _complete(
     )
 
 
-def _principal_a(tmp_path: Path, repo_root: Path) -> tuple[ESAAService, dict[str, object], Ed25519PrivateKey, str]:
+def _principal_a(
+    tmp_path: Path, repo_root: Path
+) -> tuple[ESAAService, dict[str, object], Ed25519PrivateKey, str]:
     svc, keys = _activated(tmp_path, repo_root)
     private, public_hex = _key()
     _register(svc, keys, "actor-a", "implementation", public_hex, ["claim"])
@@ -289,7 +291,9 @@ def test_transition_nonce_replay_rejected(tmp_path: Path, repo_root: Path) -> No
                 "file_updates": [{"path": "docs/spec/T-1000.md", "content": "ok\n"}],
             },
             actor="alias-x",
-            authorization=_transition_auth(private, keys["project_id"], nonce, "alias-x", "T-1000", "complete"),
+            authorization=_transition_auth(
+                private, keys["project_id"], nonce, "alias-x", "T-1000", "complete"
+            ),
         )
     assert exc.value.code == "AUTH_REPLAY"
 

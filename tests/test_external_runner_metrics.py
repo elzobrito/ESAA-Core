@@ -131,4 +131,3 @@ def test_runner_metrics_cli_records_payload_file(contract_bundle: Path) -> None:
 
     assert result["action"] == "runner.metrics"
     assert result["verify_status"] == "ok"
-

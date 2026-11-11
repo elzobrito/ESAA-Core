@@ -7,8 +7,11 @@ contem asserts estilo pytest.
 
 Uso: PYTHONPATH=src python tests/audit/test_workflow_gates.py --root <repo>
 """
+
 from __future__ import annotations
-import argparse, json
+
+import argparse
+import json
 from pathlib import Path
 
 DOCUMENTED = {
@@ -20,12 +23,25 @@ DOCUMENTED = {
     "RUNTIME_POLICY": "max_attempts=3, cooldown PT2M, TTL PT30M, ATTEMPT_TIMEOUT",
 }
 
+
 def audit_engine(root: Path):
     """Inspeciona o codigo do engine para mapear enforcement real."""
     rows = {}
-    proj = (root / "src/esaa/projector.py").read_text(encoding="utf-8") if (root / "src/esaa/projector.py").exists() else ""
-    val = (root / "src/esaa/validator.py").read_text(encoding="utf-8") if (root / "src/esaa/validator.py").exists() else ""
-    svc = (root / "src/esaa/service.py").read_text(encoding="utf-8") if (root / "src/esaa/service.py").exists() else ""
+    proj = (
+        (root / "src/esaa/projector.py").read_text(encoding="utf-8")
+        if (root / "src/esaa/projector.py").exists()
+        else ""
+    )
+    val = (
+        (root / "src/esaa/validator.py").read_text(encoding="utf-8")
+        if (root / "src/esaa/validator.py").exists()
+        else ""
+    )
+    svc = (
+        (root / "src/esaa/service.py").read_text(encoding="utf-8")
+        if (root / "src/esaa/service.py").exists()
+        else ""
+    )
 
     rows["WG-001"] = {
         "enforced": "INVALID_TRANSITION" in proj,
@@ -40,7 +56,7 @@ def audit_engine(root: Path):
         "matches_doc_code": "MISSING_VERIFICATION" in val,
     }
     rows["WG-003"] = {
-        "enforced": "prior_status" in val and "task[\"status\"]" in val,
+        "enforced": "prior_status" in val and 'task["status"]' in val,
         "where": "NAO comparado ao status real do roadmap",
         "engine_code": "(ausente; surge como INVALID_TRANSITION)",
         "matches_doc_code": "PRIOR_STATUS_MISMATCH" in val,
@@ -65,6 +81,7 @@ def audit_engine(root: Path):
     }
     return rows
 
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
@@ -74,17 +91,30 @@ def main() -> int:
     findings = []
     for gate, info in rows.items():
         if not info["enforced"]:
-            findings.append({"id": "R2" if gate == "RUNTIME_POLICY" else "R7",
-                             "severity": "high" if gate in ("RUNTIME_POLICY", "WG-003") else "medium",
-                             "title": f"{gate} documentado mas NAO aplicado: {DOCUMENTED[gate]}",
-                             "evidence": info})
+            findings.append(
+                {
+                    "id": "R2" if gate == "RUNTIME_POLICY" else "R7",
+                    "severity": "high" if gate in ("RUNTIME_POLICY", "WG-003") else "medium",
+                    "title": f"{gate} documentado mas NAO aplicado: {DOCUMENTED[gate]}",
+                    "evidence": info,
+                }
+            )
         elif not info["matches_doc_code"]:
-            findings.append({"id": "R6", "severity": "medium",
-                             "title": f"{gate} aplicado com codigo divergente do contrato",
-                             "evidence": info})
-    print(json.dumps({"checker": "workflow_gates", "matrix": rows, "findings": findings},
-                     indent=2, ensure_ascii=False))
+            findings.append(
+                {
+                    "id": "R6",
+                    "severity": "medium",
+                    "title": f"{gate} aplicado com codigo divergente do contrato",
+                    "evidence": info,
+                }
+            )
+    print(
+        json.dumps(
+            {"checker": "workflow_gates", "matrix": rows, "findings": findings}, indent=2, ensure_ascii=False
+        )
+    )
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

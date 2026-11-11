@@ -8,6 +8,17 @@ import json
 from pathlib import Path
 
 import pytest
+from test_actor_registration import (
+    _activated,
+    _bind_trust_root,
+    _bootstrap_auth,
+    _copy_runtime,
+    _import_owner_pin,
+    _key,
+    _ready_task,
+    _review_auth,
+    _write_anchor,
+)
 
 from esaa.cli import main
 from esaa.errors import CorruptedStoreError, ESAAError
@@ -19,17 +30,6 @@ from esaa.trust_root import (
     bound_record_path,
     make_pin,
     try_load_record,
-)
-from test_actor_registration import (
-    _activated,
-    _bind_trust_root,
-    _bootstrap_auth,
-    _copy_runtime,
-    _import_owner_pin,
-    _key,
-    _ready_task,
-    _review_auth,
-    _write_anchor,
 )
 
 
@@ -245,7 +245,9 @@ def test_dry_run_does_not_advance_checkpoint(tmp_path: Path, repo_root: Path) ->
     _ready_task(svc, keys=keys)
     before = copy.deepcopy(try_load_record(tmp_path))
     auth = _review_auth(keys["reviewer"], keys["project_id"], "cd" * 16, "reviewer-qa", "T-1000", "approve")
-    result = svc.review_task("T-1000", actor="reviewer-qa", decision="approve", authorization=auth, dry_run=True)
+    result = svc.review_task(
+        "T-1000", actor="reviewer-qa", decision="approve", authorization=auth, dry_run=True
+    )
     assert result["status"] == "dry_run"
     after = try_load_record(tmp_path)
     assert after == before

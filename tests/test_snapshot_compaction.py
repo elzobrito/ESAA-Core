@@ -52,4 +52,3 @@ def test_compaction_refuses_mismatched_projection(contract_bundle: Path) -> None
         compact_event_store(contract_bundle, before=1)
 
     assert excinfo.value.code == "VERIFY_NOT_OK"
-

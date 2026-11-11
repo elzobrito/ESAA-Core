@@ -5,7 +5,6 @@ from pathlib import Path
 
 from esaa.bootstrap import bootstrap_workspace
 from esaa.service import ESAAService
-from esaa.store import parse_event_store
 
 
 def _boot(tmp_path: Path) -> Path:
@@ -45,6 +44,7 @@ def test_init_with_demo_tasks_seeds_baseline_track(tmp_path: Path) -> None:
 def test_init_cli_with_demo_tasks_flag(tmp_path: Path) -> None:
     import contextlib
     import io
+
     from esaa.cli import main
 
     root = _boot(tmp_path)
@@ -60,6 +60,7 @@ def test_init_cli_with_demo_tasks_flag(tmp_path: Path) -> None:
 def test_init_cli_default_empty(tmp_path: Path) -> None:
     import contextlib
     import io
+
     from esaa.cli import main
 
     root = _boot(tmp_path)

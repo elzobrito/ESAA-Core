@@ -5,6 +5,7 @@ AGENT_CONTRACT: old_string casa contra o texto UTF-8 decodificado com os
 newlines exatos do arquivo (CRLF incluido — nao normalizar \\r\\n para \\n);
 arquivo nao-UTF-8 e runtime:// com edits rejeitam com EDIT_INVALID.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -78,9 +79,7 @@ def test_edit_on_crlf_file_matches_exact_newlines_and_preserves_crlf(contract_bu
                 {
                     "path": TARGET,
                     "base_sha256": _sha_bytes(base),
-                    "edits": [
-                        {"old_string": "status: draft\r\n", "new_string": "status: ready\r\n"}
-                    ],
+                    "edits": [{"old_string": "status: draft\r\n", "new_string": "status: ready\r\n"}],
                 }
             ]
         ),
@@ -106,9 +105,7 @@ def test_edit_with_lf_old_string_does_not_match_crlf_file(contract_bundle: Path)
                     {
                         "path": TARGET,
                         "base_sha256": _sha_bytes(base),
-                        "edits": [
-                            {"old_string": "# Spec\nstatus: draft", "new_string": "x"}
-                        ],
+                        "edits": [{"old_string": "# Spec\nstatus: draft", "new_string": "x"}],
                     }
                 ]
             ),

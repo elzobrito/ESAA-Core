@@ -3,16 +3,14 @@ estar registrado em src/esaa/reject_codes.py#ALL_CODES.
 
 Garante fonte unica de verdade do vocabulario de reject codes.
 """
+
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
-
-import pytest
 
 from esaa import reject_codes
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ENGINE_DIR = REPO_ROOT / "src" / "esaa"
@@ -68,9 +66,10 @@ def test_all_emitted_codes_are_registered() -> None:
         for code, lineno in _extract_esaa_error_codes(source):
             if code not in reject_codes.ALL_CODES:
                 orphans.append((str(path.relative_to(REPO_ROOT)), code, lineno))
-    assert not orphans, (
-        "Codigos emitidos via ESAAError nao registrados em reject_codes.ALL_CODES:\n"
-        + "\n".join(f"  {p}:{ln}  {c}" for p, c, ln in orphans)
+    assert (
+        not orphans
+    ), "Codigos emitidos via ESAAError nao registrados em reject_codes.ALL_CODES:\n" + "\n".join(
+        f"  {p}:{ln}  {c}" for p, c, ln in orphans
     )
 
 
@@ -94,6 +93,7 @@ def test_families_are_disjoint() -> None:
 
 def test_state_machine_aliases_resolve() -> None:
     from esaa import state_machine
+
     assert state_machine.REJECT_MISSING_CLAIM == reject_codes.MISSING_CLAIM
     assert state_machine.REJECT_IMMUTABLE_DONE == reject_codes.IMMUTABLE_DONE_VIOLATION
     assert state_machine.REJECT_LOCK == reject_codes.LOCK_VIOLATION
@@ -102,6 +102,4 @@ def test_state_machine_aliases_resolve() -> None:
 
 def test_all_codes_is_at_least_30() -> None:
     """Garantia mínima de cobertura — protege contra deleções acidentais."""
-    assert len(reject_codes.ALL_CODES) >= 30, (
-        f"Esperado >= 30 codes, got {len(reject_codes.ALL_CODES)}"
-    )
+    assert len(reject_codes.ALL_CODES) >= 30, f"Esperado >= 30 codes, got {len(reject_codes.ALL_CODES)}"

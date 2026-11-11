@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .errors import ESAAError
@@ -19,8 +19,8 @@ def _parse_ts(value: Any, field: str) -> datetime | None:
     except ValueError as exc:
         raise ESAAError("SCHEMA_INVALID", f"{field} must be ISO-8601") from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _optional_non_negative_int(payload: dict[str, Any], field: str) -> int | None:

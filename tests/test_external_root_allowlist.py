@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from test_external_plugin_effects import _external_plugin, _workspace_with_active_plugin, _write_json
 
 from esaa.errors import ESAAError
 from esaa.plugins import validate_plugin_dir
 from esaa.service import ESAAService
-from test_external_plugin_effects import _external_plugin, _workspace_with_active_plugin, _write_json
 
 
 def _set_external_policy(workspace: Path, **external_effects: object) -> None:
@@ -64,7 +64,9 @@ def test_external_root_inside_allowlist_is_resolved_in_dry_run(tmp_path: Path, r
     assert not (target / "app" / "generated.go").exists()
 
 
-def test_dangerous_allowed_write_wildcard_is_rejected_by_plugin_validation(tmp_path: Path, repo_root: Path) -> None:
+def test_dangerous_allowed_write_wildcard_is_rejected_by_plugin_validation(
+    tmp_path: Path, repo_root: Path
+) -> None:
     plugin_dir = _external_plugin(tmp_path / "plugins" / "demo")
     manifest_path = plugin_dir / "plugin.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

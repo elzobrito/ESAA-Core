@@ -33,4 +33,3 @@ def test_hotfix_trace_can_run_in_explicit_workspace(contract_bundle: Path) -> No
     assert result["workspace"] == str(contract_bundle)
     assert "issue.resolve" in [event["action"] for event in events]
     assert result["verify_status"] == "ok"
-

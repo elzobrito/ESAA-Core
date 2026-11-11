@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+
 from esaa.binary_artifacts import restore_blob, store_blob
 from esaa.binary_payload import stage_binary
 

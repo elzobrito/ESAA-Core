@@ -5,8 +5,7 @@ import json
 import os
 import re
 import shutil
-from pathlib import Path
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -288,9 +287,7 @@ def validate_plugin_dir(plugin_dir: Path, repo_root: Path | None = None) -> dict
             _validate_output_path(output_path, f"tasks[{idx}].outputs.files[{out_idx}]")
         boundary_grant = task.get("boundary_grant", [])
         if not isinstance(boundary_grant, list):
-            raise ESAAError(
-                "PLUGIN_ROADMAP_INVALID", f"tasks[{idx}].boundary_grant must be an array"
-            )
+            raise ESAAError("PLUGIN_ROADMAP_INVALID", f"tasks[{idx}].boundary_grant must be an array")
         for grant_idx, pattern in enumerate(boundary_grant):
             if not isinstance(pattern, str):
                 raise ESAAError(
@@ -719,9 +716,7 @@ def _tasks_for_roadmap_entry(
         }
         if raw_task.get("boundary_grant"):
             task["boundary_grant"] = [
-                _validate_glob_pattern(
-                    pattern, f"tasks[{local_task_id}].boundary_grant[{index}]"
-                )
+                _validate_glob_pattern(pattern, f"tasks[{local_task_id}].boundary_grant[{index}]")
                 for index, pattern in enumerate(raw_task["boundary_grant"])
             ]
         tasks.append(task)

@@ -141,7 +141,9 @@ def test_cli_can_speak_transition_messages(contract_bundle: Path, monkeypatch) -
     assert calls == ["in_progress", "review", "done"]
 
 
-def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_commands(contract_bundle: Path) -> None:
+def test_cli_reject_issue_hotfix_and_resolve_are_deterministic_orchestrator_commands(
+    contract_bundle: Path,
+) -> None:
     ESAAService(contract_bundle).init(force=True, with_demo_tasks=True)
 
     rejected = _run_cli(

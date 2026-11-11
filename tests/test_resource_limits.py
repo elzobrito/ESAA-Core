@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -56,10 +55,12 @@ def test_file_update_count_limit_rejects_before_staging_and_append(contract_bund
 
     with pytest.raises(ESAAError) as excinfo:
         svc.submit(
-            _complete_with_updates([
-                {"path": "docs/spec/a.md", "content": "a"},
-                {"path": "docs/spec/b.md", "content": "b"},
-            ]),
+            _complete_with_updates(
+                [
+                    {"path": "docs/spec/a.md", "content": "a"},
+                    {"path": "docs/spec/b.md", "content": "b"},
+                ]
+            ),
             actor="agent-spec",
         )
 

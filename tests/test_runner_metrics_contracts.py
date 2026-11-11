@@ -1,14 +1,13 @@
 """FIX-1812-QA — runner.metrics reserved action consistency."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
 import yaml
 
 from esaa.constants import CANONICAL_ACTIONS
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,7 +46,5 @@ def test_runner_metrics_not_in_allowed_agent_actions():
 def test_runner_metrics_not_in_agent_result_schema_action_enum():
     p = REPO_ROOT / ".roadmap" / "agent_result.schema.json"
     data = json.loads(p.read_text(encoding="utf-8"))
-    enum = (
-        data["properties"]["activity_event"]["properties"]["action"]["enum"]
-    )
+    enum = data["properties"]["activity_event"]["properties"]["action"]["enum"]
     assert "runner.metrics" not in enum

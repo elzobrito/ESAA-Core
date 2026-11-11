@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +34,7 @@ def plan_activity_clear(root: Path, *, force: bool, dry_run: bool, backup_dir: s
         events_removed = len(raw_lines)
         parse_error = {"error_code": exc.code, "error_message": exc.message}
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     backup_base = Path(backup_dir)
     backup_name = f"activity-{stamp}.jsonl"
     if backup_base.is_absolute():

@@ -77,4 +77,3 @@ def test_unknown_action_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(CorruptedStoreError) as exc:
         parse_event_store(tmp_path)
     assert exc.value.code == "UNKNOWN_ACTION"
-

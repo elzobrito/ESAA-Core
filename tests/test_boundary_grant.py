@@ -5,6 +5,7 @@ enforcement como alternativa a allowlist do kind, precedencia de
 forbidden_write sobre o grant, validacao de padroes na criacao e replay
 deterministico.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -154,9 +155,7 @@ def test_grant_is_per_task_not_per_store(grant_bundle: Path) -> None:
 
 def test_grant_does_not_authorize_runtime_paths(grant_bundle: Path) -> None:
     svc = _service(grant_bundle)
-    svc.create_task(
-        "T-GR-RT", task_kind="impl", title="grant amplo", boundary_grant=["**"]
-    )
+    svc.create_task("T-GR-RT", task_kind="impl", title="grant amplo", boundary_grant=["**"])
     _claim(svc, "T-GR-RT")
 
     with pytest.raises(ESAAError) as exc:
@@ -175,9 +174,7 @@ def test_grant_does_not_authorize_runtime_paths(grant_bundle: Path) -> None:
 
 def test_forbidden_write_prevails_over_broad_grant(grant_bundle: Path) -> None:
     svc = _service(grant_bundle)
-    svc.create_task(
-        "T-GR-BROAD", task_kind="impl", title="grant amplo", boundary_grant=["**"]
-    )
+    svc.create_task("T-GR-BROAD", task_kind="impl", title="grant amplo", boundary_grant=["**"])
     _claim(svc, "T-GR-BROAD")
 
     with pytest.raises(ESAAError) as exc:
@@ -199,16 +196,12 @@ def test_forbidden_write_prevails_over_broad_grant(grant_bundle: Path) -> None:
     "pattern",
     ["", "  ", "../fora", "a/../b", "runtime://outputs.client", "/absoluto", ".roadmap/**", ".roadmap"],
 )
-def test_invalid_grant_patterns_rejected_at_create_without_events(
-    grant_bundle: Path, pattern: str
-) -> None:
+def test_invalid_grant_patterns_rejected_at_create_without_events(grant_bundle: Path, pattern: str) -> None:
     svc = _service(grant_bundle)
     before = len(parse_event_store(grant_bundle))
 
     with pytest.raises(ESAAError) as exc:
-        svc.create_task(
-            "T-GR-BAD", task_kind="impl", title="grant invalido", boundary_grant=[pattern]
-        )
+        svc.create_task("T-GR-BAD", task_kind="impl", title="grant invalido", boundary_grant=[pattern])
 
     assert exc.value.code == "SCHEMA_INVALID"
     assert len(parse_event_store(grant_bundle)) == before
@@ -245,10 +238,7 @@ def test_replay_deterministic_after_grant_usage(grant_bundle: Path) -> None:
     first = materialize(events)[0]
     second = materialize(events)[0]
 
-    assert (
-        first["meta"]["run"]["projection_hash_sha256"]
-        == second["meta"]["run"]["projection_hash_sha256"]
-    )
+    assert first["meta"]["run"]["projection_hash_sha256"] == second["meta"]["run"]["projection_hash_sha256"]
     granted = [t for t in first["tasks"] if t["task_id"] == "T-GR-1"]
     assert granted[0]["boundary_grant"] == ["tools/audit/**"]
     assert svc.verify()["verify_status"] == "ok"

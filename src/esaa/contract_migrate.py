@@ -4,6 +4,7 @@ This updates only the packaged schema files required for binary file_updates
 and per-task resource_limits. Event stores, projections, policies and local
 contracts stay untouched. bootstrap --force is not a substitute.
 """
+
 from __future__ import annotations
 
 import copy
@@ -11,7 +12,7 @@ import hashlib
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -85,7 +86,8 @@ def _patch_agent_result(schema: dict[str, Any]) -> bool:
     existing = [
         arm
         for arm in items["oneOf"]
-        if isinstance(arm, dict) and ("binary" in arm.get("required", []) or "binary" in arm.get("properties", {}))
+        if isinstance(arm, dict)
+        and ("binary" in arm.get("required", []) or "binary" in arm.get("properties", {}))
     ]
     wanted = _packaged_binary_arm()
     if existing:
@@ -133,7 +135,7 @@ def _write_atomic(path: Path, text: str) -> None:
 
 
 def _backup_dir(root: Path) -> Path:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return root / ".roadmap" / "backups" / "contracts" / stamp
 
 

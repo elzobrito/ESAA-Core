@@ -94,9 +94,7 @@ def test_required_review_mode_missing_or_mismatched_fails_before_append(
     assert_only_rejection_events(root, before, mismatch.value.code)
 
 
-def test_request_changes_and_approve_require_matching_review_mode(
-    tmp_path: Path, repo_root: Path
-) -> None:
+def test_request_changes_and_approve_require_matching_review_mode(tmp_path: Path, repo_root: Path) -> None:
     root = _workspace(tmp_path, repo_root)
     _put_task_in_review(root, "T-REQ", required_review_mode="governance")
     service = ESAAService(root)
@@ -135,9 +133,7 @@ def test_optional_review_mode_is_preserved_when_task_does_not_require_it(
     assert _last_review_payload(root, "T-OPTIONAL")["review_mode"] == "security"
 
 
-def test_invalid_review_mode_from_agent_result_fails_before_append(
-    tmp_path: Path, repo_root: Path
-) -> None:
+def test_invalid_review_mode_from_agent_result_fails_before_append(tmp_path: Path, repo_root: Path) -> None:
     root = _workspace(tmp_path, repo_root)
     _put_task_in_review(root, "T-INVALID")
     service = ESAAService(root)

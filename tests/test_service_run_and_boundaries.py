@@ -24,7 +24,14 @@ class InvalidPathAdapter(AgentAdapter):
         task = dispatch_context["task"]
         self._calls += 1
         if self._calls == 1:
-            return {"activity_event": {"action": "claim", "task_id": task["task_id"], "prior_status": "todo", "notes": "claim"}}
+            return {
+                "activity_event": {
+                    "action": "claim",
+                    "task_id": task["task_id"],
+                    "prior_status": "todo",
+                    "notes": "claim",
+                }
+            }
         return {
             "activity_event": {
                 "action": "complete",

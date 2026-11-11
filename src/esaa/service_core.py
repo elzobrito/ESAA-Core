@@ -39,6 +39,7 @@ def _projection_hash(events: list[dict[str, Any]]) -> str:
     roadmap, _, _ = materialize(events)
     return roadmap["meta"]["run"]["projection_hash_sha256"]
 
+
 def _duration_seconds(value: Any, default: float) -> float:
     if value is None:
         return default
@@ -46,6 +47,7 @@ def _duration_seconds(value: Any, default: float) -> float:
         return float(value)
     parsed = parse_duration(str(value)).total_seconds()
     return parsed if parsed > 0 else default
+
 
 def _concurrency_policy(policy: dict[str, Any]) -> dict[str, float | int]:
     data = policy.get("concurrency", {}) if isinstance(policy.get("concurrency", {}), dict) else {}
@@ -74,8 +76,11 @@ class ESAAServiceCore:
         return self._policy_cache
 
     def init(
-        self, run_id: str = "RUN-0001", master_correlation_id: str = "CID-ESAA-INIT",
-        force: bool = False, with_demo_tasks: bool = False,
+        self,
+        run_id: str = "RUN-0001",
+        master_correlation_id: str = "CID-ESAA-INIT",
+        force: bool = False,
+        with_demo_tasks: bool = False,
     ) -> dict[str, Any]:
 
         roadmap_dir = self.root / ".roadmap"
@@ -233,6 +238,7 @@ class ESAAServiceCore:
         computed_hash = projected["meta"]["run"]["projection_hash_sha256"]
         computed_seq = projected["meta"]["run"]["last_event_seq"]
         from .trust_root import catch_up_checkpoint
+
         caught = catch_up_checkpoint(self.root, events, computed_hash)
         if caught:
             return caught
@@ -252,7 +258,12 @@ class ESAAServiceCore:
             profile_matches = projected_profile == load_project_profile(self.root)
         except (ValueError, OSError):
             profile_matches = False
-        if computed_hash == stored_hash and computed_seq == stored_seq and profile_matches and not check["divergent"]:
+        if (
+            computed_hash == stored_hash
+            and computed_seq == stored_seq
+            and profile_matches
+            and not check["divergent"]
+        ):
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
@@ -283,7 +294,9 @@ class ESAAServiceCore:
         self,
         base_events: list[dict[str, Any]],
         new_events: list[dict[str, Any]],
-        precommit=None, postcommit=None, base_hash: str | None = None,
+        precommit=None,
+        postcommit=None,
+        base_hash: str | None = None,
         result_task_id: str | None = None,
     ) -> dict[str, Any]:
         expected_first_seq = next_event_seq(base_events)
@@ -293,6 +306,7 @@ class ESAAServiceCore:
         max_retries = int(concurrency["submit_retries"])
         retry_backoff = float(concurrency["retry_backoff"])
         lock_max_age = float(concurrency["lock_max_age"])
+
         def build_events(current_events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if precommit is not None:
                 precommit(current_events)
@@ -306,10 +320,13 @@ class ESAAServiceCore:
                 adjusted.append(adjusted_event)
             if attempt:
                 from .orchestrator_commit import refresh_verification_hashes
+
                 refresh_verification_hashes(current_events, adjusted)
             from .verification_gate import validate_pending
+
             validate_pending(self.root, current_events, adjusted)
             return adjusted
+
         attempt = 0
         while True:
             try:
@@ -331,6 +348,7 @@ class ESAAServiceCore:
                 attempt += 1
                 if sleep_for > 0:
                     time.sleep(sleep_for)
+
     def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None:
         schema_path = self.root / ".roadmap" / "roadmap.schema.json"
         if not schema_path.exists():
@@ -370,9 +388,14 @@ class ESAAServiceCore:
     ) -> dict[str, Any]:
 
         from .orchestrator_commit import commit_orchestrator_events
+
         return commit_orchestrator_events(
-            self.root, candidate_events, append_transactional, dry_run=dry_run,
-            precommit=precommit, postcommit=postcommit,
+            self.root,
+            candidate_events,
+            append_transactional,
+            dry_run=dry_run,
+            precommit=precommit,
+            postcommit=postcommit,
             lock_max_age=float(_concurrency_policy(self._policy())["lock_max_age"]),
         )
 

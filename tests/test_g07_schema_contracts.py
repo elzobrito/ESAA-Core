@@ -6,7 +6,6 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 

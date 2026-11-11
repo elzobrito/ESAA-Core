@@ -29,8 +29,11 @@ class ActorAdminMixin:
         root: Path
 
         def _commit_orchestrator_events(
-            self, candidate_events: list[dict[str, Any]], dry_run: bool = False,
-            precommit: Any = None, postcommit: Any = None
+            self,
+            candidate_events: list[dict[str, Any]],
+            dry_run: bool = False,
+            precommit: Any = None,
+            postcommit: Any = None,
         ) -> dict[str, Any]: ...
 
     def bootstrap_actor_authority(

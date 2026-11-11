@@ -33,7 +33,9 @@ def _snapshot(root: Path) -> dict[str, bytes]:
     return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()}
 
 
-@pytest.mark.parametrize("fragment", [b'{"schema_version":"0.4.1","event_id":"EV-', b'not JSON\n', b'{"payload":"\xc3'])
+@pytest.mark.parametrize(
+    "fragment", [b'{"schema_version":"0.4.1","event_id":"EV-', b"not JSON\n", b'{"payload":"\xc3']
+)
 def test_repair_quarantines_only_the_tail_and_restores_verify(contract_bundle: Path, fragment: bytes) -> None:
     service = _initialized(contract_bundle)
     before = _log(contract_bundle).read_bytes()
@@ -86,7 +88,7 @@ def test_invalid_middle_line_is_fatal_and_unchanged(contract_bundle: Path, dry_r
     assert _snapshot(contract_bundle) == before
 
 
-@pytest.mark.parametrize("last", [b'null\n', b'[]\n', b'{}\n'])
+@pytest.mark.parametrize("last", [b"null\n", b"[]\n", b"{}\n"])
 def test_valid_json_tail_is_never_discarded_as_a_torn_write(contract_bundle: Path, last: bytes) -> None:
     _initialized(contract_bundle)
     _log(contract_bundle).write_bytes(_log(contract_bundle).read_bytes() + last)
@@ -166,7 +168,9 @@ def test_cli_repair_and_jsonl_hint(contract_bundle: Path, capsys: pytest.Capture
     assert json.loads(capsys.readouterr().out)["verify_status"] == "ok"
 
 
-def test_operator_policy_applies_before_repair(contract_bundle: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_operator_policy_applies_before_repair(
+    contract_bundle: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _initialized(contract_bundle)
     (contract_bundle / ".roadmap/RUNTIME_POLICY.yaml").write_text('runner_validation: "strict"\n')
     monkeypatch.setenv("ESAA_RUNNER_ID", "codex")
@@ -177,7 +181,9 @@ def test_operator_policy_applies_before_repair(contract_bundle: Path, monkeypatc
     assert _snapshot(contract_bundle) == before
 
 
-def test_lock_covers_validation_backup_truncation_and_projections(contract_bundle: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lock_covers_validation_backup_truncation_and_projections(
+    contract_bundle: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import esaa.store_repair as repair
 
     _initialized(contract_bundle)
@@ -197,7 +203,9 @@ def test_lock_covers_validation_backup_truncation_and_projections(contract_bundl
 
 
 @pytest.mark.parametrize("failure", ["write_fsync", "replace"])
-def test_atomic_projection_failure_preserves_old_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
+def test_atomic_projection_failure_preserves_old_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
     path = tmp_path / "roadmap.json"
     path.write_bytes(b'{"old":true}\n')
 
@@ -222,7 +230,9 @@ def test_atomic_projection_retains_bytes_and_permissions(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("transactional", [False, True])
-def test_append_fsync_happens_before_read_after_write(contract_bundle: Path, monkeypatch: pytest.MonkeyPatch, transactional: bool) -> None:
+def test_append_fsync_happens_before_read_after_write(
+    contract_bundle: Path, monkeypatch: pytest.MonkeyPatch, transactional: bool
+) -> None:
     service = _initialized(contract_bundle)
     log_stat = _log(contract_bundle).stat()
     synced = []
@@ -245,5 +255,7 @@ def test_append_fsync_happens_before_read_after_write(contract_bundle: Path, mon
         service.claim_task("T-A", actor="agent-impl")
     else:
         events = store.parse_event_store(contract_bundle)
-        store.append_events(contract_bundle, [make_event(len(events) + 1, "orchestrator", "verify.start", {})])
+        store.append_events(
+            contract_bundle, [make_event(len(events) + 1, "orchestrator", "verify.start", {})]
+        )
     assert synced

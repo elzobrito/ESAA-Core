@@ -1,16 +1,15 @@
 """Tests for esaa submit and esaa process (file-based agent interface)."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from esaa.errors import ESAAError
 from esaa.service import ESAAService
 from esaa.store import parse_event_store
-
 
 # ---------------------------------------------------------------------------
 # esaa submit
@@ -55,9 +54,7 @@ def test_submit_complete_with_files(contract_bundle: Path) -> None:
                 "prior_status": "in_progress",
                 "verification": {"checks": ["manual-review"]},
             },
-            "file_updates": [
-                {"path": "docs/spec/T-1000.md", "content": "# Spec\nContent here.\n"}
-            ],
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "# Spec\nContent here.\n"}],
         },
         actor="agent-spec",
     )
@@ -139,9 +136,7 @@ def test_submit_full_lifecycle(contract_bundle: Path) -> None:
                 "prior_status": "in_progress",
                 "verification": {"checks": ["reviewed"]},
             },
-            "file_updates": [
-                {"path": "docs/spec/T-1000.md", "content": "# Spec\n"}
-            ],
+            "file_updates": [{"path": "docs/spec/T-1000.md", "content": "# Spec\n"}],
         },
         actor="agent-spec",
     )
@@ -177,9 +172,7 @@ def test_process_inbox_accepted(contract_bundle: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
 
     payload = {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}
-    (inbox / "agent-spec__T-1000.json").write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (inbox / "agent-spec__T-1000.json").write_text(json.dumps(payload), encoding="utf-8")
 
     result = service.process()
     assert result["processed"] == 1
@@ -199,9 +192,7 @@ def test_process_inbox_rejected_moved(contract_bundle: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
 
     payload = {"activity_event": {"action": "claim", "task_id": "T-9999", "prior_status": "todo"}}
-    (inbox / "agent-spec__T-9999.json").write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (inbox / "agent-spec__T-9999.json").write_text(json.dumps(payload), encoding="utf-8")
 
     result = service.process()
     assert result["processed"] == 1
@@ -248,9 +239,7 @@ def test_process_dry_run(contract_bundle: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
 
     payload = {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}
-    (inbox / "agent-spec__T-1000.json").write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (inbox / "agent-spec__T-1000.json").write_text(json.dumps(payload), encoding="utf-8")
 
     events_before = parse_event_store(contract_bundle)
     result = service.process(dry_run=True)

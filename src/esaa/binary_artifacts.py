@@ -1,4 +1,5 @@
 """Content-addressed binary blob primitives; integration must authorize paths."""
+
 from __future__ import annotations
 
 import os
@@ -8,15 +9,17 @@ from pathlib import Path
 
 from .binary_payload import stage_binary
 
-_HASH = re.compile(r'^[0-9a-f]{64}$')
+_HASH = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _validate(size: int, digest: str) -> None:
     if type(size) is not int or size < 0 or not isinstance(digest, str) or not _HASH.fullmatch(digest):
-        raise ValueError('invalid blob metadata')
+        raise ValueError("invalid blob metadata")
 
 
-def store_blob(source_root: Path, relative: str, blob_dir: Path, *, size: int, sha256: str, limit: int) -> Path:
+def store_blob(
+    source_root: Path, relative: str, blob_dir: Path, *, size: int, sha256: str, limit: int
+) -> Path:
     """Store verified bytes under their SHA-256; blob_dir must be private and trusted."""
     _validate(size, sha256)
     blob_dir = Path(blob_dir)

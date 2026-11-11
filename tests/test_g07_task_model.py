@@ -42,9 +42,7 @@ def _task(root: Path, task_id: str) -> dict:
     return ESAAService(root).task_state(task_id)["task"]
 
 
-def test_task_create_preserves_g07_fields_and_derives_superseded_by(
-    tmp_path: Path, repo_root: Path
-) -> None:
+def test_task_create_preserves_g07_fields_and_derives_superseded_by(tmp_path: Path, repo_root: Path) -> None:
     root = _workspace(tmp_path, repo_root)
     service = ESAAService(root)
 
@@ -105,9 +103,7 @@ def test_task_create_rejects_invalid_supersedes_before_append(tmp_path: Path, re
         assert len(parse_event_store(root)) == before
 
 
-def test_task_create_rejects_invalid_g07_task_fields_before_append(
-    tmp_path: Path, repo_root: Path
-) -> None:
+def test_task_create_rejects_invalid_g07_task_fields_before_append(tmp_path: Path, repo_root: Path) -> None:
     root = _workspace(tmp_path, repo_root)
     service = ESAAService(root)
 

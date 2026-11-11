@@ -4,6 +4,7 @@ Covers the `_plugin_status` helper exported from `esaa.cli`. Uses an
 isolated, in-memory fixture under `tmp_path` so no real workspace state is
 read or mutated.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,25 +24,31 @@ def _write(path: Path, payload: dict) -> None:
 def _make_workspace(root: Path) -> None:
     """Build a workspace where:
 
-      - The projection (roadmap.json) carries 2 tasks: T-001 done, T-002 review.
-      - A plugin (roadmap.example.json) declares 4 tasks, all planned `todo`,
-        two of which share `task_id` with the projection (T-001, T-002).
+    - The projection (roadmap.json) carries 2 tasks: T-001 done, T-002 review.
+    - A plugin (roadmap.example.json) declares 4 tasks, all planned `todo`,
+      two of which share `task_id` with the projection (T-001, T-002).
     """
     roadmap_dir = root / ".roadmap"
-    _write(roadmap_dir / "roadmap.json", {
-        "tasks": [
-            {"task_id": "T-001", "status": "done", "title": "First", "task_kind": "spec"},
-            {"task_id": "T-002", "status": "review", "title": "Second", "task_kind": "impl"},
-        ],
-    })
-    _write(roadmap_dir / "roadmap.example.json", {
-        "tasks": [
-            {"task_id": "T-001", "status": "todo", "title": "First",  "task_kind": "spec"},
-            {"task_id": "T-002", "status": "todo", "title": "Second", "task_kind": "impl"},
-            {"task_id": "T-003", "status": "todo", "title": "Third",  "task_kind": "qa"},
-            {"task_id": "T-004", "status": "todo", "title": "Fourth", "task_kind": "spec"},
-        ],
-    })
+    _write(
+        roadmap_dir / "roadmap.json",
+        {
+            "tasks": [
+                {"task_id": "T-001", "status": "done", "title": "First", "task_kind": "spec"},
+                {"task_id": "T-002", "status": "review", "title": "Second", "task_kind": "impl"},
+            ],
+        },
+    )
+    _write(
+        roadmap_dir / "roadmap.example.json",
+        {
+            "tasks": [
+                {"task_id": "T-001", "status": "todo", "title": "First", "task_kind": "spec"},
+                {"task_id": "T-002", "status": "todo", "title": "Second", "task_kind": "impl"},
+                {"task_id": "T-003", "status": "todo", "title": "Third", "task_kind": "qa"},
+                {"task_id": "T-004", "status": "todo", "title": "Fourth", "task_kind": "spec"},
+            ],
+        },
+    )
 
 
 def test_summary_counts_use_live_status(tmp_path: Path) -> None:
@@ -83,11 +90,14 @@ def test_missing_roadmap_dir_raises(tmp_path: Path) -> None:
 def test_grand_totals_aggregate_all_plugins(tmp_path: Path) -> None:
     _make_workspace(tmp_path)
     # Add a second plugin with one task that is also in the projection.
-    _write(tmp_path / ".roadmap" / "roadmap.audit.json", {
-        "tasks": [
-            {"task_id": "T-005", "status": "todo", "title": "Audit", "task_kind": "spec"},
-        ],
-    })
+    _write(
+        tmp_path / ".roadmap" / "roadmap.audit.json",
+        {
+            "tasks": [
+                {"task_id": "T-005", "status": "todo", "title": "Audit", "task_kind": "spec"},
+            ],
+        },
+    )
     result = _plugin_status(tmp_path)
     # roadmap.json contributes its own 2 tasks (done, review).
     # roadmap.example.json contributes 4 (1 done, 1 review, 2 todo).
@@ -108,11 +118,14 @@ def test_schema_file_is_skipped(tmp_path: Path) -> None:
 
 def test_template_files_are_skipped(tmp_path: Path) -> None:
     _make_workspace(tmp_path)
-    _write(tmp_path / ".roadmap" / "roadmap.sso-client.template.json", {
-        "tasks": [
-            {"task_id": "T-001", "status": "todo", "title": "Template", "task_kind": "spec"},
-        ],
-    })
+    _write(
+        tmp_path / ".roadmap" / "roadmap.sso-client.template.json",
+        {
+            "tasks": [
+                {"task_id": "T-001", "status": "todo", "title": "Template", "task_kind": "spec"},
+            ],
+        },
+    )
 
     result = _plugin_status(tmp_path)
 

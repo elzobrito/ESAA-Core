@@ -86,12 +86,14 @@ def legacy_scope_warnings(tasks: list[dict[str, Any]]) -> dict[str, Any]:
             continue
         entries = legacy_unsafe_scope_entries(task.get("scope_patch"))
         if entries:
-            warnings.append({
-                "code": "LEGACY_SCOPE_PATCH_UNSAFE",
-                "task_id": task.get("task_id"),
-                "entries": entries,
-                "message": "historical hotfix scope_patch accepted on replay; new commands reject it",
-            })
+            warnings.append(
+                {
+                    "code": "LEGACY_SCOPE_PATCH_UNSAFE",
+                    "task_id": task.get("task_id"),
+                    "entries": entries,
+                    "message": "historical hotfix scope_patch accepted on replay; new commands reject it",
+                }
+            )
     return {"warnings": warnings} if warnings else {}
 
 

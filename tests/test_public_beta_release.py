@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 import esaa
+from esaa.bootstrap import AGENT_GUIDE_TEMPLATE_FILES, GOVERNANCE_TEMPLATE_FILES, bootstrap_workspace
 from esaa.bootstrap_guides import (
     GUIDE_MARKER_CONTRACT_BEGIN,
     GUIDE_MARKER_CONTRACT_END,
@@ -21,12 +22,9 @@ from esaa.bootstrap_guides import (
     extract_regions,
     validate_markers,
 )
-from esaa.bootstrap import AGENT_GUIDE_TEMPLATE_FILES, GOVERNANCE_TEMPLATE_FILES, bootstrap_workspace
 from esaa.cli import main
 from esaa.constants import PACKAGE_VERSION
 from esaa.errors import ESAAError
-from esaa.service import ESAAService
-
 
 ESSENTIAL_GOVERNANCE_FILES = (
     "STORAGE_POLICY.yaml",
@@ -191,11 +189,15 @@ def test_bootstrap_merge_guides_wraps_existing_project_content(tmp_path: Path, r
     assert GUIDE_MARKER_PROJECT_BEGIN in merged
     assert GUIDE_MARKER_PROJECT_END in merged
     contract, project = extract_regions(merged)
-    assert contract.strip() == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
+    assert (
+        contract.strip() == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
+    )
     assert project == "\n" + original
 
 
-def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp_path: Path, repo_root: Path) -> None:
+def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(
+    tmp_path: Path, repo_root: Path
+) -> None:
     bootstrap_workspace(tmp_path, profile="public", merge_guides=True)
     first = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     _contract, project_before = extract_regions(first)
@@ -207,7 +209,10 @@ def test_bootstrap_merge_guides_force_updates_contract_and_preserves_project(tmp
     after = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     contract_after, project_after = extract_regions(after)
     assert "# OLD_GUIDANCE" not in contract_after
-    assert contract_after.strip() == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
+    assert (
+        contract_after.strip()
+        == (repo_root / "src/esaa/workspace/AGENTS.md").read_text(encoding="utf-8").strip()
+    )
     assert project_after == project_before
 
 
@@ -299,7 +304,9 @@ def test_packaged_governance_templates_match_canonical_files(repo_root: Path) ->
     }
     canonical_files = set(GOVERNANCE_TEMPLATE_FILES) - set(INTENTIONAL_TEMPLATE_DIVERGENCES) - editorial_files
 
-    assert canonical_files | set(INTENTIONAL_TEMPLATE_DIVERGENCES) | editorial_files == set(GOVERNANCE_TEMPLATE_FILES)
+    assert canonical_files | set(INTENTIONAL_TEMPLATE_DIVERGENCES) | editorial_files == set(
+        GOVERNANCE_TEMPLATE_FILES
+    )
     for name in canonical_files:
         assert (template_root / name).read_bytes() == (repo_root / ".roadmap" / name).read_bytes()
 
@@ -334,7 +341,9 @@ def test_pyproject_public_metadata(repo_root: Path) -> None:
     assert data["tool"]["setuptools"]["dynamic"]["version"]["attr"] == "esaa.constants.PACKAGE_VERSION"
     assert project["license"] == "MIT"
     assert project["authors"] == [{"name": "ESAA Contributors"}]
-    assert project["urls"]["Homepage"] == "https://github.com/elzobrito/ESAA---Event-Sourcing-Agent-Architecture"
+    assert (
+        project["urls"]["Homepage"] == "https://github.com/elzobrito/ESAA---Event-Sourcing-Agent-Architecture"
+    )
     assert "build>=1.2.0" in project["optional-dependencies"]["dev"]
     assert "twine>=5.1.0" in project["optional-dependencies"]["dev"]
 
@@ -386,7 +395,9 @@ def test_bootstrap_installed_console_smoke(tmp_path: Path, repo_root: Path) -> N
     assert (workspace / "AGENTS.md").is_file()
     assert (workspace / ".claude" / "CLAUDE.md").is_file()
     subprocess.run([str(esaa), "--root", str(workspace), "init"], check=True)
-    verify = subprocess.run([str(esaa), "--root", str(workspace), "verify"], check=True, capture_output=True, text=True)
+    verify = subprocess.run(
+        [str(esaa), "--root", str(workspace), "verify"], check=True, capture_output=True, text=True
+    )
     assert '"verify_status": "ok"' in verify.stdout
 
 
@@ -405,9 +416,10 @@ class pytest_raises_esaa:
 
 def test_optional_verification_preserves_orchestrator_contract(repo_root):
     import yaml
-    active=yaml.safe_load((repo_root/'.roadmap/ORCHESTRATOR_CONTRACT.yaml').read_text())
-    packaged=yaml.safe_load((repo_root/'src/esaa/templates/ORCHESTRATOR_CONTRACT.yaml').read_text())
-    for action in ('verification.configure','verification.run'):
-        assert packaged['roles']['orchestrator']['reserved_actions'].count(action)==1
-        packaged['roles']['orchestrator']['reserved_actions'].remove(action)
-    assert packaged==active
+
+    active = yaml.safe_load((repo_root / ".roadmap/ORCHESTRATOR_CONTRACT.yaml").read_text())
+    packaged = yaml.safe_load((repo_root / "src/esaa/templates/ORCHESTRATOR_CONTRACT.yaml").read_text())
+    for action in ("verification.configure", "verification.run"):
+        assert packaged["roles"]["orchestrator"]["reserved_actions"].count(action) == 1
+        packaged["roles"]["orchestrator"]["reserved_actions"].remove(action)
+    assert packaged == active

@@ -27,7 +27,7 @@ def _install_legacy(root: Path) -> None:
 
 
 def test_legacy_schema_rejects_binary_until_migrate(tmp_path):
-    svc = _workspace(tmp_path)
+    _workspace(tmp_path)
     _install_legacy(tmp_path)
     activity = (tmp_path / ".roadmap/activity.jsonl").read_bytes()
     roadmap = (tmp_path / ".roadmap/roadmap.json").read_bytes()

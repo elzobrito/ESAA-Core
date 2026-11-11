@@ -83,7 +83,14 @@ def test_reference_separates_tracked_layout_from_runtime_created_paths(repo_root
     tracked = text.split("### Tracked sources", 1)[1].split("### Paths created by operations", 1)[0]
     generated = text.split("### Paths created by operations", 1)[1].split("### Layout and projections", 1)[0]
     assert ".roadmap/AGENT_CONTRACT.yaml" in tracked
-    for path in (".roadmap/plugins.lock.json", ".roadmap/roadmaps.lock.json", ".roadmap/plugin-inputs/", ".roadmap/snapshots/", "docs/spec/", "docs/qa/"):
+    for path in (
+        ".roadmap/plugins.lock.json",
+        ".roadmap/roadmaps.lock.json",
+        ".roadmap/plugin-inputs/",
+        ".roadmap/snapshots/",
+        "docs/spec/",
+        "docs/qa/",
+    ):
         assert path not in tracked
         assert path in generated
 

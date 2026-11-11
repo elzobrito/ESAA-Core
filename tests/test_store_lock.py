@@ -30,4 +30,3 @@ def test_append_events_releases_lock_after_success(tmp_path: Path) -> None:
 
     assert not (tmp_path / ".roadmap" / "activity.jsonl.lock").exists()
     assert parse_event_store(tmp_path)[0]["action"] == "run.start"
-

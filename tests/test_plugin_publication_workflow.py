@@ -95,7 +95,9 @@ def test_validate_and_install_plugin_accept_local_directory_path(tmp_path: Path,
     assert Path(installed["plugin"]["manifest_path"]) == plugin_dir / "plugin.json"
 
 
-def test_activate_roadmap_validates_explicit_input_against_plugin_schema(tmp_path: Path, repo_root: Path) -> None:
+def test_activate_roadmap_validates_explicit_input_against_plugin_schema(
+    tmp_path: Path, repo_root: Path
+) -> None:
     plugin_dir = _plugin_package(tmp_path / "plugins" / "security")
     workspace = tmp_path / "workspace"
     install_plugin(workspace, str(plugin_dir), repo_root=repo_root)
@@ -111,7 +113,10 @@ def test_activate_roadmap_validates_explicit_input_against_plugin_schema(tmp_pat
     )
 
     assert result["status"] == "active"
-    assert list_roadmaps(workspace, detail=True, repo_root=repo_root)[0]["tasks"][0]["task_id"] == "security-default-T-001"
+    assert (
+        list_roadmaps(workspace, detail=True, repo_root=repo_root)[0]["tasks"][0]["task_id"]
+        == "security-default-T-001"
+    )
 
 
 def test_activate_roadmap_rejects_input_that_fails_plugin_schema(tmp_path: Path, repo_root: Path) -> None:
@@ -192,7 +197,9 @@ def test_cli_publication_flow_new_validate_install_activate(tmp_path: Path, repo
     doctor = json.loads(capsys.readouterr().out)
     assert doctor["status"] == "ok"
 
-    assert main(["--root", str(tmp_path), "roadmap", "activate", "security", "--execution-id", "default"]) == 0
+    assert (
+        main(["--root", str(tmp_path), "roadmap", "activate", "security", "--execution-id", "default"]) == 0
+    )
     activated = json.loads(capsys.readouterr().out)
     assert activated["status"] == "active"
 

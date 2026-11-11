@@ -1,13 +1,11 @@
 """FIX-1805-QA + FIX-1808-QA — Atomic file effects + content-addressed artifacts."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 from pathlib import Path
 
-import pytest
-
-from esaa.errors import ESAAError
 from esaa.file_effects import (
     ARTIFACT_DIR,
     STAGING_DIR,
@@ -21,14 +19,17 @@ from esaa.file_effects import (
     write_artifact,
 )
 
-
 # ----- FIX-1805 atomic effects -----
+
 
 def test_stage_creates_files_in_staging(tmp_path: Path) -> None:
     (tmp_path / ".roadmap").mkdir()
-    staged = stage_file_updates(tmp_path, [
-        {"path": "docs/spec/X.md", "content": "# X"},
-    ])
+    staged = stage_file_updates(
+        tmp_path,
+        [
+            {"path": "docs/spec/X.md", "content": "# X"},
+        ],
+    )
     assert len(staged) == 1
     assert Path(staged[0]["staged_path"]).exists()
     # arquivo final ainda nao existe
@@ -37,9 +38,12 @@ def test_stage_creates_files_in_staging(tmp_path: Path) -> None:
 
 def test_commit_staged_writes_final(tmp_path: Path) -> None:
     (tmp_path / ".roadmap").mkdir()
-    staged = stage_file_updates(tmp_path, [
-        {"path": "docs/spec/Y.md", "content": "# Y\n"},
-    ])
+    staged = stage_file_updates(
+        tmp_path,
+        [
+            {"path": "docs/spec/Y.md", "content": "# Y\n"},
+        ],
+    )
     commit_staged(tmp_path, staged)
     final = tmp_path / "docs/spec/Y.md"
     assert final.exists()
@@ -64,6 +68,7 @@ def test_cleanup_orphan_staging_removes_stale(tmp_path: Path) -> None:
 
 
 # ----- FIX-1808 artifacts + hashes -----
+
 
 def test_compute_file_metadata_new_file(tmp_path: Path) -> None:
     """Arquivo nao existe -> before_sha256 None; after_sha256 calculado."""
@@ -128,10 +133,13 @@ def test_verify_artifact_hash_mismatch(tmp_path: Path) -> None:
 
 def test_stage_and_compute_combines_steps(tmp_path: Path) -> None:
     (tmp_path / ".roadmap").mkdir()
-    staged, metas = stage_and_compute(tmp_path, [
-        {"path": "a.md", "content": "A"},
-        {"path": "b.md", "content": "B"},
-    ])
+    staged, metas = stage_and_compute(
+        tmp_path,
+        [
+            {"path": "a.md", "content": "A"},
+            {"path": "b.md", "content": "B"},
+        ],
+    )
     assert len(staged) == 2
     assert len(metas) == 2
     for m in metas:

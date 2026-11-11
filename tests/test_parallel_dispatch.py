@@ -42,4 +42,3 @@ def test_run_parallel_claims_first_eligible_parallel_group(contract_bundle: Path
     events = parse_event_store(contract_bundle)
     claims = [event for event in events if event["action"] == "claim"]
     assert [event["payload"]["task_id"] for event in claims] == ["P-1", "P-2"]
-

@@ -1,4 +1,5 @@
 """G08 (PROV-01/PROV-02): proveniencia de runner em eventos do ESAA."""
+
 from __future__ import annotations
 
 import json
@@ -98,9 +99,7 @@ def _base_event(seq: int, runner: dict | None = None) -> dict:
 def _write_store(root: Path, events: list[dict]) -> None:
     store = root / ".roadmap" / "activity.jsonl"
     store.parent.mkdir(parents=True, exist_ok=True)
-    store.write_text(
-        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events), encoding="utf-8"
-    )
+    store.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events), encoding="utf-8")
 
 
 def test_legacy_events_without_runner_parse(tmp_path: Path) -> None:

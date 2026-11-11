@@ -1,7 +1,6 @@
 import hashlib
 import os
 import threading
-from pathlib import Path
 
 import pytest
 
