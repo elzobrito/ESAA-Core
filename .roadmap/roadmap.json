@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1939,
-      "projection_hash_sha256": "ba16934e8809da1955792addf3ac6eff770fae277782f7a243a661b60a903959",
+      "last_event_seq": 1958,
+      "projection_hash_sha256": "002bf854b88d1ec58f902db436f19a07e0e94d1d086ccfeeda9923ad7c994a8c",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T22:00:38Z"
+    "updated_at": "2026-11-11T23:45:36Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4398,7 +4398,7 @@
       "task_kind": "impl",
       "title": "CI completo: lint e formatacao em todo o codigo, mypy bloqueante, Windows, cobertura e pip-audit",
       "description": "Achados ENG-02, ENG-05 e SEC-04 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md: o CI roda ruff e black em 3 de 66 arquivos, mypy nao bloqueia (9 erros em 4 arquivos), a matriz e so Linux e nao ha cobertura nem auditoria de dependencias. Depende das demais tarefas de codigo da Onda 1 porque a formatacao integral toca todos os arquivos. Entregar: commit mecanico de ruff check --fix e formatacao em src e tests; correcao dos 9 erros de mypy; ci.yml com lint em src e tests, mypy bloqueante, windows-latest na matriz, pytest com cobertura e limite igual ao valor medido, e job pip-audit; corrigir target-version para py311 em pyproject. Criterios de aceite: (1) ruff check e verificacao de formatacao em src e tests saem com exit 0; (2) mypy src/esaa sem erros e sem continue-on-error no CI; (3) ci.yml inclui windows-latest, cobertura com limite e pip-audit; (4) pytest -q passa e o hash de projecao do log real fica inalterado; Revisao exigida: release, por runner distinto do executor.",
-      "status": "review",
+      "status": "done",
       "depends_on": [
         "AUD-O1-010",
         "AUD-O1-020",
@@ -4436,16 +4436,72 @@
           "Historical replay unchanged at seq 1926, projection hash 3eae519ebe9a4e1ecd9557e7ce2972572523a8250e461fe61328eeeec24f79f1. 124 frozen file updates, 821 KB; release review intentionally deferred to agy by user.",
           "User authorized policy ceiling 500; task.limits.set set max_file_updates=124 at seq1930. Candidate and current projector agree on real seq1932 hash7a0d368d14ae55679382a0d7d3d147f582dd30efbc4b0f7477d2fa305d3d9d9a."
         ]
+      },
+      "completed_at": "2026-11-11T22:09:29Z"
+    },
+    {
+      "task_id": "REL-0.5.0b26-20261111",
+      "task_kind": "impl",
+      "title": "Publish 0.5.0b26 audit hardening and upgrade this notebook",
+      "description": "User explicitly authorized commit/push, PyPI publication with token file and notebook upgrade. Prepare version/changelog, build and check distributions, push main/tag, upload and verify PyPI hashes, upgrade user-pip and pipx. Retain documented non-POSIX binary limitation; no identity or contract migration.",
+      "status": "in_progress",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T23:43:46Z"
+    },
+    {
+      "task_id": "REL-0.5.0b26-PREP-20261111",
+      "task_kind": "impl",
+      "title": "Prepare version and changelog for 0.5.0b26",
+      "description": "Prepare source metadata and validate built distributions before the separately tracked publication/install task REL-0.5.0b26-20261111. User authorized release b26; preserve known Windows limitation.",
+      "status": "review",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T23:44:46Z",
+      "verification": {
+        "checks": [
+          "29 release/CI tests passed; prior full audit validation 917 passed/5 skipped, coverage 88.24%, lint/black/mypy/pip-audit passed.",
+          "Wheel and sdist built successfully and passed twine check; archive paths checked for token, local ledger and .motor-IA exclusions.",
+          "Clean wheel install smoke: esaa 0.5.0b26, bootstrap public/init/verify ok seq4; eligible returns empty with stale_claims.",
+          "Artifacts: {\"esaa_core-0.5.0b26-py3-none-any.whl\": {\"sha256\": \"26eefec05c12c7e28271f02186c976d3bbd33999839eaecafe643b2a6aba328c\", \"size\": 202950}, \"esaa_core-0.5.0b26.tar.gz\": {\"sha256\": \"6a836ac61c82703a6daed960b6e6e40e24e39ca7a47470d1e05ae5c62a086aaa\", \"size\": 507519}}"
+        ]
       }
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 132,
+      "done": 133,
+      "in_progress": 1,
       "review": 1
     },
     "by_kind": {
-      "impl": 82,
+      "impl": 84,
       "qa": 25,
       "spec": 26
     }

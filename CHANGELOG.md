@@ -1,4 +1,6 @@
-## Unreleased
+## 0.5.0b26
+
+Beta release of audit Waves 0 and 1.
 
 Governance hardening from the 2026-11-10 technical audit (`docs/audit/ESAA-CORE-AUDIT-2026-11-10.md`). Protocol and storage versions are unchanged.
 
@@ -12,6 +14,15 @@ Governance hardening from the 2026-11-10 technical audit (`docs/audit/ESAA-CORE-
 - `verify` compares the content of `roadmap.json`, `issues.json` and `lessons.json` with the event-store replay and reports `mismatch` with a `divergent` list; unreadable projections are reported as mismatch instead of raising.
 - Upgrade note: a workspace whose projections were written by an earlier version in a different shape may report `mismatch` until `esaa project` rebuilds them.
 - Governance property tests (`tests/test_governance_properties.py`) with evidence in `docs/qa/AUD-O0-governance.md`.
+
+- Replay uses indexed task lookup and avoids repeated materialization; the 50,000-event acceptance benchmark completes locally with verify around 2 seconds and claim around 3 seconds.
+- Event appends and projection replacements flush file data; atomic replacement protects individual projections. Multi-file recovery remains replay-based. `store repair` can quarantine one malformed final JSONL line.
+- `verify` reports hash-chain status; `init --with-chain` enables opt-in chaining. Timestamp regressions are reported without redefining event ordering.
+- Input and workspace failures produce one JSON stderr line; `ESAA_DEBUG=1` enables tracebacks. Read commands do not create an event store in uninitialized directories.
+- Administrative writes and submission rejection accounting validate the locked event prefix. `task release --reason` recovers stalled claims and resets attempt limits; `eligible` lists stale claims.
+- Runtime policy rejects unsupported keys and invalid values. Reserved settings remain explicitly documented.
+- CI checks all source and tests with Ruff and Black, blocks on mypy, enforces a measured coverage baseline of 88.07%, audits dependencies, and includes Linux/Windows Python 3.11–3.13 jobs.
+- Known limitation: binary staging requires POSIX secure dirfd support; some binary-input tests still expect success on Windows. Adding the Windows matrix does not establish Windows compatibility. Identity and stronger runner separation remain opt-in.
 
 ## 0.5.0b25
 
