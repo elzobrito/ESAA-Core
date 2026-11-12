@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1990,
-      "projection_hash_sha256": "5f340f15c6bf18b870136f087e4fe3e94d6223c8b933c6a15859e58f6ecb1034",
+      "last_event_seq": 2005,
+      "projection_hash_sha256": "776c8f6a000e1eab8ca75ee0e6e9cf44a3eb04972dcb4b1141b779c7698c2c74",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T00:23:38Z"
+    "updated_at": "2026-11-12T01:19:25Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4444,7 +4444,7 @@
       "task_kind": "impl",
       "title": "Publish 0.5.0b26 audit hardening and upgrade this notebook",
       "description": "User explicitly authorized commit/push, PyPI publication with token file and notebook upgrade. Prepare version/changelog, build and check distributions, push main/tag, upload and verify PyPI hashes, upgrade user-pip and pipx. Retain documented non-POSIX binary limitation; no identity or contract migration.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4469,14 +4469,15 @@
           "pipx esaa-core upgraded to 0.5.0b26; user PATH esaa and pipx interpreter both report 0.5.0b26. Installed CLI verifies real workspace ok seq1958.",
           "Prepublication checks: 29 release/CI tests, build, twine check and clean-wheel bootstrap/init/verify smoke passed. Prior full suite917 passed5skipped, coverage88.24. Known non-POSIX binary limitation retained in changelog; no claim of remote Windows validation."
         ]
-      }
+      },
+      "completed_at": "2026-11-12T01:12:47Z"
     },
     {
       "task_id": "REL-0.5.0b26-PREP-20261111",
       "task_kind": "impl",
       "title": "Prepare version and changelog for 0.5.0b26",
       "description": "Prepare source metadata and validate built distributions before the separately tracked publication/install task REL-0.5.0b26-20261111. User authorized release b26; preserve known Windows limitation.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4500,14 +4501,15 @@
           "Clean wheel install smoke: esaa 0.5.0b26, bootstrap public/init/verify ok seq4; eligible returns empty with stale_claims.",
           "Artifacts: {\"esaa_core-0.5.0b26-py3-none-any.whl\": {\"sha256\": \"26eefec05c12c7e28271f02186c976d3bbd33999839eaecafe643b2a6aba328c\", \"size\": 202950}, \"esaa_core-0.5.0b26.tar.gz\": {\"sha256\": \"6a836ac61c82703a6daed960b6e6e40e24e39ca7a47470d1e05ae5c62a086aaa\", \"size\": 507519}}"
         ]
-      }
+      },
+      "completed_at": "2026-11-12T01:13:06Z"
     },
     {
       "task_id": "CLI-AGENT-HELP-20261111",
       "task_kind": "impl",
       "title": "Show agent workflow guidance in top-level CLI help",
       "description": "Add a concise agent-facing help epilog pointing to local AGENTS.md and dispatch-context, real runner provenance, separate claim/complete submissions and Orchestrator-owned effects. Preserve read-only help behavior and existing command syntax. No new release or publication requested.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4526,14 +4528,15 @@
           "Ruff and Black checks pass for cli.py; manually inspected top-level help epilog with preserved multiline agent guidance.",
           "Help directs agents to AGENTS.md and dispatch-context; local contract remains authoritative. No new package version, push or PyPI publication."
         ]
-      }
+      },
+      "completed_at": "2026-11-12T01:18:26Z"
     },
     {
       "task_id": "REL-0.5.0b27-PREP-20261111",
       "task_kind": "impl",
       "title": "Prepare b27 release with agent help instructions",
       "description": "Prepare version/changelog and validate distributions for user-authorized b27 publication and notebook upgrade. Release scope is the already implemented help epilog; no unrelated changes.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4556,14 +4559,15 @@
           "Installed wheel reports0.5.0b27; top-level help includes Agent workflow and AGENTS.md/dispatch-context guidance; bootstrap/init/verify smoke succeeded.",
           "Candidate source matches HEAD except version constant; artifact paths exclude token/local ledger/.motor-IA. Artifacts:{\"esaa_core-0.5.0b27-py3-none-any.whl\": {\"sha256\": \"7958e7827ce4f00ccb134c48390469f2a5e21a1907adc186a1238c764c4a222c\", \"size\": 203226}, \"esaa_core-0.5.0b27.tar.gz\": {\"sha256\": \"0e72dedb5c3859b2aa0f8dfe39cc5f209238a44c72707feb088be049e4e10ae4\", \"size\": 507872}}"
         ]
-      }
+      },
+      "completed_at": "2026-11-12T01:18:55Z"
     },
     {
       "task_id": "REL-0.5.0b27-PUBLISH-20261111",
       "task_kind": "impl",
       "title": "Publish b27 and upgrade notebook installations",
       "description": "User explicitly authorized git commit/push, PyPI upload using designated token file, and notebook upgrade after publication. Verify artifact hashes and installed help in both user-pip and pipx. No source file updates in this operational task.",
-      "status": "review",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4582,13 +4586,13 @@
           "Installed PATH esaa --help displays Agent workflow, AGENTS.md, dispatch-context and separate claim/complete guidance; both installations report0.5.0b27. Installed CLI verifies real workspace ok atseq1987.",
           "83 focused tests passed; build/twine check and fresh installed-wheel bootstrap/init/verify smoke passed. No credentials logged or staged."
         ]
-      }
+      },
+      "completed_at": "2026-11-12T01:19:25Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 133,
-      "review": 5
+      "done": 138
     },
     "by_kind": {
       "impl": 87,
