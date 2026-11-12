@@ -1,3 +1,11 @@
+## 0.5.0b28
+
+- Read governance schemas and affected test fixtures explicitly as UTF-8, avoiding Windows CP1252 decoding failures.
+- `activity clear` preserves the exact original bytes in its backup and computes the recorded byte count and SHA-256 from those bytes, including LF and CRLF histories.
+- Unsupported binary staging returns the registered `BINARY_PLATFORM_UNSUPPORTED` JSON error. Binary staging still requires secure POSIX dirfd support; positive integration tests are scoped accordingly and rejection tests remain cross-platform.
+- CI audits runtime dependencies from `pyproject.toml` with `pip-audit --strict .`, so a source release does not need to exist on PyPI before its dependency audit can run. Linux/Windows test matrices and existing quality gates remain enabled.
+- Local validation of the reviewed hotfix: 921 tests passed, 5 skipped, 88.67% coverage. Protocol and storage versions, active identity policy and opt-in runner separation are unchanged.
+
 ## 0.5.0b27
 
 - Top-level `esaa --help` now includes an agent workflow: read the workspace AGENTS.md, retrieve dispatch-context, follow the local contract and lessons, identify the actual runner, and submit claim and complete separately.

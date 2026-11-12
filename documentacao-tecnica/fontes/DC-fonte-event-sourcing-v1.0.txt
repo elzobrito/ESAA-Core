@@ -1,0 +1,553 @@
+
+No vídeo de hoje eu vou te ensinar o padrão arquitetural Event Sourcing, que é utilizado
+por grandes empresas e grandes aplicações como Uber, YouTube, Shopify, Amazon, Mercado
+Livre, Netflix e por aí vai, e ainda é extremamente cobrado nas entrevistas tanto para programador
+quanto para arquiteto de software.
+Isso porque agora na era das inteligências artificiais se torna cada vez mais comum as
+empresas quererem medir o teu nível e a tua capacidade de arquitetar soluções para
+problemas do mundo real.
+E alguns desses problemas nós vamos resolver no vídeo de hoje através desse padrão extremamente poderoso conhecido como Event Source.
+Então pra gente não perder mais tempo, vamos direto pra tela porque tem muita coisa pra gente ver e muita coisa pra eu te ensinar.
+Bora lá!
+Então vamos lá, vamos direto ao ponto aqui, vamos direto ao que interessa porque como você bem já sabe tem muita coisa pra gente ver.
+A primeira coisa que a gente vai começar entendendo aqui é o seguinte, tá?
+Nós vamos dar um olhado aqui nos 5 elementos principais do Event Source e depois a gente vai entrar nos problemas e depois eu trago a solução que é a implementação desse padrão, beleza?
+Então vamos lá, vamos direto ao que interessa aqui.
+Primeiro a gente vai ter os eventos que são um dos elementos dessa arquitetura, desse
+padrão arquitetural na verdade.
+A gente vai ter os Snapshots, a gente vai ter as projeções e a gente também vai ter
+um outro padrão arquitetural que é o CQRS, que eu te ensinei no vídeo passado, então
+vou deixar um card aqui em cima e o link na descrição, você pode dar uma olhada lá
+depois, mas não precisa sair correndo para assistir esse vídeo agora, até porque eu
+vou revisitar o CQRS e você vai entender.
+Depois você assiste outro vídeo, caso você não tenha assistido, beleza?
+E o quinto e último elemento é o nosso banco de dados, que vai ser um banco específico,
+um banco diferente de tudo que você já trabalhou, e todos esses elementos giram em torno desse
+banco de dados, que geralmente é onde a gente vai armazenar os nossos eventos e montar toda
+a linha temporal, beleza?
+Isso vai ficar um pouco mais claro aí ao longo do vídeo, então não se assuste com essas
+nomenclaturas, porque são coisas extremamente simples, beleza?
+Então vamos lá, vamos direto ao que interessa aqui.
+Vamos começar com o problema, que é o seguinte.
+Vamos dar uma olhada na arquitetura tradicional, que geralmente a gente está acostumado a
+trabalhar.
+a gente vai pegar o contexto de um e-commerce, onde a gente tem o cliente da nossa aplicação,
+no front-end, fazendo requisições da HTTP para o nosso microserviço, nosso servidor,
+nosso API, tanto faz.
+E a gente tem aqui o nosso banco de dados, um banco que normalmente a gente usa, um banquinho
+relacional para a gente poder estar inserindo os registros.
+E nesse contexto do e-commerce, a gente está trabalhando com um order service.
+Então vamos imaginar que isso é um microserviço que cuida da parte de pedidos, que toda vez
+que um cliente cria um pedido ou o status do pedido altera, esse cara é quem vai cuidar
+de tudo isso. E aí vamos lá. Vamos imaginar que o cliente acabou de fazer ali uma compra, ele acabou de fazer.
+Na verdade a solicitação de um pedido, ele vai pagar ainda esse pedido. E aí o que acontece? Esse pedido vai ser inserido aqui no nosso banco de dados, tá?
+Então vai ter o id do pedido, pode ter um id aqui, de repente, pra uma tabela de cartas, de um shopping cartas ali, que é o carrinho, né, com todos os produtos dentro.
+A gente vai ter o total desse pedido, né, que é o valor ali, quanto ele vai custar. O status dele, né, que é pendente, a gente vai ter um created yet, a gente poderia ter um infinidade de outros dados, tá?
+E aí, qual que é o detalhe?
+O detalhe é que quando a gente tá trabalhando com esse modelo, com esse paradigma baseado
+em crude, você vai entender porque o event source, na verdade, é uma mudança de paradigma
+e você vai entender isso ao longo do vídeo, tá?
+Mas normalmente, quando a gente trabalha com esse paradigma tradicional, a gente faz um
+insert lá no banco de dados.
+E aí, o que que acontece?
+Imagina que o cliente foi lá e pagou agora, né?
+Ele gerou o QR Code, tudo mais e tal, e ele pagou o pedido.
+O status dele tá pendente de pagamento.
+É só que quando ele efetuar o pagamento, a gente vai lá no banco de dados quando isso
+acontecer e dá um update nessa tabela setando os status para pago, onde o ID foi igual ao
+ID desse pedido.
+O que acontece?
+Quando a gente faz isso, quando a gente faz essa atualização de status, para a gente normalmente
+quando a gente está trabalhando com aplicações normais, aplicações comuns do dia a dia,
+isso aqui é o aceitável, é o normal, é o tradicional.
+Só que tem alguns detalhes aqui e tem alguns problemas nessa arquitetura.
+Por quê?
+Imaginar que depois de pago o cara lá do estoque está na parte de armazenamento, no CD de transmissão
+do Mercado Livre, alguma coisa do tipo, e aí ele vai separar esse pedido, vai separar
+o pedido, vai embalar, vai empacotar, então esse pedido precisa também trocar de status
+quando esse cara começar a fazer isso.
+Então ele vai lá no sistema dele, vai bater o pedido lá, vai dizer, esse pedido aqui agora
+está em preparação, ou seja, esse fulfillment aqui é a tradução mais ou menos para em preparação,
+vai ser preparado para ser enviado para o cliente.
+Então esse cara vai lá e bate no sistema que ele puxou a expedida e agora a expedida
+vai ser preparada.
+O que acontece?
+A gente vai lá no banco e a gente vai dar um outro update.
+Então a gente vai dar um update e agora ele trocou de status de pago para Full Filment.
+Qual que é o problema disso aqui?
+Problema disso aqui é que a gente não está criando uma linha do tempo.
+A gente está sobrescrevendo o estado anterior.
+A gente não sabe como que ele chegou em Full Filment.
+A gente só sabe que ele está agora em Full Filment, expedido aqui.
+Ele está sendo preparado.
+Mas a gente não sabe quando que ele foi pago, a gente não sabe, a gente não tem essas informações.
+porque a gente está sobrescrevendo essas informações.
+E aí, quando a gente fala, por exemplo, de status de pedido, a gente pode ter uma infinidade
+de status.
+Por exemplo, a gente pode ter Reimbouça Processar, Chargeback, Cliente Ausente, saiu para entrega,
+Reimbouça Solicitado, Cancelado, Devolução, Pedido, Entregue e mais um monte de outros
+status.
+E se toda vez que um status muda, a gente apaga essa informação, ou seja, a gente está
+sobrescrevendo essa informação, a gente não consegue montar uma linha do tempo.
+E se você reparar, por exemplo, lá no Mercado Livre, na Amazon, até nos Correios também,
+você repara que a informação nunca é perdida, ele altera de status, mas a informação
+anterior permanece, ou seja, a gente cria uma espécie de linha do tempo, uma espécie
+de histórico, e isso é a essência do Event Source, ainda que é pouco que você vai entender
+um pouco mais.
+Então eu não sobre escrevo esse estado, eu sempre estou adicionando algo novo, e esse
+algo novo é sempre o estado atual, mas eu não posso me desfazer daquilo que aconteceu.
+E aí o que acontece?
+Se você já é um cara mais avançado, você já deve ter imaginado o seguinte, porra
+Renat, isso aí é mole de resolver por isso aí.
+Eu vou criar uma tabela por fora, vou criar uma tabelinha no banco adicional, uma tabela
+em estrangeira ali, vou criar uma chavezinha estrangeira nela, né, pra vincular com essa
+tabela aqui de pedido, e lá dentro eu vou criando ali todo o histórico, vou adicionando
+que o pedido tava pendente, depois ele foi pra pago, depois ele mudou pra impreparação,
+em separação, tanto faz, depois ele saiu pra entrega pro cliente, depois o cliente
+não tava em casa e assim sucessivamente.
+E aí eu crio uma chave em estrangeira e vinculo com essa tabela aqui, beleza.
+Então eu consigo ter o histórico do que aconteceu vinculado com essa tabela.
+Beleza, isso poderia funcionar.
+Na verdade, isso vai funcionar em boa parte das aplicações comuns do dia a dia.
+Só que quando a gente fala de grandes aplicações,
+quando a gente fala de aplicações que têm uma volumetria muito alta de acesso,
+de leitura principalmente descrita de dados no banco de dados,
+não tem como resolver dessa forma.
+Por quê? Porque a cada nova chave estrangeira que você cria,
+você tá criando agregações,
+Você está criando um monte de join na hora de consultar isso.
+E a cada novo join que você cria, isso pesa consulta.
+Agora, tu imagina um mercado livre, uma aplicação e commerce que tem muita volumetria, tem uma
+alta volumetria de leituras, tendo que agregar um monte de tabelas para poder trazer resultados
+na hora de ler.
+Isso com certeza vai dar problema, o banco de dados vai virar um gargalo.
+Ah Renato, mas aí eu vou criar índice, índice também não vai resolver, porque você vai
+prejudicar escrita.
+Tudo isso eu te expliquei no vídeo lá de CQRS.
+Depois que acabar esse vídeo, se você não assistiu, você dá um olhado naquele vídeo
+porque eu te mostro a importância de a gente separar a escrita de leitura, tá?
+O que eu quero que você entenda agora é que essa solução não resolveria, efetivamente,
+esse problema.
+Porque além de você ter uma tabela adicionada, você vai criar um emaranhado de tabelas
+que se relacionam e na hora de consultar isso é problemático.
+E aí, o que acontece?
+Quando a gente precisa, né, eu quero que você entenda isso, a essência do EventSourcing.
+Quando a gente precisa criar essa linha do tempo, num arquitetura que não dá para
+para você ficar trabalhando com banquinho relacional, tradicional e normal, é a hora de você começar a utilizar esses padrões arquiteturais mais avançados como CQRS e o Event Source em que andam de mãos dadas, beleza?
+E tem, logicamente, eu estou te dando esse exemplo aqui do e-commerce, mas tem uma infinidade de outros tipos de sistemas que vão requerer esse tipo de abordagem, que é alguns exemplos, vamos lá.
+A gente pode ter sistemas bancários, então por exemplo, se eu abrir aqui, isso daqui
+é o exemplo de um extrato bancário.
+E o que é um extrato bancário?
+O extrato bancário nada mais é do que a linha do tempo de todas as movimentações que
+aconteceram na tua conta bancária.
+Então, não existe a ideia de saldo.
+O saldo, na verdade, é só o reflexo de uma linha do tempo ou da cronologia dos fatos
+que levaram até ele.
+Então, toda linha do tempo de tudo que aconteceu está registrado.
+Isso é a essência do EventSosse, é a cronologia, é a linha do tempo e eu vou falar muito sobre
+isso ao longo do vídeo, beleza?
+Vamos lá, além dos sistemas bancários, a gente vai ter também os sistemas de e-commerce
+como a parte de pedidos, a parte de preço também, porque de repente tu quer acompanhar
+a alteração de preço ao longo dos anos.
+Imagina que você tinha lá o Playstation 5 que custava R$ 2.000 a 2 anos atrás e agora
+ele tá custando R$ 4.000.
+Eu quero saber qual é o histórico de alteração de preço desse Playstation 5 ao longo desses
+2 anos.
+sabe se você vai sobreescrevendo... agora, se você tem uma linha temporal de eventos
+que aconteceram e esses eventos são imutáveis você consegue reconstruir toda a linha do
+tempo.
+Isso vale lógico pra preço ou pra o que a regra de negócio do seu sistema exige.
+E pra isso ficar mais claro pra você, vamos pegar agora o exemplo do sistema bancário.
+Vamos imaginar que temos o nosso sistema, onde temos uma conta bancária, e aí você
+acabou de criar sua conta bancária lá no seu banco favorito, e a atendente do caixa
+foi lá, te cadastrou, criou sua conta e pronto, sua conta tá criada.
+você pode ser registrado aqui no banco, está com saldo zerado, que acabou de ser criado
+logicamente, tem o holder ID aqui, que é o proprietário da conta, tem o ID da conta,
+vai ter o status, um created yet e assim sucessivamente. Isso aqui mais uma vez é de exemplo.
+essa aqui é para exemplificar para ficar mais claro. E aí você foi lá, deu um insert no banco de dados e perfeito.
+E aí agora imagina que você fez ali um depósito de mil reais na sua conta. Então a gente vai dar um update no banco e vai
+adicionar mil reais na sua conta. Depois você foi lá e fez um sac de 250, então a gente vai lá, roda
+outra update e subtrai os 250. Aí eu te pergunto, e o histórico e o extrato, como é que você vai registrar isso aqui?
+Não consegue fazer isso. E aí, por mais que você acredite, ah Renato, porra, mas eu consigo
+criar uma tabela separada pra fazer isso e tal. Cara, se tu tá nessa ideia ainda de tabela
+separada, olha o tamanho do problema que você tá se metendo. Porque presta atenção, se
+você pega uma tabela separada pra você registrar essas operações que aconteceram, você vai
+ter que criar uma tabela pra cada tipo de operação diferente, como por exemplo, esses
+mil aqui pode ter sido o depósito na boca do caixa. Se você subtraiu 250, pode ter sido
+um sac no caixa eletrônico ou pode ter sido um pix que você fez. Só que isso são coisas
+diferentes, isso faz parte de domínios diferentes, logicamente que todas essas operações afetam
+diretamente o saldo, porém são coisas completamente diferentes. Então você teria que ter uma tabela
+pra compras no cartão de débito, você teria que ter uma tabela pra pix que você fez, uma
+tabela pra contas que você pagou, uma tabela pra sac que você realizou na boca do caixa,
+uma tabela pra sac no caixa eletrônico, então assim, são coisas que tem dados diferentes,
+que são completamente distintas, mas todas elas afetam o saldo. Como é que tu faria isso
+num banco relacionado? Você agregaria tudo via join, você criaria um monte de tabela,
+um monte de FK espalhada ao longo do seu banco de dados? É lógico que não, então isso
+aqui é o tipo de problema que exige um arquitetura, um padrão arquitetural totalmente diferente
+do tradicional, do paradigma convencional que a gente usa, que é o modelo baseado em
+crude, cara, onde a gente faz lá o insert, o update, o delete e tudo mais. Então quando
+a gente fala de linha do tempo, de cronologia dos fatos, de armazenar os eventos imutáveis,
+de ter todos os fatos na mão.
+A gente está falando de event source, então é agora que a gente começa a trazer a solução
+para esse tipo de sistema, que exige uma abordagem diferente, um paradigma diferente.
+A gente vai começar, logicamente, com o nosso primeiro elemento, que vai ser o banco de
+dados.
+Então a gente começa com o banco de dados, depois eu vou trazendo todos os outros elementos
+para que você consiga entender como que a gente vai trabalhar com isso aqui.
+Então vamos lá, pra banco de dados a gente tem duas tecnologias que dá pra gente trabalhar,
+que é o padrão do mercado, tá?
+Ou a gente vai usar o Event Store DB, ou a gente vai utilizar o Kafka.
+Ah Renato, mas o Kafka não é um banco de dados.
+Eu sei que ele não é um banco de dados, mas dá pra usar como banco de dados, e eu
+falei sobre isso no vídeo lá do placar da Copa do Mundo.
+Vou deixar um card aqui em cima, link na descrição, depois você dá um confere lá, mas dá pra
+usar o Kafka como banco de dados sim, porque dá pra persistir da lula dentro.
+Só que o Event Store é uma ferramenta, é um banco de dados que foi criado pra gente
+trabalhar com o Event Source.
+Então, o banco de dados a gente vai utilizar o Event Store DB, que é o tradicional, é o
+padrão do mercado.
+E aí vamos pra arquitetura, tá?
+A gente vai trabalhar com esse contexto do banco ali pra gente trazer, na verdade, todos
+os problemas, né?
+Bastantes problemas pra gente ir resolvendo.
+Então, a nossa arquitetura inicial é basicamente essa daqui.
+A gente vai ter lá o usuário, que pode ser lá a caixa atendente, que tá trabalhando
+lá no banco e tudo mais e tal.
+Se é você mesmo com o seu celular, no internet banking, fazendo alguma operação e tal, não
+importa.
+O que importa é o nosso servidor que vai receber essas requisições, seja do caixa
+eletrônico, seja da atendente no banco, seja sua lá no teu aplicativo do banco ou
+no teu internet banking no computador.
+Tanto faz.
+E aí a gente vai ter o nosso banco de dados aqui que a gente vai utilizar o event store.
+Show de bola.
+O que a gente vai ter aqui?
+A gente vai ter o armazenamento dos nossos eventos.
+Ou seja, vamos imaginar que a gente acabou de criar uma conta bancária.
+Você foi lá na agência do banco, pediu para criar uma conta e tal, chegou lá e a menina
+foi lá, bateu tudo certinho para você e criou a sua conta.
+Então a gente vai armazenar um evento de conta aberta.
+E esse evento vai ser basicamente isso aqui, um diaizonzinho ali e tal, isso aqui é um
+banco não relacional, então é super simples de trabalhar com isso aqui.
+Então no momento em que for aberta a sua conta, a gente vai registrar todos os dados,
+então a gente vai ter o account ID, que é o ID da conta que acabou de ser criada, o
+E aí, vamos imaginar que depois você foi lá e fez um depósito.
+Você veio aqui e depositou R$10.000,00, então a gente vai armazenar um evento do tipo
+em dinheiro, depósito de dinheiro, então a gente vai ter todos os dados relacionados
+a ele, o carcam de adica, o customíri de adia, o amount aqui que é a quantidade que
+se depositou e todos os dados relacionados.
+Perceba, são eventos diferentes, o primeiro evento é o de conta aberta, o segundo evento
+é de dinheiro que foi depositado, beleza.
+Fora isso a gente pode ter vários outros eventos ao longo do tempo que vão acontecendo, você
+vai utilizando a sua conta, então por exemplo a gente pode ter aqui um evento de saque,
+então você sacou 1.500 reais, a gente pode ter aqui o dinheiro que você vai ter,
+pode ter aqui o dinheiro que foi transferido via Pixie, o tipo da transferência que foi
+via Pixie, então você vai ter a continha de R$ 2.000 e tudo mais, ou a conta de destino
+que você mandou e assim sucessivamente, vários outros dados aqui.
+Depois você pode ter aqui a compra no cartão de débito, então o débito também impacta
+na sua conta bancária, lá no seu saldo na verdade, e essa conta foi lá no Mercado
+Livre de R$ 850, então assim, você foi utilizando a sua conta bancária, você foi
+movimentando seu saldo, você fez saque, você fez depósito, você fez transferência,
+fez compra no débito e tudo isso são eventos que a gente vai armazenando.
+Então toda vez que chegar uma requisição a gente armazenar um evento desse lá no nosso
+Event Store.
+Beleza, fim de papo, mistério nenhum até aqui.
+E pra você entender como que isso aqui é simples, vamos lá.
+Aqui eu tô utilizando um Xpress, um load basicão, tá?
+Isso aqui todo mundo já conhece, aqui todo mundo já sabe.
+Quando a gente vai importar aqui o Xpress, a gente vai importar a biblioteca aqui pra
+Você vê como é simples a biblioteca do Event Store DB, o client dele.
+A gente vai iniciar o Express aqui e aqui a gente vai criar uma conexão aqui com o nosso Event Store DB.
+O client, ele vai criar o client onde a gente vai passar o endereço aqui.
+Ele utiliza, logicamente, o protocolo, é SDB, que é o protocolo nativo dele.
+A portê A2113, e aqui você botaria o endereço da onde ele está hospedado.
+Isso aqui não tem mistério.
+E aqui a gente teria um controlezinho, um endpointzinho lá, um barracounts que vai receber a requisição do tipo post.
+Com o holder ID, que é o cadastro, o ID do seu cadastro, pra gente abrir uma conta bancária.
+Então a gente vai criar um account ID aqui, logicamente que não vai ser um, dois, três,
+nem chumbado, né?
+Você vai criar ali com o ID, você vai escolher alguma tecnologia pra você criar um ID único
+pra essa conta.
+Normalmente, o próprio número da conta já é o identificador dela, porque não tem como
+ter duas contas bancárias com o mesmo número ali e tudo mais, então isso aqui ficaria em
+cargo da regra de negócio.
+O streamname aqui, account 123, daqui a pouco eu vou te explicar porque isso aqui é extremamente
+importante e aqui a gente criaria o evento um JSON aqui, um JSONzinho, um evento baseado
+em JSON, com o tipo do evento que a gente criaria aqui e os dados dele, mistério nenhum.
+Por fim a gente chama esse append to stream aqui lá no client do SDB e passa o streamname
+que é esse cara aqui que eu já vou te explicar o que é e a gente passa o evento e fim de
+papo, devolve a resposta para o usuário e acabou, não tem mistério nenhum.
+E aí o que que acontece?
+Toda vez que a gente faz isso aqui, a gente consegue armazenar um evento.
+Só que qual que é a lógica por trás desse event store DB?
+Isso aqui é diferente do banco relacional.
+A gente não vai armazenar uma tabela, separar por ID e tudo mais fica todo mundo junto.
+Não é assim que funciona.
+Aqui a gente armazena os eventos de um stream.
+Ou seja, a gente tem que criar um stream pra uma entidade do nosso sistema.
+Então aqui o account 123 aqui.
+Por que que eu fiz isso aqui?
+Isso aqui inclusive é a recomendação, tá?
+O ID é um, dois, três, eu criei o ID da conta, tá?
+E aí, o streamname, o recomendado, tá?
+Até na documentação lá do Event Store, é que você crie o nome da entidade que você
+tá armazenando, e você concatena com o tracinho aqui e coloca o ID que você escolheu da
+conta.
+Ou seja, se o ID da conta é um, dois, três, o nome do meu stream é account um, dois, três,
+porque, lógico, que é account, porque é o conta, né, o nome da entidade que a gente
+tá armazenando.
+Então, quando eu faço isso, quando eu armazeno alguma coisa com esse streamname aqui, todo
+O evento que eu armazenar vai vir para esse string aqui, ou seja, a gente abriu a conta dele, a gente depose todo o dinheiro, a gente sacou dinheiro.
+Repara que são coisas diferentes, são eventos diferentes de acontecimentos diferentes que estão acontecendo, que num banco relacional a gente teria que separar tudo em tabelas, que aqui não.
+Aqui todos esses eventos fazem parte de uma conta. E qual é a conta? É a conta com o ID 123.
+Então, independente do que está acontecendo com essa conta, de qual seja o evento, seja
+a SAC, depósito, compra, no débito, o tanto faz, a gente vai armazenar todo mundo num
+stream só.
+Ou seja, eu consigo vincular coisas com regras diferentes, eventos diferentes, aqui dentro
+de um mesmo stream.
+E aí, se eu tenho, por exemplo, uma outra conta, sei lá, uma conta diferente, com ID
+diferente, a gente vai ter um segundo stream.
+Ou seja, a conta 777 aqui, que tem um ID diferente, ela vai ter os eventos dela dentro desse
+Estrinha aqui. Daqui a pouco você vai entender por que esse banco faz isso. Ele foi preparado,
+ele foi criado justamente pra gente trabalhar com o evento source e vai ficar mais claro
+por que a gente trabalha com essa separação. Mas por hora o que eu quero que você entenda
+é que nós já falamos de eventos, nós já escolhemos o nosso banco de dados, nós estamos
+armazenando os nossos eventos e daqui a pouco você vai entender como que a gente vai transformar
+tudo isso aqui numa linha temporal e também como que a gente vai trazer esses dados aqui
+pro front-end. Beleza? E aí vamos lá. Eu vou resumir isso aqui, tá? Eu vou diminuir
+Isso aqui um pouco, porque vão vir mais outros elementos aqui. Então, aqui a gente tem os nossos eventos, tá?
+Para você entender aqui que eles estão armazenados aqui no nosso banco e a nossa arquitetura padrão.
+Qual que é o próximo elemento que a gente traz aqui do Event Source?
+A gente vai trazer o Projection. O que que é um Projection?
+E não se assusta com essas nomenclaturas, porque isso aqui é a coisa mais simples desse mundo, tá?
+Um Projection, e aqui eu estou usando a nomenclatura oficial do Event Source, para você entender como isso aqui é.
+como isso aqui funciona, porém isso aqui nada mais é do que um consumidor.
+Se você já subiu um consumidor numa fila de mensageria, é basicamente a mesma coisa.
+E esse Projection aqui, ele só tem esse nome porque a função dele é ficar escutando
+esses eventos que estão sendo armazenados aqui no nosso Event Store, e ele vai projetar
+esses dados, ele tem que reagir a esses eventos e projetar isso em algum outro lugar para
+que a gente consiga ter uma visibilidade, ter uma visualização desses eventos num modelo
+amigável de leitura, porque não faria muito sentido a gente ficar aqui lendo esses eventos
+aqui na hora de montar a tela lá no front-end, então esse cara aqui vai montar as projeções,
+e a gente pode ter vários deles pra cada um pra fazer alguma coisa, daqui a pouco eu
+falo um pouco mais sobre isso, só que agora eu quero que você entenda aqui, nós vamos
+pegar esses eventos lá do Event Store e nós vamos projetar eles pra dentro de um outro
+o banco de dados, que vai ser o nosso banco de leitura, que vai ser o MongoDB. Você poderia
+utilizar o banco que você quiser, você poderia utilizar um Poxing, um MySQL, você poderia
+utilizar o banco que você quiser. Aqui eu vou utilizar o MongoDB, mas você poderia escolher
+o banco que você quiser, se o banco te agradasse mais ou que tivesse alguma feature de leitura
+mais interessante. Então vamos lá, qual que vai ser a lógica aqui? A lógica é que o
+nosso Projection vai pegar os eventos aqui, então vamos imaginar que acabou de chegar
+o primeiro evento, tá? O primeiro deles, não tem nenhum outro evento aqui, acabou de
+chegar o da conta aberta. O que que esse projection vai fazer? Ele vai pegar esse evento, ele vai inserir
+esse dado dentro do MongoDB, só que num formato diferente daquele que chegou. Então, a gente poderia
+armazenar aqui no Mongo o account ID, o custom mer ID, o saldo atual, ou seja, não tem saldo,
+você está vendo algum saldo aqui? Não tem saldo nesse evento. Só que como ele sabe que a conta acabou de ser
+aberta, ele sabe que o saldo é zero, a regra de negócio vai estar aqui dentro do projection, então ele
+vai conseguir calcular isso. Então ele vai projetar o saldo pra zero. E a gente pode criar um campinho
+que destrato. Então a gente pode colocar aqui o tipo abertura de conta, que é o tipo da movimentação
+ou da operação que aconteceu, o valor zero, os dados aqui adicionais como hora, data, minuto
+e por aí vai, então a gente poderia colocar uma infinidade de outros dados aqui. Só que
+a lógica que é o seguinte, repare aqui, nós não temos extrato aqui, isso aqui nenhum
+deles tem extrato, só que aqui a gente já está projetando um extrato, ou seja, estamos
+criando algo para leitura, algo que vai ser lido lá pelo front-end, então calma que
+Agora vamos imaginar que chegou o segundo evento.
+O evento número 2 foi um dinheiro depositado.
+O que ele vai fazer?
+Ele vai vir aqui no MongoDB, ele vai pegar esse registro aqui e ele vai bater com esse
+evento aqui.
+Ou seja, ele vai ver que foi depositado mil reais, a regra vai estar aqui dentro, escrita
+lá via código mesmo, ele vai ver que tem mil reais lá e vai ver que o saldo atual
+é zero.
+Ou seja, ele vai adicionar um registro no extrato e ele ao mesmo tempo vai recalcular o saldo.
+Então, a gente vai ter aqui o saldo atual agora de 10 mil, porque 0 mais 10 mil é 10 mil,
+e a gente adiciona agora uma segunda linha aqui no extrato, que é o depósito nessa
+conta bancária no valor de 10 mil reais, e como eu disse, aqui poderia ter um infinidade
+de outros dados.
+Beleza, depois o terceiro evento vai chegar, que foi um saque de 1500, então ele vai lá,
+consulta o Mongo, vê o saldo atual, pega o evento atual que está na mão dele, recalcula
+tudo e cria novamente.
+Depois vai vir o quarto evento, de uma transferência pixie, ele vai fazendo a mesma coisa, e o
+O saldo vai sendo recalculado e por fim a gente vai ter o estado final com o último
+evento que chegou, que foi uma compra no débito lá no mercado livre no valor de R$ 850,00
+e a gente vai ter um saldo atual de R$ 5.650,00.
+Fechou, fim de papo, não tem mistério.
+E são esses dados aqui que vão ser plotados lá no front-end naquele modelo bonitinho,
+com front-end, com os dados e tudo mais.
+Então a gente vai ter lá o depósito de R$ 10.000,00,00 a compra e tudo mais, a compra
+que foi feito aqui também de 850 no mercado livre e o saldo atual.
+A gente poderia logicamente ter até adicionado aqui as datas para ficar bonitinho igual a
+aquele extrato que eu te mostrei.
+Mas a lógica é basicamente essa.
+E esse front-end aqui, toda vez que ele quiser alguma leitura, toda vez que ele quiser ler
+algum dado, esse cara aqui não vai ler o banco de dados aqui, o Event Store.
+Ele vai ler o Mongo.
+Então o que que a gente vai fazer?
+A gente vai direcionar as leituras para esse banco aqui.
+O registro total ele está aqui dentro e repare uma coisa.
+Aqui a gente não precisa ficar fazendo join, agregação, ficar fazendo um monte de loucura,
+um monte de dados espalhado, view pra tudo quanto é lado, a gente não precisa disso.
+Tá tudo já aqui, ó.
+Colocado aqui com o extrato saldo calculado, tá tudo aqui.
+Porque quem foi fazendo isso em background foi o nosso projetor aqui, o nosso projection,
+ou nosso consumidor aqui, como você prefere chamar.
+Só saiba que a nomenclatura é projection, beleza?
+Então a gente vai direcionar as leituras pra cá.
+E isso daqui é a implementação mais remoína do CQRS que é o padrão que eu ensinei no
+vídeo passado, porque nós estamos escrevendo em um banco e nós estamos lendo os dados em
+outro banco.
+Então esse banco
+para escrita, esse banco é otimizado para a gente inserir os eventos nele, eventos imutáveis
+e esse banco aqui a gente pode otimizar ele para leitura, ele vai ser muito mais rápido,
+até porque os dados aqui em Jason vai ser muito mais simples de consumir e fim de papo.
+Então a gente tem aqui um padrão arquitetural em cima de outro padrão arquitetural e com
+isso a gente compõe esse evento só.
+qual é o detalhe. Se você já é um cara mais avançado, como eu falei, você já está ligado
+que isso aqui tem alguns detalhes aqui, tem alguns supostos problemas que precisam ser
+resolvidos, como por exemplo, a gente vai ter que lidar com uma coisa chamada consistência
+eventual, porque se eu estou escrevendo num banco de dados e eu estou lendo em outro banco
+de dados, significa que tem um delay para o dado sair daqui e ser atualizado aqui. O
+meu projection aqui ele precisa pegar o evento, ele precisa consumir, ele precisa recalcular,
+ele precisa implementar as regras ali dentro e depois ele vai atualizar. Então imagina que
+eu tinha mil reais na minha conta, só mil reais, e fiz um pix para alguém de mil reais.
+Beleza, essa transferência vai ser computada no meu eventstore. Só que leva alguns milissegundos
+ou alguns segundos, tanto faz, para o meu projection conseguir pegar esses dados, processar tudo
+e armazenar no Mongo. Qual que é o problema disso? O problema é que se eu estou escrevendo
+aqui e eu estou lendo aqui, pode ser que na hora que eu perceber que os mil reais ainda
+não foi subtreino da minha conta, eu posso fazer outro Pix de mil reais e aí, logicamente,
+você burlou o sistema, você vai fazer Pix infinito enquanto essa atualização não
+chegar aqui nesse banco.
+E não é assim que funciona.
+Porque, entenda aqui, a gente tá falando de leitura, mas é a leitura a nível de plotar
+dados em algum lugar.
+Então, essa leitura aqui é pra alimentar o meu front-end aqui, mas não quer dizer que
+a minha regra de negócio na hora de validar se o cara tem saldo disponível ou não, eu
+tenho que consultar aqui, não é assim que funciona.
+Quando eu for fazer alguma operação, quando eu for realizar algum saque, o meu account
+serves tem que consultar o banco a fonte da verdade que é o nosso event store, ou seja,
+a gente tem que pegar os eventos aqui dentro, remontar a linha do tempo, descobrir qual
+é o saldo atual do cara e em cima disso tomar alguma decisão, que se tem ou não tem saldo
+e tudo mais e validar, logicamente, as regras de negócio.
+E aí você deve estar assim, porra, Nato, não faz sentido.
+Por que eu vou ler todos os eventos?
+Isso vai dar mó trabalhão, isso vai pesar o banco.
+Se a gente tem milhares ou milhões de operações acontecendo por segundo, cara, toda vez que
+chegar um pixel ou alguma coisa do cliente, eu vou ter que lá buscar todos os eventos
+dele pra descobrir se esse cara tem saldo na conta.
+Não faz sentido, vai engargar lá o banco e não vai dar certo.
+E realmente isso não teria como dar certo, só que é aí que entra o próximo elemento
+do nosso event sourcing, que é os snapshots.
+Ou seja, uma fotografia temporal que vai acumular o registro de tempos em tempos.
+Ou seja, a gente tinha aqui, ó, 5 eventos, né?
+Na verdade, é o quarto evento aqui, porque a gente começa a contar do zero, tá?
+É computação, você sabe que é isso.
+Então, o evento zero aqui foi a conta aberta, depois a gente depositou dinheiro e assim sucessivamente.
+Até chegar nesse evento de número 4 aqui.
+Beleza, então, até aqui nós chegamos.
+O que que é um snapshot?
+Snapshot é a coisa mais simples do mundo.
+Você vai configurar o seu banco de dados para ficar criando os snapshots dentro do seu próprio eventstore.
+Ou seja, a gente vai pegar de tempos em tempos, você pode configurar, olha,
+a cada 100 eventos eu quero um snapshot, a cada 50 eventos eu quero um snapshot.
+E o snapshot é o quê? A consolidação é uma fotografia.
+Então a gente pode criar um snapshot para esse stream ID aqui, que é o account 123, o event number.
+Ou seja, até qual evento eu contabilizei? Até o evento 4, ou seja, esse evento aqui.
+A gente pegou do zero até o quatro, beleza.
+E aí a gente pode criar os dados que a gente quiser.
+O account ID, que aqui é desnecessário.
+O custom ID também, acho que é desnecessário aqui.
+O que a gente precisaria aqui é somente o saldo atual.
+Ou seja, o snapshot é apenas uma configuração que a gente vai fazer.
+Para de tempos em tempos, a gente computar alguns eventos e consolidar todos eles.
+Com essa consolidação aqui na mão, a gente sabe que até o evento quatro
+nós tínhamos 5.650 de saldo.
+Então isso não muda, os eventos são imutáveis, até o evento 4 nós tínhamos esse saldo e isso nunca vai mudar.
+E aí, se chegar a algum outro evento, vamos lá, a gente chegou aqui ó, o próximo evento, o quinto evento que foi um depósito de 10 mil reais.
+Então, na hora do meu carinho aqui, do meu account serve-se aqui, ele ler esse banco aqui para ele poder validar a regra de negócio,
+o que ele vai fazer não é pegar todos os eventos, o que ele vai fazer é o seguinte,
+Me entrega o último snapshot dessa conta e me entrega os eventos a partir dela.
+Ou seja, ele vai pegar esse snapshot aqui que veio até o evento 4 e ele sabe que já tem 5.650 de saldo.
+E aí ele vai pegar aqui o próximo evento que foi o 5 e ele só vai sumar 10.000 com 5.650.
+Fim de Papo, ele só pegou 2 eventos.
+Então você consegue configurar isso de tempos em tempos.
+Olha, a cada 100 eventos vai ter um snapshot, a cada 1.000 eventos, a cada 50.
+a cada 50, a cada 10 eventos, tanto faz. Então você não precisa varrer o banco de dados inteiro.
+E aí a nossa arquitetura vai ficar desse jeito aqui. Você vai ter aqui a conta, o snapshot
+vinculado a esse string ID aqui, essa conta, um, dois, três, com aquele snapshotzinho ali,
+e fim de papo. Então o meu account serve se ele consegue validar a regra de negócio na hora
+que o cara for fazer alguma operação financeira, somente lendo os snapshots e pegando os últimos
+e esse banco aqui, ele logicamente foi feito para escrita dos dados, mas ele é extremamente
+performático na leitura desses eventos. Então, isso aqui não daria problema nenhum,
+isso aqui não traria nenhum gargalo a nível de banco de dados, a nível de centenas de
+milhares de requisições por segundo. Isso não seria nenhum problema para esse banco
+que foi feito para isso, beleza? Então, é assim que fica o nosso evento source. E aí,
+eu quero te chamar atenção aqui para o seguinte, tá? Eu sei que para muita gente, isso aqui
+É um padrão que é novo, é um paradigma novo, você tem que mudar ali a forma como você trabalha com crude e tudo mais e tal, você vai armazenar eventos.
+E eu sei que isso aqui às vezes pode dar um nó na cabeça do cara.
+Então eu quero te ajudar aqui no seguinte, tá?
+Pra você entender qual é a finalidade da gente fazer tudo isso, logicamente não é só aquela questão da linha temporal.
+Tem muito mais coisa por trás do evento source.
+Então vamos lá, quais que são as recompensas da gente trabalhar com esse padrão arquitetural, ao invés do paradigma tradicional?
+A primeira delas é o event replay, tá?
+O que é o Event Replay? O Event Replay é o seguinte, percebe que aqui, nesse nosso
+stream aqui, todos os eventos desde a abertura da conta foram computados, independente do
+que aconteceu, se for um depósito, se for uma conta no débito, tudo foi computado,
+tudo foi armazenado, tudo foi persistido nesse banco. O que isso quer dizer? Isso quer dizer
+que eu consigo trabalhar com algo chamado de Event Replay. O que é o Event Replay?
+Event Replay é basicamente a minha capacidade de eu poder voltar na linha do tempo, voltar
+lá no evento zero e refazer toda a linha do tempo e aplicar de repente algumas regras
+de negócio, fazer alguma correção, fazer algum trabalho em cima disso, projetar alguma
+visualização nova em cima desses eventos.
+Então por exemplo, vamos imaginar que a gente como banco foi lá e toda vez que o cliente
+ficava com saldo negativo, ou seja, ele usava o cheque especial dele, a gente debitava
+do cara, a gente descontava do cara 2,50.
+Beleza, fim de papo.
+Só que aí vamos imaginar que um ano depois o banco central solta uma nota lá dizendo
+que isso é proibido, que a gente não poderia ter descontado esses 2,50 do cliente. Beleza,
+a gente vai ter que encontrar uma solução agora para ressarcer todo mundo para devolver
+o dinheiro de todo mundo. Se a gente estiver usando um banco relacional, tu imagina o inferno
+de query pesada, de coisa louca que você vai ter que fazer para tentar encontrar esses
+2,50 e depois você tentar reverter isso, ou seja, você vai ter que modificar saldo,
+você vai ter que fazer um monte de update, você vai ter que fazer uma loucura num banco.
+Agora, com um banco orientado a eventos, a gente pode simplesmente fazer o que a gente
+Chama de Event Replay, ou seja, eu posso voltar na linha do tempo, recalcular tudo novamente,
+ver todos os eventos onde eu descontei 2 e 50 do cara e devolver esse valor pra ele.
+Vim de papo, o nome disso é Event Replay, é a capacidade da gente voltar na linha do tempo
+e reproduzir todos os eventos até um determinado período.
+Então, essa é uma das vantagens.
+Outra vantagem, imagina que a gente aplicou uma regra de negócio aqui, um bug, alguma
+coisa ali, que a gente codou errado e tava descontando, tava fazendo algum saque do
+A gente consegue reproduzir todos os eventos e corrigir isso.
+Então essa capacidade é o que a gente chama de time travel, que é a viagem no tempo.
+Eu posso voltar no passado e corrigir o passado para projetar algo novo para o futuro.
+Então a gente consegue trabalhar nessa linha do tempo.
+E aí, logicamente, a gente tem outras vantagens como a questão das múltiplas projeções
+aqui, onde a gente pode simplesmente ter esse projectão aqui que cuida de alimentar um banco
+que vai projetar os dados para o front-end.
+Beleza, lá a telinha do internet Bench Show de Bola.
+Só que eu também posso pegar outro projection e criar um outro projection aqui,
+que vai consumir os mesmos eventos desse banco aqui,
+e ele vai projetar de repente uma tela lá para o pessoal do BI.
+Então ele vai projetar lá os dados, vai armazenar num banco diferente e tudo mais.
+Então ele vai projetar isso para o pessoal do BI.
+De repente a gente vai trabalhar também com pesquisas pesadas, com consultas pesadas.
+A gente pode simplesmente criar um outro projetor ali e tudo mais,
+para enviar esses dados para um elastic search.
+Então facilita a vida de quem vai trabalhar com as partes das pesquisas, da consulta desses
+dados aqui dentro.
+Então isso aqui, cara, é o que a gente tem de mais alto nível na arquitetura de software.
+Isso aqui, cara, você consegue trabalhar com grandes aplicações, você consegue implementar
+isso aqui em grandes sistemas e você, logicamente, consegue implementar isso aqui, né, trabalhar
+com essas ideias aqui ao longo de uma entrevista.
+Quando você tiver num processo seletivo, cara, se você apresentar uma solução como essa
+aqui, você pode ter certeza que em 99% das vezes você vai ser aprovado na frente da
+maioria dos candidatos.
+Então, isso aqui é o ouro, é o que a gente tem de mais alto nível na arquitetura de software.
+E se você quiser aprender logicamente não só sobre esse padrão aqui, mas sobre todos
+os padrões que compõem a boa e velha arquitetura de software, você vai dar uma olhada no mapa
+do arquiteto, que é um guia de carreira completasso pra eu te conduzir do absoluto zero, passando
+pelo júnior, pelo pleno e pelo cênio, até você se tornar um arquiteto de software e
+um arquiteto de soluções com conhecimentos práticos.
+Lá dentro te entrega não só esse padrão, mas te entrega todos os padrões para você
+sair de onde você estiver na sua carreira e se tornar um arquiteto de software do mais
+alto nível.

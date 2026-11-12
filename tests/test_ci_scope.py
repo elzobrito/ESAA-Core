@@ -6,8 +6,8 @@ import yaml
 
 def _config():
     root = Path(__file__).resolve().parents[1]
-    return yaml.safe_load((root / ".github/workflows/ci.yml").read_text()), tomllib.loads(
-        (root / "pyproject.toml").read_text()
+    return yaml.safe_load((root / ".github/workflows/ci.yml").read_text(encoding="utf-8")), tomllib.loads(
+        (root / "pyproject.toml").read_text(encoding="utf-8")
     )
 
 
@@ -44,5 +44,5 @@ def test_coverage_gate_and_dependency_audit():
     command = next(c for c in _commands(ci["jobs"]["coverage"]) if "--cov=esaa" in c)
     assert "--cov-report=xml" in command
     assert float(command.split("--cov-fail-under=")[1].split()[0]) > 0
-    assert "python -m pip_audit --strict" in _commands(ci["jobs"]["audit"])
+    assert "python -m pip_audit --strict ." in _commands(ci["jobs"]["audit"])
     assert any(d.startswith("pytest-cov") for d in project["project"]["optional-dependencies"]["dev"])

@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 2005,
-    "updated_at": "2026-11-12T01:19:25Z"
+    "last_event_seq": 2054,
+    "updated_at": "2026-11-12T17:29:39Z"
   },
   "issues": [
     {
@@ -66,6 +66,41 @@
       "timeline": {
         "created_event_seq": 353,
         "resolved_event_seq": 367
+      }
+    },
+    {
+      "issue_id": "ISS-CI-WINDOWS-20261112",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Windows CI failures and unpublished-release audit race",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "CI runs 47-51 fail on Windows. Python 3.12 repeats 13 failures: 5 POSIX-only binary success tests, 7 CP1252 decoding errors, 1 backup hash mismatch. Run49 audit could not find esaa-core0.5.0b27 on PyPI before publication.",
+        "repro_steps": [
+          "Inspect https://github.com/elzobrito/ESAA-Core/actions/runs/43133819310/job/130904191212 and https://github.com/elzobrito/ESAA-Core/actions/runs/43126815423/job/130880882801"
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-CI-WINDOWS-20261112",
+        "review_task_id": "HF-ISS-CI-WINDOWS-20261112",
+        "checks": [
+          "Final frozen candidate: Python3.12 full pytest+coverage:921passed5skipped in312.61s; coverage88.67% exceeds unchanged88.07% gate. Focused65 tests passed;9 inventory/platform tests passed after registering the operational error code.",
+          "Regression evidence: candidate tests against original src fail for CRLF byte preservation, CP1252 schema decoding and unsupported-platform errors (4failed1passed); all5 pass against corrected candidate. Positive binary tests remain POSIX-only; negative platform tests remain cross-platform.",
+          "Ruff check src tests, Black --check src tests and mypy src/esaa PASS (75 modules). Strict pip-audit of pyproject runtime dependencies returns no known vulnerabilities and no longer requires current esaa-core version on PyPI.",
+          "Final wheel+sdist build and twine check PASS; separate clean wheel installation confirms registered BINARY_PLATFORM_UNSUPPORTED rejection. Technical verifier independently checked focused tests and final registry fix.",
+          "Candidate runtime verifies real event store atseq2024 with unchanged projection hash d94f1aefe6b06785bb06562f2e9c4a52be1cb4cd7023094616e25d60a9bb198d. No native Windows, remote CI, push, publication or installation upgrade claimed; governance review remains pending."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O1-070",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-CI-WINDOWS-20261112"
+      },
+      "timeline": {
+        "created_event_seq": 2016,
+        "resolved_event_seq": 2030
       }
     },
     {

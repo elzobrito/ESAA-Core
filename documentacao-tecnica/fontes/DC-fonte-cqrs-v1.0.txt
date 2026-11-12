@@ -1,0 +1,434 @@
+
+Desde muito cedo, quando a gente aprende a programar uma das primeiras arquiteturas
+que a gente aprende a desenvolver, é a boa e velha arquitetura tradicional, onde a gente
+tem o front-end da nossa aplicação, o back-end da nossa aplicação e um único banco de dados
+para você inserir os dados nele e para você também consultar os dados nesse mesmo banco.
+Esse tipo de arquitetura é perfeita para boa parte das aplicações comuns do dia a
+dia e ainda mantém a simplicidade na hora do desenvolvimento.
+Só que o problema começa justamente nesse pequeno detalhezinho de você utilizar apenas
+um único banco de dados, tanto para escrita quanto para leitura.
+E dependendo do contexto que você está trabalhando ou do sistema que você está desenvolvendo,
+esse tipo de arquitetura pode ser um baita tiro no pé e ainda esconde uma série de problemas
+que você precisa saber resolver.
+E no vídeo de hoje eu vou te mostrar todos esses problemas e também a solução para
+para todos eles que está por trás do padrão arquitetural conhecido como CQRS ou Command
+Queer Responsabilidade Segregation, que do português quer dizer segregação de responsabilidade
+de comando e de consulta.
+Então, para a gente não perder mais tempo, vamos direto para a tela, porque tem muita coisa
+para a gente ver e muita coisa para eu te ensinar.
+Bora lá!
+Então vamos lá, vamos direto ao ponto aqui, vamos direto ao que interessa, porque como
+você bem já sabe, tem muita coisa para a gente ver.
+A primeira coisa que a gente vai começar fazendo aqui é o seguinte, antes de a gente entrar
+no que de fato é o CQRS, como você implementa isso aqui no seu sistema, na tua arquitetura
+e por aí vai. A primeira coisa que a gente vai começar fazendo é entendendo os problemas
+que vão nos levar até a utilização do CQRS como solução, porque no final das contas
+mais importante do que você saber implementar um padrão arquitetural é você saber quando
+que você tem que implementar isso aqui. Esse é o conhecimento que vale o ouro, beleza?
+E aí vamos lá, qual que é o nosso ponto de partida aqui antes de a gente chegar no
+A nossa arquitetura tradicional, a arquitetura super básica que cliente servidor, onde
+a gente tem o cliente da nossa aplicação lá no front-end, fazendo requisições HTTP para
+o nosso servidor, para o nosso API, para o nosso microserviço, tanto faz.
+E esse servidor aqui por sua vez vai se comunicar com o nosso banco de dados, que para fins de
+idade que eu estou utilizando um postgre aqui.
+E aí a relação entre esses dois componentes aqui da nossa arquitetura vai gerar o que
+a gente chama de Operações Crude, que é o Create, o Read, o Update e o Delete lá no Banco de Dados.
+Fim de papo, super simples, arquiteturas super básicas, beleza?
+E aí vamos lá, o que a gente vai fazer aqui? A gente vai simular que a gente está trabalhando num e-commerce,
+vamos imaginar que a gente trabalha lá no empresa, lá no e-commerce,
+a gente dá manutenção na arquitetura, no sistema por aí vai.
+E aí, como tabelinhas do Banco de Dados do nosso e-commerce, a gente vai ter aqui uma tabelinha de ordens,
+que são os pedidos, a gente vai ter a tabelinha de produtos, de estoque, de clientes, de pagamento,
+de envio, de notas fiscais, que é assim sucessivamente.
+E é agora que a gente vai começar a entrar nos primeiros problemas que vão surgir em
+toda e qualquer arquitetura que precisar utilizar o CQRS.
+E você precisa conhecer esses problemas para você conseguir implementar de maneira correta
+esse padrão arquitetural, beleza?
+E o primeiro desses problemas é o que a gente chama de asimetria entre escritas e leitura.
+O que é asimetria?
+A simetria é basicamente uma desproporcionalidade, elas são desproporcionais, às vezes o sistema
+ou tem muita escrita e pouca leitura, ou ele tem muita leitura e pouca escrita.
+No geral, o que você vai ver na vida real são sistemas com muita escrita e menos leituras.
+Então existe uma desproporção, é desbalanceado e isso vai trazer uma série de problemas.
+Porque, vamos lá, eu vou abrir aqui o mercado livre para você entender mais ou menos do
+que que eu estou falando e a ideia aqui é o seguinte, vamos pegar aqui o mercado livre
+E eu vou descer aqui embaixo e vou escolher qualquer categoria.
+Vamos pegar os celulares e telefones.
+Se eu descer mais um pouquinho aqui, eu vou pegar um celular aleatório aqui e vou abrir
+e repara o seguinte.
+A ideia que eu quero que você entenda aqui, dessa questão da desproporção do desbalanceamento
+da assimetria entre escritas e leituras, é o seguinte, você enquanto usuário de um
+e-commerce, de um marketplace ou de qualquer site por aí que venda alguma coisa, no geral
+as leituras no banco de dados vão ser muito maiores do que a escrita, porque a cada clique
+que você dá em qualquer lugar aqui, o sistema tem que ir lá no banco, trazer informações,
+na verdade ele tem que ir no banco, agregar um monte de informações e trazer isso de
+volta pra tela, porque se a gente reparar bem aqui, olha os dados que estão na minha
+tela aqui, a gente tem aqui o nome, a descrição, o título aqui do anúncio, a gente tem o
+preço, a gente tem aqui a questão de envio, até o cálculo do tempo de envio, a gente
+tem dados aqui de quem é o vendedor desse produto, a gente vai ter as fotos aqui também,
+A gente tem uma descrição aqui das características, a gente tem produtos relacionados que também
+é uma busca que é realizada, além disso a gente vai ter aqui embaixo também as características
+gerais do produto, algumas fotos, a gente vai ter a descrição do anúncio.
+descrição do anúncio também, a gente vai ter perguntas que os usuários fazem para
+tirar dúvida sobre o produto, a gente tem as avaliações também, então imagina assim,
+no geral enquanto você está trafegando, além de ter, está gerando, a cada clique que você
+dá na tela ali, você está gerando muitas consultas ao banco de dados desse sistema,
+essas consultas também são consultas extremamente pesadas que precisam agregar muitos dados.
+Então essa asimetria é que é o problema, porque no geral você só vai escrever alguma
+coisa aqui nesse sistema quando eu de fato for comprar ou quando eu for comprar ou quando
+eu fizer alguma pergunta aqui que eu vier aqui e digitar uma pergunta aqui, aí beleza,
+eu vou perguntar e vai gerar uma escrita, vai ter que armazenar essa pergunta em algum
+lugar, quando eu fizer uma avaliação, então assim, a cada clique que eu dou por aqui eu
+estou gerando muitas leituras e pra eu gerar uma escrita geralmente é só quando eu compro
+Essa assimetria geralmente é um problema, porque não é só pelo fato de ser assimétrico.
+O problema é essa desproporção no custo, porque pra eu gerar uma pergunta, eu vou acertar
+É um ou duas tabelas.
+Para eu criar um review do produto, também é a tabelinha de review que está vinculada
+ao produto e só.
+Para eu de repente vir aqui e gerar um cadastro do produto, eu sou um vendedor, quero cadastrar
+meu produto.
+Beleza, vou dar um insert lá na tabela de produtos, vou atualizar um stock, de repente
+vou inserir aqui o preço, uma tabelinha de preço e fim de papo.
+Agora, olha o que acontece quando a gente tenta ler um produto.
+Ele tem que dar um select no produto, ele tem que fazer join com o stock, com sellers
+A gente tem as perguntas, as taxas, impostos e mais uma infinidade interminável de outras
+tabelas que precisam ser agrupadas e agregadas aqui dentro.
+Então repara que o custo de uma leitura é muito maior do que o custo de uma escrita,
+E além disso, elas também são desproporcionais, porque eu tenho muitas leituras, porque tem
+gente clicando em tudo quanto é lugar o tempo todo, e quantas escritas só acontece ali
+periódicamente quando você compra ou quando você efetiva alguma operação, algum comando,
+daqui a pouco a gente vai chegar nisso, tá?
+Isso aqui são comandos, comandos de escrita.
+Então esse é o primeiro detalhe, eu tô usando esse exemplo aqui do e-commerce, mas no geral
+boa parte dos sistemas tem essa assimetria, os sistemas geralmente eles têm muito mais
+Leituras do que escritas. Isso normalmente não é o problema. O problema é quando você tem a
+asimetria e ao mesmo tempo você tem uma desproporcionalidade aqui na questão do custo,
+porque o custo da leitura é muito maior do que o custo da escrita. Então o que que isso acaba
+provocando? Isso vai acabar provocando aqui o gargalo no nosso banco de dados. Por quê? Porque isso é
+custoso demais e isso vai acabar impactando também nas escritas, porque essas queries aqui
+elas estão competindo por recurso, ela vai estar competindo por memória RAM lá do servidor do banco
+de dados, ela vai estar competindo por processamento, ela vai estar competindo também pelo PUL de
+conexões por IO e assim sucessivamente. Então esse tipo de problema que essa
+simetria vai gerar um gargalo pesado no banco de dados. E aí você deve estar imaginando assim,
+porra Renato, pera aí. Então se as minhas squares de leitura vão acabar impactando na escrita,
+porque vai competir com o PURRECURSO ali, PURRARDO e tudo mais, o que eu posso fazer? Eu posso
+simplesmente escalar verticalmente o meu banco de dados. Eu posso ir lá e adicionar CPU, posso
+posso adicionar memória RAM, posso adicionar mais armazenamento dentro dele e vai dar tudo certo,
+porque agora eu tenho mais hardware e se eu tenho mais hardware eu, logicamente, vou conseguir
+processar aqui tanto as escritas quanto as leituras, de maneira concorrente, de maneira
+paralela, vai ter um pull melhor de conexões ali e vai dar tudo certo.
+Beleza, essa daqui é uma ótima saída para início de conversa.
+Só que aí qual que é o detalhe?
+O detalhe é que isso aqui vai até funcionar até certo ponto, mas tem um problema que
+talvez você não tenha reparado que é o seguinte.
+Isso aqui vai permitir que a gente consiga executar as queries com mais facilidade, porque
+agora a gente tem mais espaço, a gente tem mais hardware disponível para a gente poder
+utilizar.
+Beleza, só que qual que é o problema?
+O problema é que quando a gente fala de aplicações de grande porte, de um e-commerce
+ou de aplicações que precisam de performance, as queries aqui de leitura, tanto as de leitura
+quanto as de escrita, elas precisam ser rápidas.
+Então não adianta somente eu adicionar mais poder computacional aqui, mais memória RAM,
+no meu servidor de banco de dados, se a query por natureza é lenta. Isso aqui é quase
+a mesma coisa que você pegar por exemplo uma rodovia, imagina que você pegou uma rodovia,
+você ampliou várias faixas na lateral ali e agora consegue passar muito mais carros,
+muito mais caminhões, só que qual que é o detalhe, o detalhe é que os seus caminhões
+e os seus carros tanto faz, eles são caminhões que só conseguem andar a 80 km por hora.
+Então não adianta, você conseguiu paralelizar, você conseguiu abrir mais espaço pra todo
+para o mundo passar.
+só que os caminhões não vão correr mais rápido por causa disso.
+Então as squares aqui por si só, elas são extremamente custosas e extremamente lentas.
+E quando a gente fala de uma aplicação que precisa de performance, a gente precisa dar um jeito de tornar isso aqui
+em buscas muito mais rápidas e muito mais eficiente.
+E aí qual que é a próxima saída que você logicamente vai pensar
+e que você tem que pensar e que você tem que utilizar.
+É o que é o seguinte, vamos criar índices. Eu sei que você pensou no índice aí. Então,
+vamos criar índice lá no customer ID, no product ID, no created yet, vamos criar índice
+em tudo. Vamos indexar tudo porque agora as minhas consultas aqui vão ficar muito
+mais eficientes, porque agora está tudo indexado, show de bola, a gente consegue trabalhar com
+isso. Só que qual que é o problema? O problema é que como eu sempre falo em todo vídeo
+de arquitetura aqui do canal, arquitetura de software é trade off, não adianta, não
+Não existe solução perfeita, não existe bala de prata, tudo que você escolhe você
+vai pagar por outra coisa.
+Então, por exemplo, se a gente adicionar índices aqui, se a gente entupia as tabelinhas ali,
+se a gente criar índice pra tudo, a gente vai melhorar um pouco a performance de leitura,
+só que ao mesmo tempo a gente vai começar a prejudicar a escrita.
+Por quê?
+Por que a gente vai prejudicar as escritas aqui?
+Porque é o seguinte, se você criou lá os índices no banco de dados e agora ele controla
+esse índices e ele consegue buscar de maneira muito mais eficiente a cada nova inserção que você
+fizer a cada novo registro que você armazenar o banco agora precisa ficar reorganizando esses
+índices lá dentro então por natureza os índices eles aliviam a leitura mas eles começam a
+prejudicar as escritas então é um trade off e aí eu te falo será que faz sentido a gente tornar
+escrita lenta será que faz sentido na hora que o cara for comprar um produto na hora dele botar um
+um produto ali no carrinho, aquilo ficar demorando, ficar lento e tudo mais ou até
+crachar a aplicação porque tá demorando demais, é lógico que não faz sentido porque
+nesse nosso caso aqui tanto a leitura quanto a escrita são processos críticos.
+A leitura pra poder trazer a informação pro cliente e navegar de maneira rápida
+logicamente porque todo cliente quer navegar num sistema que é fluido e ao mesmo tempo
+a escrita é extremamente crítico porque se tiver lentidão o cara abandona o carrinho
+e vai embora.
+Eu sei que nesse exato momento você já deve estar pensando em algumas outras soluções
+aí, mas eu quero te trazer mais um problema para piorar mais ainda um cenário.
+Por que?
+E por que eu escolhi essa questão do e-commerce?
+Porque cara, dá pra fazer N coisas aqui que logicamente refletem na vida real, como
+Por exemplo, a gente pode ter o pessoal lá de negócio, o pessoal de produto e o pessoal
+de BI também precisando montar um dashboard para a diretoria.
+E os dados da nossa aplicação e da nossa arquitetura estão dentro do nosso banco de
+dados.
+Então imagina, por exemplo, que o pessoal de negócios pediu um dashboard que tivesse,
+por exemplo, as seguintes informações.
+O faturamento por cidade, por categoria, nos últimos 90 dias, agrupado por semana,
+comparado ao ano anterior, somente pedidos entregues e excluindo o chargeback.
+Aí eu te pergunto, cara, tu imagina, tu consegue imaginar a query monstruosa que vai ser pra
+montar isso aqui, cara?
+Você consegue imaginar o que que vai acontecer?
+Logicamente, isso aqui vai travar toda a aplicação.
+Por quê?
+Porque uma query dessa, ela vai consumir praticamente todo o recurso disponível do banco de dados.
+Então todo mundo que estiver querendo ler alguma informação ou inserir alguma informação
+vai travar e provavelmente a aplicação vai cair.
+Então, cara, não faz sentido, a gente está com alguns problemas aqui que eu espero que
+Se você já esteja começando a entender, daqui a pouco vai ficar mais claro essa questão
+do modelo de comando, do modelo de escrita, pro modelo de leitura.
+Daqui a pouco isso vai ficar mais claro, mas por hora eu quero que você consiga imaginar
+que ir todos esses problemas acontecendo.
+E aí vamos lá.
+Eu sei que nesse exato momento, se tu é um cara um pouco mais avançado, tu deve estar
+pensando assim, porra Renato.
+Então, seguinte, já que a minha leitura e a minha escrita estão conflitando, tá dando
+esse problema, a gente tem a questão também da performance, precisa ser um pouco mais
+rápido e tudo mais.
+de repente, talvez seja melhor a gente trabalhar com rede réplica. Então, como que funciona
+essa questão do rede réplica aqui? Basicamente, isso aqui é você separar a escrita da leitura
+lá no banco de dados, só que tem um ponto de atenção aqui. Isso aqui muita gente confunde
+isso aqui com o CQRS e isso aqui não é CQRS. Isso aqui, logicamente, é a porta de entrada,
+mas não é o padrão arquitetural. Isso aqui, o que você está fazendo é separando escrita
+de leitura apenas a nível de acesso a dados, apenas no nível do banco de dados. Quando
+A gente fala de CQRS, a gente vai ter que envolver arquitetura como um todo, beleza?
+Essa é a diferença.
+Então, essa aqui é o padrãozinho aqui de réplica que é a porta de entrada, beleza?
+Como que isso aqui funciona?
+Isso aqui basicamente vai funcionar da seguinte forma.
+A gente tem o nosso servidor e aí toda escrita, todo create, todo update ou todo delete no
+banco de dados vai ser roteado para esse banco principal aqui, que vai ser o nosso banco
+nosso banco master e aí eu sei que você vai fazer piadinha nos comentários por causa
+mais.
+do banco master mas tá tudo certo e agora as leituras o nosso servidor vai rotear para
+essas réplicas aqui que são réplicas fiéis tá contém os mesmos dados do banco principal
+então isso aqui basicamente serve pra que isso aqui vai servir pra gente separar a escrita
+da leitura e elas pararem de ficar se conflitando e ao mesmo tempo como a gente tem uma asimetria
+A gente consegue criar N réplicas do nosso Banco Principal e disponibilizar essas réplicas
+aqui, essa escalabilidade horizontal do banco, para conseguir paralelizar aquela alta volumetria
+aqui, das leituras.
+Então, a escrita, o cadastro de um produto novo, uma pergunta que você fez, um review
+do produto, vai ser enviado para o Banco Principal.
+Beleza.
+as leituras com aquele monte de joint, as leituras para montar dashboard de faturamento,
+dashboard de informações para a diretoria, a gente vai mandar para essas réplicas aqui
+e logicamente quanto mais réplicas nós tivermos, mais poder de processamento a gente tem e
+a gente consegue trabalhar paralelizando essas leituras, isso consegue trazer uma vazão
+muito maior.
+Só que, qual que é o problema e por que isso aqui não vai resolver todos os nossos
+Problemas. Só que logicamente resolve boa parte do problema, porque a gente separou
+escrita de leitura e eles param de se conflitar. Só que como eu falei pra você, isso aqui
+é a mesma coisa que você pegar a rodovia e enlarguecer ela ao máximo. Porém, não
+adianta você enlarguecer a rodovia se o caminhão precisa voar a 200 km por hora. Se o caminhão
+só consegue ir a 80 km, então por mais que você entupa a rodovia de caminhões, eles
+só vão andar a 80 km por hora. Então isso aí é o reflexo dessas queries aqui. Por
+E mais que a gente tenha n réplicas aqui, no final das contas a gente vai ter o prejuízo
+de que elas são lentas por natureza.
+Então isso aqui é o verdadeiro problema, é o tempo de espera.
+E numa aplicação de grande porte, numa aplicação que lida com a experiência do usuário de
+maneira extremamente importante, a gente não pode ter lentidão, a gente não pode
+ter sistemas travando.
+Então esse aqui é o verdadeiro problema.
+RID Réplica vai resolver parte do problema, mas ainda não resolve o todo.
+Então eu quero que você comece a perceber mais uma vez que o problema talvez esteja no nosso modelo de dados,
+nosso modelo de consulta. A gente está precisando porra fazer força para consultar dados, para montar a página lá no front-end.
+Isso aqui literalmente é força bruta. A gente está fazendo uma força desnecessária, uma força colossal,
+agregando um monte de dados, tentando forçar o banco de dados, a nos entregar algo que talvez a gente conseguisse de uma outra maneira.
+Inclusive tem um exemplo que eu separei pra você pra você conseguir ficar mais claro
+pra você, que é esse exemplo do uso do like.
+Pensa da seguinte forma, se a gente vier aqui no Mercado Livre e pesquisar por aqui em cima
+por alguma coisa, se você estiver usando um post, você vai ter que utilizar o like.
+Só que se você já assistiu o vídeo aqui no canal sobre Full Text Sush, e porque você
+não deveria utilizar o like pra fazer pesquisas no seu banco de dados, você já tá ligeiro
+E aí, talvez fizesse mais sentido, a gente de repente utilizar um elastic search, de
+de repente utilizar um mecanismo muito mais inteligente para poder trazer esses resultados
+mais relevantes de acordo com o que o usuário está pesquisando.
+Então, eu trouxe esse exemplo aqui, logicamente, mais uma vez para te mostrar que o modelo de
+pesquisa, o modelo de consulta está esquisito, e é exatamente isso que nos leva para o
+CQRS, que é a segregação de responsabilidade de comando e de consulta.
+Então, repara que de lá até aqui nós tivemos o quê?
+de assimetria, ou seja, leituras muito maiores do que a escrita, esse é o primeiro cheiro,
+esse é o primeiro faro que você tem que ter, se você olha ali, cara, é desproporcional,
+vamos dar uma analisada no custo dessas queries pra ver se tem esse desbalanceamento, essa
+desproporcionalidade.
+E se tiver, já é mais um sinal de que talvez você tenha que começar a pensar num CQRS.
+Então a gente veio da assimetria, a gente teve o custo ali, a questão do custo, muito
+alto pra poder buscar dados no banco, a gente teve a questão do conflito entre queries
+de leitura com quais descritam, então isso também é um problema muito sério.
+A gente viu que porra, mesmo aumentando o hardware do nosso sistema, ainda assim as
+nossas quais continuariam lentas, porque elas são lentas por natureza.
+Então, o problema talvez não seja o hardware.
+O problema talvez seja que a gente esteja tentando resolver com hardware um problema
+que é relacionado ao acesso, ao modelo dos dados na nossa arquitetura.
+E é aqui que entra essa segregação da responsabilidade de comando,
+ou seja, das escritas no banco de dados e das consultas.
+Então, é agora que a gente entra no CQRS.
+E aí, CQRS, cara, é super simples, você vai sair daqui entendido.
+E a ideia aqui começa do seguinte ponto, tá?
+A gente tem a nossa arquitetura tradicional
+e a gente vai parar com essa arquitetura tradicional.
+A gente tem o nosso cliente, aqui o nosso front-end,
+a gente vai ter o nosso servidor e o nosso banco de dados.
+A gente não vai trabalhar dessa forma mais, ou seja, a gente vai separar a escrita da leitura,
+só que não a nível de banco, a nível da arquitetura como um todo.
+Como que a gente vai fazer isso?
+A gente vai, primeiramente, dividir o nosso servidor, o nosso microserviço, a nossa API,
+tanto faz.
+Então, a nossa API, aqui o código aqui, o nosso microserviço, tanto faz, ele vai ter
+os comandos, ou seja, a escrita no banco de dados, e a gente vai escrever aqui no nosso
+post, ou seja, o cara cadastrou um produto, o cara foi lá, criou uma opinião no produto,
+Se você não tem o time, você pode fazer uma pergunta, fazer qualquer coisa.
+A gente vai escrever no nosso post, show de bola, o post que está perfeito para a gente
+fazer a escrita e as consultas, como é que a gente vai fazer?
+A gente vai utilizar um outro microserviço, uma outra API, que vai cuidar de acessar o
+banco de dados para fazer leituras.
+Só que esse banco de dados aqui é onde está o segredo, é aqui que mora o segredo.
+Porque antes de eu entrar nesse detalhe desse banco, eu quero te mostrar esse elemento
+aqui que eu ainda não falei, que é o API Gateway.
+Esse API Gateway aqui é basicamente o seguinte.
+E aí, esses dois carinhas vão escrever e ler.
+E aí, esses dois carinhas vão escrever e ler.
+E aí, como eu falei, a gente tem um post que a gente pode manter ele, pode botar um mais
+rico, o tanto faz, ou qualquer outro banco que você quiser, só que o de leitura repara
+aqui, o de leitura é o seguinte, como a gente tem aquele modelo problemático de leitura,
+de ter que ficar fazendo join toda hora e porra, tem algum problema com o nosso modelo
+de leitura, esse é o último problema que bate o martelo e fala, cara, vai pro CQRS,
+porque CQRS é o que vai resolver o problema.
+Quando a gente tem esse problema, o que a gente pode fazer?
+A gente pode trocar o banco de dados.
+Eu posso utilizar, de repente, um modelo degenormalizado.
+Talvez eu não precise de todos aqueles relacionamentos.
+Talvez eu precise dos meus relacionamentos aqui, na fonte da verdade.
+Ou seja, a fonte da verdade da minha arquitetura vai ser o meu banco de escrita.
+Esse banco aqui, e é assim que a gente chama mesmo de fonte da verdade,
+é o banco mais importante da nossa arquitetura.
+Porque é aqui que a gente vai armazenar tudo o que a gente precisa.
+Todos os registros, todas as escritas.
+Beleza.
+E enquanto a leitura, a gente pode utilizar o banco que a gente quiser.
+A gente pode utilizar um MongoDB, a gente pode utilizar um ElasticSush, como eu mencionei,
+né, a gente pode ter dados ali, montar telas e tudo mais e tal.
+Talvez seja muito melhor fazer buscas lá no ElasticSush, ou talvez no MongoDB, com os
+dados desnormalizados.
+Talvez para montar a tela eu não precise, cara, fica criando relacionamentos e fazendo
+join.
+Trazer dados desnormalizados é muito mais rápido.
+Ah Renato, mas porra, dado desnormalizado, sem relacionamento, a gente vai ter dados
+duplicados.
+vai ter muita duplicata no banco, não tem problema, como eu falei, tudo é um trade-off
+em arquitetura de software, você precisa entender isso, senão você vai passar uma
+vida inteira buscando a solução milimetricamente perfeita e não existe essa solução.
+Então trazer dados desnormalizados, você vai ter que pagar com dados duplicados e tá
+tudo bem.
+O mais importante é que eu resolva o requisito, qual que é o requisito, quais é a rápida,
+buscar rápidas, montar a tela de maneira rápida, então é assim que funciona.
+aqui cara no banco de leitura a gente poderia usar um caçandra da vida de repente um skill
+adb um crock hout aqui ou próprio redis também não importa como eu falei o nosso banco a
+nossa fonte da verdade o banco de escrita então esse banco eu escrevo tá e aí eu sei
+que você já deve estar na dúvida tá mas se eu vou cadastrar um produto aqui como que
+eu vou ler esse produto aqui por esse cara como que esse produto vai chegar aqui esse
+produto vai chegar aqui através de uma coisa que a gente chama de cdc que é change data
+ou seja, é um mecanismo que vai ficar buscando atualizações de dados novos que chegaram
+e ele vai jogar essas atualizações para o banco de leitura no formato em que ele aceita.
+Então ele vai pegar os dados do postgres aqui no formato do postgres e cadastrar eles aqui
+no banco de leitura no formato que a gente escolheu aqui.
+De repente um Elastic Sash, um MongoDB, um Redis, tanto faz.
+E aí esse mecanismo funciona como?
+Eu te ensinei isso aqui no vídeo do Ticketmaster.
+Vou deixar um card aqui em cima e o link na descrição.
+Dá um confere aí depois.
+Então, isso aqui funciona basicamente da seguinte forma.
+A gente tem aqui uma ferramentinha chamada de Debisium, que ele fica lendo os arquivos
+de log do post, então ele vai ficar lá lendo o tempo todo.
+Toda vez que for inserido um novo registro, o que a gente pode fazer?
+A gente pode configurar o Debisium para postar uma mensagem no Kafka.
+no Kafka que é uma fila de mensageria e aí a gente pode configurar um orqueiro aqui para
+poder consumir essa fila e esse orqueiro aqui vai ter o código específico para poder
+pegar esses dados e inserir esses dados aqui nesse nosso banco de leitura no formato em
+que ele aceitar, seja no formato do KaSanda, no formato do ElasticSush e assim sucessivamente
+e é assim que a gente faz essa sincronia.
+E aí, por que eu te falei que o banco de escrita é a nossa fonte da verdade?
+Porque eu posso deletar o meu banco de leitura, eu posso apagar ele, eu posso trocar o meu
+banco de leitura, não importa, eu posso fazer o que eu quiser, porque o mais importante
+é o meu banco de escrita, porque é aqui que está o ouro, é aqui que estão todas as
+informações pertinentes ao respeito do nosso sistema.
+Então é aqui que está o segredo da coisa, beleza?
+E aí, a gente faz esse mecanismo aqui, a gente faz essas atualizações e é assim que funciona
+O CQRS, porque nós separamos a escrita da consulta e a consulta a gente pode utilizar o modelo que a gente quiser.
+Não importa, a gente pode trabalhar com um mecanismo que a gente quiser, seja ele mais rápido, seja ele desnormalizado, tanto faz e assim que funciona.
+E aí tem mais um detalhe, eu sei que aqui, esse mecanismo que eu estou utilizando que é o CDC, existem outras formas.
+Então, por exemplo, a gente poderia, em vez de pegar o The Beast, usar o Kafka, botar um
+Worker aqui, um Job para ficar consumindo da fila, a gente poderia simplesmente vir aqui
+e fazer o seguinte, eu poderia escrever no meu banco de escrita e depois publicar num
+Kafka e aí a gente pega o Orquezinho aqui, que vai consumir as mensagens do Kafka e
+escrever no nosso banco de leitura e fim de papo.
+Isso aqui, logicamente, se você assistiu o vídeo de Dualrite, você sabe que aqui tem
+um problema gravíssimo de dupla escrita, você sabe que isso aqui vai dar problema e
+E que você resolve com o padrão conhecido como Transactional Outbox Pattern.
+Aí você resolve esse problema de dupla escrita aqui e dá pra utilizar essa arquitetura aqui.
+Você escreve no banco de escrita, publica uma mensagem no cafca com esses dados, o orker
+vai ler esses dados e vai inserir no banco de leitura fim de papo.
+Isso aqui, mais uma vez, te ensinei naquele vídeo do All Right, vou deixar um card aqui
+em cima e o link na descrição.
+Então dá um confere aí depois, e eu também vou deixar o link na descrição do mapa do
+arquiteto, um guia de carreira completarço pra eu te conduzir do zero, passando pelo Júnior,
+Seja você um iniciante, seja você um programador júnior, programador pleno, programador sênior,
+já calejado de batalha, não importa, o mapa do arquiteto é pra você.
+E lá dentro você vai ter acesso à minha pessoa, vai poder me consultar, vai poder tirar suas dúvidas, eu vou te ajudando, vou te orientando, vou te guiar ao longo do percurso, que ainda te entrega um roadmap completo que vai conduzir e guiar a tua carreira.
+Então, eu vou deixar o link na descrição, dar um confere aí depois, e vamos voltando aqui para o nosso diagrama, porque ainda tem alguns pontos aqui a se considerar a respeito do CQRS, beleza?
+Isso daqui é a implementação mais genuína do CQRS, beleza? Esse é o ponto que você precisa entender.
+Agora, tem alguns porémz aqui que você precisa considerar na hora de implementar isso aqui,
+e o primeiro que você precisa considerar é que a gente vai lidar com algo chamado
+Consistência Eventual, ou seja, os nossos dados por algum tempo, por algum período curto
+de tempo, eles vão estar inconsistentes.
+Isso não é um problema dependendo do tipo de sistema que você está projetando.
+Então, por exemplo, vamos imaginar aqui o seguinte, tá?
+A gente acabou de cadastrar aqui um produto no nosso Right Service.
+Então o usuário foi lá, o vendedor foi lá, cadastrou o iPhone novo que ele tá querendo
+vender.
+Beleza, então a requisição veio do nosso front-end, chegou no nosso pay gate e passou
+lá pro nosso right-service, que aí o nosso servidor escreveu lá no nosso post, ele cadastrou
+lá o nosso iPhone novo que o vendedor tá vendendo.
+Show de bola, mistério nenhum.
+Só que aí ele inseriu esse cara aqui dentro e agora ele precisa aparecer no banco de leitura.
+Então para pra pensar o seguinte, no momento em que o vendedor cadastrou esse cara e esse
+Se a iPhone chegou aqui nesse banco, ele ainda não existe no banco de leitura.
+Então se algum usuário atualizar a página, esse iPhone ainda não vai estar disponível.
+E olhando pra esse contexto, tá tudo bem, não tem problema nenhum ter um atraso.
+Por quê?
+Porque vai levar alguns milissegundos aqui, ou até mesmo alguns segundos, pra que esse
+cara publique a mensagem no Kafka, pra que esse Worker leia a mensagem do Kafka e escreva
+nesse banco aqui.
+Essa, esse delay, esse atraso entre uma replicação do dado de um lugar pra outro é o que a
+A gente chama de Consistência Eventual. Esse é o primeiro ponto e tá tudo bem dependendo
+do tipo de sistema ou da parte do sistema que você tá projetando. Inclusive esse é
+o segundo ponto de atenção. Isso aqui não precisa ser o teu sistema inteiro. Você pode
+trabalhar com CQRS dependendo do sistema, mas isso é um ponto de atenção.
+você pode isolar uma parte do sistema, de repente uma parte de cadastro ou de alguma
+coisa do tipo, que você queira isolar, e você trabalha com CQRS e a outra parte do sistema
+está trabalhando com monolito modular, uma arquitetura de microserviços sem CQRS e está tudo bem.
+Isso aqui, como eu falei, é para resolver problemas de asimetria de leitura escrita,
+de custos muito maiores entre um lado e outro, a performance das queries, o modelo, na verdade,
+de consulta dos dados.
+Tudo isso você tem que analisar e você tem que saber o momento exato para aplicar isso
+aqui.
+E isso aqui também você não precisa implementar na arquitetura toda.
+Isso aqui é para resolver problemas pontuais.
+Esse é o ponto que eu quero que você entenda.
+E agora eu tenho certeza que você está muito mais preparado para lidar com isso aqui na
+vida real.

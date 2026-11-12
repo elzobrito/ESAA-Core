@@ -6,7 +6,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
+
+pytestmark = pytest.mark.skipif(
+    os.name != "posix", reason="binary staging requires secure POSIX dirfd support"
+)
 
 
 def test_legacy_schema_migrate_then_binary_complete(tmp_path):
@@ -145,8 +150,6 @@ def test_mkv_full_flow(tmp_path):
         "4194304",
     )
     run("claim", "T", "--actor", "agent-impl")
-    import pytest
-
     if shutil.which("ffmpeg") is None:
         pytest.skip("FFmpeg is required to generate an FFV1 fixture")
     source = tmp_path / "fixture.mkv"
@@ -215,8 +218,6 @@ def test_mkv_full_flow(tmp_path):
 
 
 def test_staging_cleanup_and_cross_task_separation(tmp_path):
-    import pytest
-
     from esaa.file_effects import stage_file_updates
 
     source = tmp_path / ".roadmap/binary-input" / hashlib.sha256(b"A").hexdigest()

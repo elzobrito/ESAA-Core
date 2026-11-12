@@ -4,6 +4,12 @@ import os
 import subprocess
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    os.name != "posix", reason="binary staging requires secure POSIX dirfd support"
+)
+
 
 def test_binary_input_command(tmp_path):
     def run(*args):

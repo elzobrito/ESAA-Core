@@ -12,13 +12,19 @@ import stat
 import tempfile
 from pathlib import Path
 
+from .errors import ESAAError
+from .reject_codes import BINARY_PLATFORM_UNSUPPORTED
+
 _CHUNK = 1024 * 1024
 _HASH = re.compile(r"^[a-f0-9]{64}$")
 
 
 def _open_confined(root: Path, relative: str) -> int:
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
-        raise NotImplementedError("secure dirfd traversal is unavailable")
+        raise ESAAError(
+            BINARY_PLATFORM_UNSUPPORTED,
+            "binary staging requires POSIX secure dirfd traversal; this platform is unsupported",
+        )
     if not isinstance(relative, str) or not relative or "\\" in relative or "\x00" in relative:
         raise ValueError("invalid source path")
     parts = relative.split("/")

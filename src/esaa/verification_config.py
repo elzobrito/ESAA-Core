@@ -133,7 +133,7 @@ def schema_upgrades(root: Path) -> list[dict[str, str]]:
         path = root / ".roadmap" / filename
         if path.is_symlink() or path.parent.is_symlink() or not path.is_file():
             raise ESAAError("VERIFICATION_CONFIG_INVALID", "schema is missing or symlinked")
-        schema = json.loads(path.read_text())
+        schema = json.loads(path.read_text(encoding="utf-8"))
         new = copy.deepcopy(schema)
         try:
             if filename.startswith("agent_"):

@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2005,
-      "projection_hash_sha256": "776c8f6a000e1eab8ca75ee0e6e9cf44a3eb04972dcb4b1141b779c7698c2c74",
+      "last_event_seq": 2054,
+      "projection_hash_sha256": "00e7059e6cf120f52f737fee06e4b79a441270f363f312912504678f494eb062",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T01:19:25Z"
+    "updated_at": "2026-11-12T17:29:39Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4588,16 +4588,154 @@
         ]
       },
       "completed_at": "2026-11-12T01:19:25Z"
+    },
+    {
+      "task_id": "ARCH-CQRS-ES-DOC-20261112",
+      "task_kind": "spec",
+      "title": "Documentar evolução arquitetural por CQRS e Event Sourcing",
+      "description": "Documento Markdown extremamente detalhado solicitado pelo usuário, assinado Codex, como proposta para revisão. Comparar transcrições CQRS/Event Sourcing, proposta Fable e benchmark com código atual; preservar fontes, apresentar integridade, migração, arquitetura, critérios de aceite, riscos e referências. Aceite documental: português; fontes rastreáveis; evidências separadas de propostas; plano incremental verificável; wikilinks e registro validados. Nenhuma implementação ou alteração da política do runtime está autorizada. Esquema ativo legado não admite os campos G07 task_type/acceptance_criteria/required_review_mode; critérios ficam nesta descrição.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "documentacao-tecnica/DC-evolucao-arquitetural-esaa-core-v1.0.md",
+          "documentacao-tecnica/fontes/DC-fonte-cqrs-v1.0.txt",
+          "documentacao-tecnica/fontes/DC-fonte-event-sourcing-v1.0.txt",
+          "documentacao-tecnica/fontes/DC-fonte-proposta-fable-v1.0.md",
+          "documentacao-tecnica/fontes/bench_esaa.py",
+          ".motor-IA/links/referencias.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "documentacao-tecnica/**",
+        ".motor-IA/links/referencias.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-11-12T14:10:56Z",
+      "verification": {
+        "checks": [
+          "Validação estrutural executada: frontmatter/autoria, 25 capítulos, 25 links de sumário, 27 tabelas GFM, 7 blocos e sintaxe JSON/Python passaram.",
+          "97 wikilinks para 41 nomes únicos resolvidos pelo índice de 44 entradas; zero pendências; caminhos internos existentes ou integrantes desta entrega.",
+          "Quatro cópias de fontes comparadas byte a byte com originais; hashes SHA-256 conferidos e registrados no documento.",
+          "Símbolos centrais do código conferidos por AST no checkout; fontes, evidências históricas, observações e propostas distinguidas; benchmark não executado.",
+          "verify do workspace retornou ok após criação e claim da tarefa; não houve edição direta de event store ou projeções."
+        ]
+      },
+      "completed_at": "2026-11-12T17:17:57Z"
+    },
+    {
+      "task_id": "HF-ISS-CI-WINDOWS-20261112",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-CI-WINDOWS-20261112",
+      "description": "Apply a minimal hotfix to resolve issue ISS-CI-WINDOWS-20261112 without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-CI-WINDOWS-20261112"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/",
+          "tests/",
+          ".github/workflows/ci.yml"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-CI-WINDOWS-20261112",
+      "fixes": "AUD-O1-070",
+      "scope_patch": [
+        "src/esaa/",
+        "tests/",
+        ".github/workflows/ci.yml"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        ".github/workflows/ci.yml"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T16:26:11Z",
+      "verification": {
+        "checks": [
+          "Final frozen candidate: Python3.12 full pytest+coverage:921passed5skipped in312.61s; coverage88.67% exceeds unchanged88.07% gate. Focused65 tests passed;9 inventory/platform tests passed after registering the operational error code.",
+          "Regression evidence: candidate tests against original src fail for CRLF byte preservation, CP1252 schema decoding and unsupported-platform errors (4failed1passed); all5 pass against corrected candidate. Positive binary tests remain POSIX-only; negative platform tests remain cross-platform.",
+          "Ruff check src tests, Black --check src tests and mypy src/esaa PASS (75 modules). Strict pip-audit of pyproject runtime dependencies returns no known vulnerabilities and no longer requires current esaa-core version on PyPI.",
+          "Final wheel+sdist build and twine check PASS; separate clean wheel installation confirms registered BINARY_PLATFORM_UNSUPPORTED rejection. Technical verifier independently checked focused tests and final registry fix.",
+          "Candidate runtime verifies real event store atseq2024 with unchanged projection hash d94f1aefe6b06785bb06562f2e9c4a52be1cb4cd7023094616e25d60a9bb198d. No native Windows, remote CI, push, publication or installation upgrade claimed; governance review remains pending."
+        ]
+      },
+      "completed_at": "2026-11-12T17:16:29Z"
+    },
+    {
+      "task_id": "REL-0.5.0b28-PREP-20261112",
+      "task_kind": "impl",
+      "title": "Prepare b28 release with Windows CI hotfix",
+      "description": "User authorized git commit/push, PyPI publication with designated token file, and notebook upgrade. Prepare version 0.5.0b28 and changelog; validate final distributions, clean-wheel smoke and focused release checks against the reviewed hotfix. Preserve the documented POSIX-only binary limitation, protocol/storage versions and active policy. No implementation of architectural proposals.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T17:26:10Z",
+      "verification": {
+        "checks": [
+          "89 focused release, version, CLI, CI-scope and platform tests passed in 36.66s; reviewed hotfix had 921 passed, 5 skipped and 88.67% coverage. Release source differs only by version constant and changelog.",
+          "Ruff, Black and mypy passed; wheel and sdist built and passed twine check. All 96 packaged files match candidate sources and templates; no ledger, token, .motor-IA or bytecode paths.",
+          "Clean installed wheel reports 0.5.0b28; bootstrap, init, verify and help smoke passed. Technical verifier approved release preparation. Artifacts: {\"esaa_core-0.5.0b28-py3-none-any.whl\": {\"sha256\": \"9c162ed1ddcc470cc6c437a6e9fa60d861dbddfdef979c607feae05ee7d81ea7\", \"size\": 203351}, \"esaa_core-0.5.0b28.tar.gz\": {\"sha256\": \"88f9a4f011eb035179a296233d93b1a1e2a8993b25dd2e90829da7a77c530df5\", \"size\": 513545}}"
+        ]
+      },
+      "completed_at": "2026-11-12T17:29:23Z"
+    },
+    {
+      "task_id": "REL-0.5.0b28-PUBLISH-20261112",
+      "task_kind": "impl",
+      "title": "Publish b28 and upgrade notebook installations",
+      "description": "User explicitly authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade after publication. Commit reviewed hotfix plus approved documentation and release metadata; push main/current audit branch and annotated version tag. Before upload, verify real CI outcome including Windows. Publish exactly the validated wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to b28 and verify versions, installed files and CLI integrity. Record actual outcomes, no architectural implementation or identity-policy changes.",
+      "status": "in_progress",
+      "depends_on": [
+        "REL-0.5.0b28-PREP-20261112"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T17:29:39Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 138
+      "done": 141,
+      "in_progress": 1
     },
     "by_kind": {
-      "impl": 87,
+      "impl": 90,
       "qa": 25,
-      "spec": 26
+      "spec": 27
     }
   }
 }

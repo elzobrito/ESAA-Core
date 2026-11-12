@@ -170,17 +170,19 @@ def test_cli_reports_operator_required(
     assert service.task_state("T-A")["task"]["status"] == "todo"
 
 
-def test_activity_clear_records_previous_log(contract_bundle: Path, repo_root: Path) -> None:
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
+def test_activity_clear_records_previous_log(contract_bundle: Path, repo_root: Path, newline: bytes) -> None:
     service = _workspace(contract_bundle, repo_root, strict=False)
     _seed(service)
     store = contract_bundle / ".roadmap" / "activity.jsonl"
-    previous_raw = store.read_text(encoding="utf-8")
+    store.write_bytes(store.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", newline))
+    previous_raw = store.read_bytes()
     previous_count = len(parse_event_store(contract_bundle))
-    expected_sha = hashlib.sha256(previous_raw.encode("utf-8")).hexdigest()
+    expected_sha = hashlib.sha256(previous_raw).hexdigest()
 
     preview = service.clear_activity(force=True, dry_run=True)
     assert preview["previous_log_sha256"] == expected_sha
-    assert store.read_text(encoding="utf-8") == previous_raw
+    assert store.read_bytes() == previous_raw
 
     result = service.clear_activity(force=True)
 
@@ -190,6 +192,8 @@ def test_activity_clear_records_previous_log(contract_bundle: Path, repo_root: P
     assert cleared["previous_log_sha256"] == expected_sha
     assert cleared["previous_event_count"] == previous_count
     backup = contract_bundle / cleared["backup_path"]
+    assert backup.read_bytes() == previous_raw
+    assert result["bytes_removed"] == len(previous_raw)
     assert hashlib.sha256(backup.read_bytes()).hexdigest() == expected_sha
     assert service.verify()["verify_status"] == "ok"
     assert len(service.list_lessons(status="active")["lessons"]) == 3
