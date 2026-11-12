@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2102,
-      "projection_hash_sha256": "f0bd48dde8fa8eaa8e1287bb7ef260ac48a045fbf5e4981f4f95f68d6b165f45",
+      "last_event_seq": 2108,
+      "projection_hash_sha256": "76f790481bf3ec0db3d3d377719284ba5a7069ea2146eaedf35d45d1102bd729",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T18:02:55Z"
+    "updated_at": "2026-11-12T18:09:39Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4811,7 +4811,7 @@
       "task_kind": "impl",
       "title": "Publish b29 and upgrade notebook installations",
       "description": "User originally authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade. Commit lock-release hotfix plus approved b29 metadata; push main/current audit branch and annotated tag v0.5.0b29. Do not move or rewrite v0.5.0b28. Before upload, verify real CI including Windows. Publish exactly the validated wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to b29 and verify versions, installed files and CLI integrity. No token disclosure, architectural implementation or identity-policy changes.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "REL-0.5.0b29-PREP-20261112"
       ],
@@ -4823,13 +4823,19 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-12T18:02:55Z"
+      "started_at": "2026-11-12T18:02:55Z",
+      "verification": {
+        "checks": [
+          "Pushed commit b3ae802 and annotated tag v0.5.0b29 to origin/main and origin/audit/onda-0. Tag v0.5.0b28 (6bb8d59) preserved. CI run 43275816521 success: lint, typecheck, audit, coverage, Ubuntu 3.11/3.12/3.13 and Windows 3.11/3.12/3.13 all passed. https://github.com/elzobrito/ESAA-Core/actions/runs/43275816521",
+          "Uploaded exactly the tagged rebuild to PyPI 0.5.0b29. Official hashes match local: wheel sha256 02d1f5b0f94ccec34197c8d7dba75abac4d753bf1b8ed4189d5374ef45c166b8 size 203501; sdist sha256 15715e1037aae907cef4a7ce98e7f993a0b200ae3660c9da83eb3d62cbe68f3c size 514528. User pip and pipx upgraded to 0.5.0b29. PATH esaa is ~/.local/bin/esaa from user site-packages, version 0.5.0b29, store.py contains winerror retry. pipx venv also 0.5.0b29 (CLI symlink remains the user-pip binary). Token not disclosed."
+        ]
+      },
+      "completed_at": "2026-11-12T18:09:39Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 144,
-      "in_progress": 1
+      "done": 145
     },
     "by_kind": {
       "impl": 93,
