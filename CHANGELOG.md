@@ -1,3 +1,8 @@
+## 0.5.0b27
+
+- Top-level `esaa --help` now includes an agent workflow: read the workspace AGENTS.md, retrieve dispatch-context, follow the local contract and lessons, identify the actual runner, and submit claim and complete separately.
+- The help reminds agents that the Orchestrator applies effects and that the event store and projections must not be edited directly. Command syntax and read-only help behavior are unchanged.
+
 ## 0.5.0b26
 
 Beta release of audit Waves 0 and 1.

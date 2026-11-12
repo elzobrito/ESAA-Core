@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1971,
-      "projection_hash_sha256": "1d883bdc8fea65d93aa6948b21bc2b9867cc031e3f1ce0a853a4b492b8a64630",
+      "last_event_seq": 1987,
+      "projection_hash_sha256": "ab5a0541634c1c48d9aa3f3703caef87f3948935b7b3f22571bf56dbbc6c84ae",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-11T23:53:29Z"
+    "updated_at": "2026-11-12T00:22:29Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4527,15 +4527,63 @@
           "Help directs agents to AGENTS.md and dispatch-context; local contract remains authoritative. No new package version, push or PyPI publication."
         ]
       }
+    },
+    {
+      "task_id": "REL-0.5.0b27-PREP-20261111",
+      "task_kind": "impl",
+      "title": "Prepare b27 release with agent help instructions",
+      "description": "Prepare version/changelog and validate distributions for user-authorized b27 publication and notebook upgrade. Release scope is the already implemented help epilog; no unrelated changes.",
+      "status": "review",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T23:54:18Z",
+      "verification": {
+        "checks": [
+          "83 CLI/public-beta/CI tests passed in36.95s; both distributions built and passed twine check.",
+          "Installed wheel reports0.5.0b27; top-level help includes Agent workflow and AGENTS.md/dispatch-context guidance; bootstrap/init/verify smoke succeeded.",
+          "Candidate source matches HEAD except version constant; artifact paths exclude token/local ledger/.motor-IA. Artifacts:{\"esaa_core-0.5.0b27-py3-none-any.whl\": {\"sha256\": \"7958e7827ce4f00ccb134c48390469f2a5e21a1907adc186a1238c764c4a222c\", \"size\": 203226}, \"esaa_core-0.5.0b27.tar.gz\": {\"sha256\": \"0e72dedb5c3859b2aa0f8dfe39cc5f209238a44c72707feb088be049e4e10ae4\", \"size\": 507872}}"
+        ]
+      }
+    },
+    {
+      "task_id": "REL-0.5.0b27-PUBLISH-20261111",
+      "task_kind": "impl",
+      "title": "Publish b27 and upgrade notebook installations",
+      "description": "User explicitly authorized git commit/push, PyPI upload using designated token file, and notebook upgrade after publication. Verify artifact hashes and installed help in both user-pip and pipx. No source file updates in this operational task.",
+      "status": "in_progress",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-11T23:54:45Z"
     }
   ],
   "indexes": {
     "by_status": {
       "done": 133,
-      "review": 3
+      "in_progress": 1,
+      "review": 4
     },
     "by_kind": {
-      "impl": 85,
+      "impl": 87,
       "qa": 25,
       "spec": 26
     }
