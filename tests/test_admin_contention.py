@@ -99,7 +99,9 @@ def test_sixteen_distinct_cli_creates_all_commit(contract_bundle: Path) -> None:
 
     with ThreadPoolExecutor(max_workers=16) as pool:
         results = list(pool.map(create, range(16)))
-    assert all(result.returncode == 0 for result in results), [(r.stdout, r.stderr) for r in results]
+    failures = [r.stdout + r.stderr for r in results if r.returncode != 0]
+    if failures:
+        pytest.fail("\n".join(failures), pytrace=False)
     events = parse_event_store(contract_bundle)
     assert [e["event_seq"] for e in events] == list(range(1, len(events) + 1))
     assert len({json.loads(result.stdout)["event_id"] for result in results}) == 16

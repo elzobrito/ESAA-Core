@@ -18,6 +18,8 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from esaa.service import ESAAService
 from esaa.store import parse_event_store
 
@@ -60,7 +62,8 @@ def test_16_parallel_task_create_distinct_tasks(contract_bundle: Path) -> None:
         results = list(executor.map(_create_task_worker, tasks))
 
     for rc, out, err in results:
-        assert rc == 0, f"Task create failed: out={out} err={err}"
+        if rc != 0:
+            pytest.fail(f"Task create failed: out={out} err={err}", pytrace=False)
         assert out.get("status") == "accepted", f"Unexpected status: {out}"
 
     # Verify log and projections

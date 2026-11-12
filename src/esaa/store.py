@@ -468,11 +468,20 @@ def _acquire_store_lock(
             time.sleep(retry_interval)
 
 
-def _release_store_lock(lock_path: Path) -> None:
-    try:
-        lock_path.unlink()
-    except FileNotFoundError:
-        pass
+def _release_store_lock(lock_path: Path, *, timeout: float = 1.0, retry_interval: float = 0.01) -> None:
+    # Windows metadata readers can briefly prevent deletion of our owned lock.
+    # Retry only that sharing violation, never the already-committed append.
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            lock_path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in {32, 33} or time.monotonic() >= deadline:
+                raise
+            time.sleep(retry_interval)
 
 
 def _verify_appended_lines(path: Path, expected_lines: list[str]) -> None:

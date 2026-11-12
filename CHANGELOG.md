@@ -1,3 +1,9 @@
+## 0.5.0b29
+
+- Retry deleting an owned event-store lock on Windows sharing and lock violations (`WinError` 32 and 33) for up to 1s after a confirmed append, without repeating the append.
+- Git tag `v0.5.0b28` (`6bb8d59`) remains public and is not rewritten. That version was not uploaded to PyPI: Windows 3.11 and 3.13 CI failed on sixteen concurrent `task create` operations.
+- Protocol and storage versions, active identity policy and the documented POSIX-only binary limitation are unchanged.
+
 ## 0.5.0b28
 
 - Read governance schemas and affected test fixtures explicitly as UTF-8, avoiding Windows CP1252 decoding failures.

@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 2054,
-    "updated_at": "2026-11-12T17:29:39Z"
+    "last_event_seq": 2102,
+    "updated_at": "2026-11-12T18:02:55Z"
   },
   "issues": [
     {
@@ -524,6 +524,33 @@
       "timeline": {
         "created_event_seq": 765,
         "resolved_event_seq": 794
+      }
+    },
+    {
+      "issue_id": "ISS-WINDOWS-LOCK-RELEASE-20261112",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Windows sharing violations during sixteen concurrent task creates",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "b28 source CI run43270099761 passes8jobs but Windows3.11 and3.13 each fail one16-concurrent-create test with WORKSPACE_INVALID WinError32. Windows3.12 and all Linux variants pass. Suspected owner lock removal races with contender metadata readers; exact failing filename was truncated by CLI error output. No b28 files uploaded to PyPI.",
+        "repro_steps": [
+          "Inspect jobs131364042294 and131364042401 of https://github.com/elzobrito/ESAA-Core/actions/runs/43270099761; run tests/test_admin_contention.py and tests/test_admin_cli_acceptance.py on Windows."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command",
+        "hotfix_task_id": "HF-ISS-WINDOWS-LOCK-RELEASE-20261112"
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O1-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-WINDOWS-LOCK-RELEASE-20261112"
+      },
+      "timeline": {
+        "created_event_seq": 2055,
+        "resolved_event_seq": 2075
       }
     },
     {

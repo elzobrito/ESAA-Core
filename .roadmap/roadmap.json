@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2054,
-      "projection_hash_sha256": "00e7059e6cf120f52f737fee06e4b79a441270f363f312912504678f494eb062",
+      "last_event_seq": 2102,
+      "projection_hash_sha256": "f0bd48dde8fa8eaa8e1287bb7ef260ac48a045fbf5e4981f4f95f68d6b165f45",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T17:29:39Z"
+    "updated_at": "2026-11-12T18:02:55Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4712,7 +4712,7 @@
       "task_kind": "impl",
       "title": "Publish b28 and upgrade notebook installations",
       "description": "User explicitly authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade after publication. Commit reviewed hotfix plus approved documentation and release metadata; push main/current audit branch and annotated version tag. Before upload, verify real CI outcome including Windows. Publish exactly the validated wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to b28 and verify versions, installed files and CLI integrity. Record actual outcomes, no architectural implementation or identity-policy changes.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [
         "REL-0.5.0b28-PREP-20261112"
       ],
@@ -4724,16 +4724,115 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-12T17:29:39Z"
+      "started_at": "2026-11-12T17:29:39Z",
+      "verification": {
+        "checks": [
+          "Git publication of authorized b28 happened: commit 6bb8d59 and annotated tag v0.5.0b28 are on origin/main and origin/audit/onda-0. Wheel/sdist were built during PREP (sha256 9c162ed1ddcc470cc6c437a6e9fa60d861dbddfdef979c607feae05ee7d81ea7 / 88f9a4f011eb035179a296233d93b1a1e2a8993b25dd2e90829da7a77c530df5) but were not uploaded.",
+          "CI run 43270099761 failed: Windows 3.11 and 3.13 hit WORKSPACE_INVALID WinError 32 on 16 concurrent task creates; Windows 3.12 and all Linux jobs passed. PyPI latest remains 0.5.0b27 (no 0.5.0b28 files). Host esaa and user site-packages remain 0.5.0b27. Notebook upgrade was not performed. Tag v0.5.0b28 is preserved; lock-release hotfix HF-ISS-WINDOWS-LOCK-RELEASE-20261112 is done (seq 2077) and requires a successor 0.5.0b29 for PyPI."
+        ]
+      },
+      "completed_at": "2026-11-12T18:00:55Z"
+    },
+    {
+      "task_id": "HF-ISS-WINDOWS-LOCK-RELEASE-20261112",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-WINDOWS-LOCK-RELEASE-20261112",
+      "description": "Apply a minimal hotfix to resolve issue ISS-WINDOWS-LOCK-RELEASE-20261112 without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-WINDOWS-LOCK-RELEASE-20261112"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/store.py",
+          "tests/test_store_lock.py",
+          "tests/test_admin_contention.py",
+          "tests/test_admin_cli_acceptance.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-WINDOWS-LOCK-RELEASE-20261112",
+      "fixes": "AUD-O1-050",
+      "scope_patch": [
+        "src/esaa/store.py",
+        "tests/"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T17:38:12Z",
+      "verification": {
+        "checks": [
+          "Focused lock/contention tests: 34 passed in 32.31s (test_store_lock, stale/serializable lock, admin contention, admin CLI acceptance). New unit tests cover WinError 32/33 retry without repeating append, and fail-closed PermissionError/winerror 5/timeout=0.",
+          "Full suite on isolated workdir: 926 passed, 5 skipped, coverage 88.70% (>= 88.07) in 404.58s; ruff and mypy clean. Codex candidate suite in /tmp/esaa-windows-lock-jb8ul6ll also 926 passed / 88.70%. Linux-only host; Windows CI remains the publication gate."
+        ]
+      },
+      "completed_at": "2026-11-12T18:00:24Z"
+    },
+    {
+      "task_id": "REL-0.5.0b29-PREP-20261112",
+      "task_kind": "impl",
+      "title": "Prepare b29 release with Windows lock-release hotfix",
+      "description": "Successor to blocked b28 PyPI upload. Tag v0.5.0b28 (6bb8d59) stays public and is not rewritten. Prepare 0.5.0b29 plus changelog covering HF-ISS-WINDOWS-LOCK-RELEASE-20261112. Validate distributions, twine check, clean-wheel smoke and focused release checks. Preserve POSIX-only binary limitation, protocol/storage versions and active policy. No architectural implementation. Original user authorization for commit/push, PyPI token file and notebook upgrade remains for the publish task.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T18:01:32Z",
+      "verification": {
+        "checks": [
+          "PACKAGE_VERSION is 0.5.0b29; protocol 0.4.2 and storage 0.4.1 unchanged. tests/test_version_single_source.py + test_public_beta_release.py + test_store_lock.py: 36 passed. Changelog documents lock-release retry and that v0.5.0b28 was not uploaded to PyPI.",
+          "python -m build produced esaa_core-0.5.0b29-py3-none-any.whl (sha256 0f4561a9debbacc6293f6e9f9fb85a109024370a393f6fbc0a5508524ade0090, 203501 bytes) and esaa_core-0.5.0b29.tar.gz (sha256 490ce7a4b57e4dd23b15870575a83bccadee711b2f9e2829a968e94817708767, 510040 bytes). twine check PASSED both. Clean venv wheel smoke: esaa --version 0.5.0b29, bootstrap, init, verify ok, help runs. Artifacts stay in /tmp/esaa-hf-windows-lock-grok/dist until publish."
+        ]
+      },
+      "completed_at": "2026-11-12T18:02:37Z"
+    },
+    {
+      "task_id": "REL-0.5.0b29-PUBLISH-20261112",
+      "task_kind": "impl",
+      "title": "Publish b29 and upgrade notebook installations",
+      "description": "User originally authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade. Commit lock-release hotfix plus approved b29 metadata; push main/current audit branch and annotated tag v0.5.0b29. Do not move or rewrite v0.5.0b28. Before upload, verify real CI including Windows. Publish exactly the validated wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to b29 and verify versions, installed files and CLI integrity. No token disclosure, architectural implementation or identity-policy changes.",
+      "status": "in_progress",
+      "depends_on": [
+        "REL-0.5.0b29-PREP-20261112"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T18:02:55Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 141,
+      "done": 144,
       "in_progress": 1
     },
     "by_kind": {
-      "impl": 90,
+      "impl": 93,
       "qa": 25,
       "spec": 27
     }
