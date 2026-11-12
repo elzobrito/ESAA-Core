@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 1987,
-      "projection_hash_sha256": "ab5a0541634c1c48d9aa3f3703caef87f3948935b7b3f22571bf56dbbc6c84ae",
+      "last_event_seq": 1990,
+      "projection_hash_sha256": "5f340f15c6bf18b870136f087e4fe3e94d6223c8b933c6a15859e58f6ecb1034",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T00:22:29Z"
+    "updated_at": "2026-11-12T00:23:38Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4563,7 +4563,7 @@
       "task_kind": "impl",
       "title": "Publish b27 and upgrade notebook installations",
       "description": "User explicitly authorized git commit/push, PyPI upload using designated token file, and notebook upgrade after publication. Verify artifact hashes and installed help in both user-pip and pipx. No source file updates in this operational task.",
-      "status": "in_progress",
+      "status": "review",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -4573,14 +4573,22 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-11T23:54:45Z"
+      "started_at": "2026-11-11T23:54:45Z",
+      "verification": {
+        "checks": [
+          "Commit0a5e033 and annotated tagv0.5.0b27 pushed to main/audit/onda-0.",
+          "PyPI upload succeeded; official version JSON contains matching wheel and sdist SHA-256: {\"esaa_core-0.5.0b27-py3-none-any.whl\": {\"sha256\": \"7958e7827ce4f00ccb134c48390469f2a5e21a1907adc186a1238c764c4a222c\", \"size\": 203226}, \"esaa_core-0.5.0b27.tar.gz\": {\"sha256\": \"0e72dedb5c3859b2aa0f8dfe39cc5f209238a44c72707feb088be049e4e10ae4\", \"size\": 507872}}",
+          "User-pip and pipx both upgraded from0.5.0b26 to0.5.0b27. Installed user-pip report archive hash matches published wheel; 96 installed package files match wheel bytes.",
+          "Installed PATH esaa --help displays Agent workflow, AGENTS.md, dispatch-context and separate claim/complete guidance; both installations report0.5.0b27. Installed CLI verifies real workspace ok atseq1987.",
+          "83 focused tests passed; build/twine check and fresh installed-wheel bootstrap/init/verify smoke passed. No credentials logged or staged."
+        ]
+      }
     }
   ],
   "indexes": {
     "by_status": {
       "done": 133,
-      "in_progress": 1,
-      "review": 4
+      "review": 5
     },
     "by_kind": {
       "impl": 87,
