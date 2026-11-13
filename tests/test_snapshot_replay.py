@@ -133,7 +133,7 @@ def test_unanchored_snapshot_falls_back_with_warning(
     lines = [ln for ln in activity_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
     # Remove the snapshot.anchor event
     lines = [ln for ln in lines if '"snapshot.anchor"' not in ln]
-    activity_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    activity_path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
     ESAAService(tmp_path).project()
     res = ESAAService(tmp_path).verify()

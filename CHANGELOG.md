@@ -1,3 +1,8 @@
+## 0.5.0b31
+
+- Snapshot fallback tests rewrite `activity.jsonl` with explicit LF, matching store appends, so Windows CI keeps snapshot byte offsets valid.
+- Git tag `v0.5.0b30` (`e1e916d`) remains public and is not rewritten. That version was not uploaded to PyPI: Windows rewrote the JSONL with CRLF in `test_unanchored_snapshot_falls_back_with_warning` and `verify` could not read the covered boundary event.
+
 ## 0.5.0b30
 
 Beta release of audit Wave 2 (`docs/audit/ESAA-CORE-AUDIT-2026-11-10.md`, QA closeout in `docs/qa/AUD-O2-closeout.md`).
