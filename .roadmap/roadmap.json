@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2491,
-      "projection_hash_sha256": "b9f90bd18eba9c798e9850c83d4a1f877990c2325cdf28236370c1127270443c",
+      "last_event_seq": 2495,
+      "projection_hash_sha256": "655effd3fff11f9834d5ce5380e3ff0910b38a702139e5bbf607b518e29d5bab",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-13T16:18:53Z"
+    "updated_at": "2026-11-13T17:54:45Z"
   },
   "project": {
     "name": "esaa-core",
@@ -5616,14 +5616,38 @@
         ]
       },
       "completed_at": "2026-11-13T16:18:53Z"
+    },
+    {
+      "task_id": "REL-0.5.0b33-PUBLISH-20261113",
+      "task_kind": "impl",
+      "title": "Publish b33 errno-13 lock retry and upgrade notebook",
+      "description": "Retry store lock acquire/release when Windows CRT surfaces pending-delete as PermissionError errno 13 with winerror unset/0. Preserve public tags v0.5.0b30-b32. Wait for hosted CI including Windows. Upload tagged wheel/sdist to PyPI using the token file as TWINE_PASSWORD without disclosing it. Compare official hashes. Upgrade user-pip and pipx on this notebook. No GitHub Release.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T17:24:15Z",
+      "verification": {
+        "checks": [
+          "Git: commit 9934edd and annotated tag v0.5.0b34 are on origin/main and origin/audit/onda-0. Tags v0.5.0b30 (e1e916d), v0.5.0b31 (8f04f40), v0.5.0b32 (0b1d510) and v0.5.0b33 (eb8643e) remain public and were not rewritten. CI 43473513315 (b33) failed: Python 3.11 pathlib WindowsPath after os.name monkeypatch, POSIX lock test on Windows, unlocked ESAA_LOG. CI 43475447834 (b34) success: lint, typecheck, audit, coverage, Ubuntu 3.11-3.14 and Windows 3.11-3.14. https://github.com/elzobrito/ESAA-Core/actions/runs/43475447834",
+          "Published successor is 0.5.0b34 (task id kept REL-0.5.0b33-PUBLISH-20261113). PyPI 0.5.0b34 uploaded from the tagged rebuild. Official hashes match local: wheel sha256 60fccd1883254d14525129f492bac4e14795bd1934f0df3752342b2b046dff7b size 229045; sdist sha256 28da5c5ae62f20e88228ee68e2b5dae38045c6e12a72a10f6a646088c8d59d63 size 589422. 0.5.0b30, 0.5.0b31 and 0.5.0b33 return 404 on PyPI. 0.5.0b32 remains published. User pip and pipx upgraded to 0.5.0b34. PATH esaa is ~/.local/bin/esaa from user site-packages, version 0.5.0b34 (protocol 0.4.2, storage protocol 0.4.2). pipx venv is also 0.5.0b34; its CLI symlink remains the user-pip binary. Token not disclosed."
+        ]
+      },
+      "completed_at": "2026-11-13T17:54:45Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 165
+      "done": 166
     },
     "by_kind": {
-      "impl": 109,
+      "impl": 110,
       "qa": 28,
       "spec": 28
     }
