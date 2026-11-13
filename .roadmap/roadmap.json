@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2489,
-      "projection_hash_sha256": "56262eafb67110e657b3cc18db5b8940f5872750b1f01748e3fee1ffb51cf5bc",
+      "last_event_seq": 2491,
+      "projection_hash_sha256": "b9f90bd18eba9c798e9850c83d4a1f877990c2325cdf28236370c1127270443c",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-13T15:28:54Z"
+    "updated_at": "2026-11-13T16:18:53Z"
   },
   "project": {
     "name": "esaa-core",
@@ -5598,7 +5598,7 @@
       "task_kind": "impl",
       "title": "Publish b30 and upgrade notebook installations",
       "description": "Operator authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade. Commit Onda 2 (0.5.0b30) on audit/onda-0; push origin/audit/onda-0 and origin/main; annotated tag v0.5.0b30. Do not create a GitHub Release. Before upload, verify hosted CI including Windows. Publish exactly the tagged wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to 0.5.0b30 and verify versions and CLI integrity. No token disclosure.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [],
       "targets": [],
       "outputs": {
@@ -5608,13 +5608,19 @@
         "done_is_immutable": true
       },
       "assigned_to": "agent-impl",
-      "started_at": "2026-11-13T15:28:54Z"
+      "started_at": "2026-11-13T15:28:54Z",
+      "verification": {
+        "checks": [
+          "Git: commit 0b1d510 and annotated tag v0.5.0b32 are on origin/main and origin/audit/onda-0. Tags v0.5.0b30 (e1e916d) and v0.5.0b31 (8f04f40) remain public and were not rewritten. CI 43455389221 (b30) failed Windows snapshot CRLF; CI 43456911892 (b31) failed Windows 3.11 lock PermissionError; CI 43459804022 (b32) success: lint, typecheck, audit, coverage, Ubuntu 3.11-3.14 and Windows 3.11-3.14. https://github.com/elzobrito/ESAA-Core/actions/runs/43459804022",
+          "PyPI 0.5.0b32 uploaded from the tagged rebuild. Official hashes match local: wheel sha256 c464216016c8f5eb70f6895d82fa878e8114105a9ff1509f2e99e251e590db86 size 228737; sdist sha256 b3b09707380a1ee3204a84189c37120936777498a0adaee61ef318ac1419674a size 588527. 0.5.0b30 and 0.5.0b31 return 404 on PyPI. User pip and pipx upgraded to 0.5.0b32. PATH esaa is ~/.local/bin/esaa from user site-packages, version 0.5.0b32 (protocol 0.4.2, storage protocol 0.4.2). pipx venv is also 0.5.0b32; its CLI symlink remains the user-pip binary. Token not disclosed."
+        ]
+      },
+      "completed_at": "2026-11-13T16:18:53Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 164,
-      "in_progress": 1
+      "done": 165
     },
     "by_kind": {
       "impl": 109,
