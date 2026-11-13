@@ -167,7 +167,7 @@ def schema_upgrades(root: Path) -> list[dict[str, str]]:
 
 
 def read_events(root: Path) -> list[dict[str, Any]]:
-    from .store import parse_event_store
+    from .store_runtime import parse_event_store
 
     if not (root / ".roadmap/activity.jsonl").is_file():
         raise ESAAError("EVENT_STORE_MISSING", "initialize the workspace first")

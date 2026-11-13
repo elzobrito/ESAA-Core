@@ -8,7 +8,7 @@ from typing import Any
 from .errors import ESAAError
 from .projector import materialize
 from .service import ESAAService
-from .store import ensure_event_store, parse_event_store
+from .store_runtime import ensure_event_store, parse_event_store
 
 HOTFIX_FLOW = [
     "issue.report",
@@ -18,8 +18,6 @@ HOTFIX_FLOW = [
     "orchestrator.file.write",
     "review",
     "issue.resolve",
-    "verify.start",
-    "verify.ok",
 ]
 
 

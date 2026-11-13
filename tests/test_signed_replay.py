@@ -8,7 +8,7 @@ from test_actor_registration import _activated, _ready_task, _review_auth
 
 from esaa.errors import ESAAError
 from esaa.events import make_event
-from esaa.store import append_events, compute_event_hash, init_hash_chain, parse_event_store
+from esaa.store_runtime import append_events, compute_event_hash, init_hash_chain, parse_event_store
 from esaa.utils import canonical_json_bytes
 
 

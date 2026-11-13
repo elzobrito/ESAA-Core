@@ -27,6 +27,7 @@ import json
 import os
 import stat
 import tempfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -237,7 +238,8 @@ def commit_staged(root: Path, staged: list[dict[str, Any]]) -> None:
                     limit=binary["size"],
                 )
             finally:
-                Path(entry["staged_path"]).unlink(missing_ok=True)
+                if entry.get("staged_path"):
+                    Path(entry["staged_path"]).unlink(missing_ok=True)
             continue
         fd, name = tempfile.mkstemp(prefix=".esaa-apply-", suffix=".tmp", dir=final.parent)
         temporary = Path(name)
@@ -251,7 +253,8 @@ def commit_staged(root: Path, staged: list[dict[str, Any]]) -> None:
             os.replace(temporary, final)
         finally:
             temporary.unlink(missing_ok=True)
-            Path(entry["staged_path"]).unlink(missing_ok=True)
+            if entry.get("staged_path"):
+                Path(entry["staged_path"]).unlink(missing_ok=True)
 
 
 def discard_staged(staged: list[dict[str, Any]]) -> None:
@@ -344,15 +347,8 @@ def _canonical_artifact_hash(payload: dict[str, Any]) -> str:
     return _sha256_bytes(canon.encode("utf-8"))
 
 
-def write_artifact(root: Path, metadata: dict[str, Any], content: str) -> dict[str, Any]:
-    """Grava artifact content-addressed e devolve metadata atualizada com
-
-    artifact_sha256 e artifact_path."""
-
-    artifact_root = root / ARTIFACT_DIR
-
-    artifact_root.mkdir(parents=True, exist_ok=True)
-
+def plan_artifact(metadata: dict[str, Any], content: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Prepara metadata e payload do artifact em memoria sem gravar em disco."""
     payload = dict(metadata)
     payload.update(
         {
@@ -361,28 +357,33 @@ def write_artifact(root: Path, metadata: dict[str, Any], content: str) -> dict[s
             "ts": _utc_now_iso(),
         }
     )
-
     artifact_sha = _canonical_artifact_hash(payload)
-
     payload["artifact_sha256"] = artifact_sha
-
     artifact_filename = f"{artifact_sha}.json"
+    out = dict(metadata)
+    out["artifact_sha256"] = artifact_sha
+    out["artifact_path"] = f"{ARTIFACT_DIR}/{artifact_filename}"
+    return out, payload
 
-    artifact_path = artifact_root / artifact_filename
 
+def persist_artifact(root: Path, payload: dict[str, Any]) -> None:
+    """Grava artifact previamente planejado apos admissao do lote."""
+    artifact_root = root / ARTIFACT_DIR
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_root / f"{payload['artifact_sha256']}.json"
     if not artifact_path.exists():
-
         artifact_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
 
-    out = dict(metadata)
 
-    out["artifact_sha256"] = artifact_sha
+def write_artifact(root: Path, metadata: dict[str, Any], content: str) -> dict[str, Any]:
+    """Grava artifact content-addressed e devolve metadata atualizada com
 
-    out["artifact_path"] = f"{ARTIFACT_DIR}/{artifact_filename}"
-
+    artifact_sha256 e artifact_path."""
+    out, payload = plan_artifact(metadata, content)
+    persist_artifact(root, payload)
     return out
 
 
@@ -584,3 +585,185 @@ def stage_and_compute(
         raise
 
     return staged, metadata_list
+
+
+def _verify_binary_source_readonly(source_root: Path, relative: str, *, size: int, sha256: str) -> None:
+    import stat as _stat
+
+    from .binary_payload import _open_confined
+
+    if (
+        type(size) is not int
+        or size < 0
+        or not isinstance(sha256, str)
+        or len(sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in sha256)
+    ):
+        raise ValueError("invalid binary parameters")
+    fd = _open_confined(source_root, relative)
+    try:
+        st = os.fstat(fd)
+        if not _stat.S_ISREG(st.st_mode):
+            raise ValueError("binary source is not a regular file")
+        digest = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > size:
+                raise ValueError("binary size exceeds declared size")
+            digest.update(chunk)
+        if total != size:
+            raise ValueError("binary size mismatch")
+        if digest.hexdigest() != sha256:
+            raise ValueError("binary sha256 mismatch")
+    finally:
+        os.close(fd)
+
+
+def plan_file_updates(
+    root: Path, file_updates: list[dict[str, Any]], task_id: str | None = None
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Planeja efeitos de arquivo e artifacts em memoria, sem escrita em disco."""
+    for item in file_updates:
+        _assert_update_destination(root, item)
+
+    entries: list[dict[str, Any]] = []
+    artifacts: list[dict[str, Any]] = []
+    metadata_list: list[dict[str, Any]] = []
+
+    for item in file_updates:
+        final_path = item["path"].replace("\\", "/")
+        extra = {
+            "effect_scope": item.get("_esaa_effect_scope", "workspace"),
+            "source_path": item.get("_esaa_source_path", final_path),
+            "target": item.get("_esaa_target"),
+            "target_root": item.get("_esaa_target_root"),
+            "target_path": item.get("_esaa_target_path"),
+        }
+        if "binary" in item:
+            binary = item["binary"]
+            if not task_id:
+                raise ValueError("binary update requires task identity")
+            task_key = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+            source_root = root / ".roadmap" / "binary-input" / task_key
+            _verify_binary_source_readonly(
+                source_root, binary["source"], size=binary["size"], sha256=binary["sha256"]
+            )
+            final = (
+                Path(item["_esaa_final_abs_path"]) if item.get("_esaa_final_abs_path") else root / final_path
+            )
+            before = _sha256_file(final) if final.exists() else None
+            meta: dict[str, Any] = {
+                "path": final_path,
+                "before_sha256": before,
+                "after_sha256": binary["sha256"],
+                "bytes": binary["size"],
+                "encoding": "binary",
+            }
+            meta.update({k: v for k, v in extra.items() if v is not None})
+            if item.get("_esaa_final_abs_path"):
+                meta["absolute_path"] = item["_esaa_final_abs_path"]
+            out_meta, art_payload = plan_artifact(meta, "")
+            artifacts.append(art_payload)
+            metadata_list.append(out_meta)
+            entries.append(
+                {
+                    "final_path": final_path,
+                    "binary": binary,
+                    "final_abs_path": item.get("_esaa_final_abs_path"),
+                    **{k: v for k, v in extra.items() if v is not None},
+                }
+            )
+            continue
+
+        content = item["content"]
+        meta = compute_file_metadata(
+            root,
+            final_path,
+            content,
+            final_abs_path=item.get("_esaa_final_abs_path"),
+            extra=extra,
+        )
+        out_meta, art_payload = plan_artifact(meta, content)
+        artifacts.append(art_payload)
+        metadata_list.append(out_meta)
+        entries.append(
+            {
+                "final_path": final_path,
+                "content": content,
+                "final_abs_path": item.get("_esaa_final_abs_path"),
+                **{k: v for k, v in extra.items() if v is not None},
+            }
+        )
+
+    plan = {"task_id": task_id, "entries": entries, "artifacts": artifacts}
+    return plan, metadata_list
+
+
+def commit_file_plan(
+    root: Path,
+    plan: dict[str, Any] | None,
+    *,
+    commit_fn: Callable[[Path, list[dict[str, Any]]], None] | None = None,
+) -> None:
+    """Persiste artifacts, blobs binarios e efeitos finais somente apos append validado."""
+    if not plan:
+        return
+    for art_payload in plan.get("artifacts", []):
+        persist_artifact(root, art_payload)
+
+    entries = plan.get("entries", [])
+    if not entries:
+        return
+
+    staged_to_commit: list[dict[str, Any]] = []
+    try:
+        for entry in entries:
+            if "binary" in entry:
+                from .binary_artifacts import store_blob
+                from .binary_payload import stage_binary
+
+                task_id = plan.get("task_id")
+                if not task_id:
+                    raise ValueError("binary update requires task identity")
+                binary = entry["binary"]
+                staging_root = root / STAGING_DIR
+                staging_root.mkdir(parents=True, exist_ok=True)
+                task_key = hashlib.sha256(str(task_id).encode("utf-8")).hexdigest()
+                source_root = root / ".roadmap" / "binary-input" / task_key
+                staged_path = stage_binary(
+                    source_root,
+                    binary["source"],
+                    staging_root,
+                    size=binary["size"],
+                    sha256=binary["sha256"],
+                    limit=binary["size"],
+                )
+                store_blob(
+                    staged_path.parent,
+                    staged_path.name,
+                    root / ARTIFACT_DIR / "blobs",
+                    size=binary["size"],
+                    sha256=binary["sha256"],
+                    limit=binary["size"],
+                )
+                staged_to_commit.append({**entry, "staged_path": str(staged_path)})
+            else:
+                staged_to_commit.append(entry)
+        (commit_fn or commit_staged)(root, staged_to_commit)
+    except BaseException:
+        discard_staged([e for e in staged_to_commit if e.get("staged_path")])
+        raise
+
+
+def commit_file_plans(
+    root: Path,
+    plans: list[dict[str, Any]],
+    *,
+    commit_fn: Callable[[Path, list[dict[str, Any]]], None] | None = None,
+) -> None:
+    for plan in plans:
+        commit_file_plan(root, plan, commit_fn=commit_fn)

@@ -12,7 +12,7 @@ from test_canonical_identity import _bind
 from esaa.cli import main
 from esaa.errors import ESAAError
 from esaa.events import make_event
-from esaa.store import append_events, next_event_seq, parse_event_store
+from esaa.store_runtime import append_events, next_event_seq, parse_event_store
 
 
 def _setup(root, repo):

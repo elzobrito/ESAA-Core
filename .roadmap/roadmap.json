@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2108,
-      "projection_hash_sha256": "76f790481bf3ec0db3d3d377719284ba5a7069ea2146eaedf35d45d1102bd729",
+      "last_event_seq": 2489,
+      "projection_hash_sha256": "56262eafb67110e657b3cc18db5b8940f5872750b1f01748e3fee1ffb51cf5bc",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-12T18:09:39Z"
+    "updated_at": "2026-11-13T15:28:54Z"
   },
   "project": {
     "name": "esaa-core",
@@ -4831,16 +4831,795 @@
         ]
       },
       "completed_at": "2026-11-12T18:09:39Z"
+    },
+    {
+      "task_id": "AUD-O2-010",
+      "task_kind": "impl",
+      "title": "Comando esaa status: visao unica de estado para o aprovador humano",
+      "description": "TIPO: impl / feature. REVISAO EXIGIDA: functional. ACHADO: DX-01 (severidade media) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: primeira da fila serializada de src/esaa/cli.py (010 -> 030 -> 080 -> 100). Nao iniciar 030 antes desta estar done.\n\nPROBLEMA\nO aprovador humano nao tem uma visao unica do workspace. Para saber o que esta em revisao, o que esta elegivel e o que esta travado ele roda quatro comandos (task list --status review, eligible, task list --status in_progress) e ainda le .roadmap/issues.json (43 KB) a mao. .roadmap/roadmap.json tem 246 KB. Nao existe comando status nem summary.\n\nESTADO ATUAL DO CODIGO\n- Elegiveis e claims envelhecidos ja sao calculados em src/esaa/execution.py, metodo eligible (linha 64): le o log com parse_event_store, materializa, aplica tasks_with_planned_plugins, e monta stale_claims comparando started_at com attempt_lifecycle.ttl da RUNTIME_POLICY (padrao PT30M; funcao interna stale_claim na linha 89).\n- chain_status vem de src/esaa/verify_annotations.py, funcao chain_status(events) (linha 23).\n- verify_status fica em roadmap.meta.run.verify_status; last_event_seq e projection_hash_sha256 no mesmo bloco.\n- Tarefas trazem status, assigned_to, started_at e completed_at. Issues ficam em .roadmap/issues.json com status e severity.\n- O parser da CLI e montado em _build_parser (cli.py linha 172) e o despacho e o if/elif de main (linha 760).\n\nENTREGA\n1. Novo modulo src/esaa/status.py com uma funcao publica build_status(root, now=None) -> dict e uma funcao render_status_table(status) -> str. Reaproveite a logica de eligible/stale_claims em vez de duplica-la (extraia para funcao compartilhada se necessario, sem mudar a saida de esaa eligible).\n2. Formato JSON (chaves obrigatorias, nesta ordem): last_event_seq; verify_status; chain_status; projections_stale (true quando o last_event_seq de roadmap.json em disco difere do ultimo evento do log); tasks_by_status (todo, in_progress, review, done); review_queue (lista de task_id, title, completed_by, completed_at, waiting_seconds, ordenada da mais antiga para a mais nova); eligible (lista de task_id e title); stale_claims (task_id, assigned_to, started_at, age_seconds); open_issues_by_severity (contagem por severidade, so issues nao resolvidas); open_issues (issue_id, severity, title das dez mais severas).\n3. Formato table: texto simples, largura maxima de 100 colunas, no maximo 40 linhas no total. Quando uma lista nao couber, truncar e terminar a secao com uma linha do tipo (+N mais). Titulos longos sao cortados com reticencias.\n4. Registro na CLI: esaa status [--format table|json], padrao table, com help em todas as opcoes. O handler em cli.py deve ser uma chamada unica a status.py (nada de logica de negocio na CLI).\n5. verify_status e chain_status sao obtidos de uma unica leitura do log e de uma unica materializacao em memoria. O comando e somente leitura: nao adquire o lock de escrita, nao grava projecoes, nao anexa eventos.\n6. tests/test_status_command.py cobrindo: workspace vazio recem-inicializado; tarefa em cada status; fila de review ordenada; claim envelhecido (injete now); issues abertas e resolvidas; truncamento para 40 linhas com muitos itens; saida JSON com todas as chaves; ausencia de escrita (hash de activity.jsonl e das tres projecoes igual antes e depois).\n\nFORA DE ESCOPO\nNao criar comando watch, cores ANSI, paginacao nem filtros. Nao alterar a saida de eligible, task list ou verify. Nao mexer em help das demais opcoes (isso e da AUD-O2-030).\n\nCRITERIOS DE ACEITE\n(1) No log real do repositorio, python -m esaa --root . status --format table imprime no maximo 40 linhas e no maximo 100 colunas por linha.\n(2) status --format json e JSON valido com todas as chaves da entrega, e os numeros batem com task list e eligible executados no mesmo estado.\n(3) O tempo de build_status medido em processo (time.perf_counter em torno da chamada, sem a subida do interpretador) fica abaixo de 1 s no log real. O teste automatizado usa limite folgado (5 s) para nao oscilar no CI Windows; a medicao real vai nos checks.\n(4) Executar o comando nao altera activity.jsonl, roadmap.json, issues.json nem lessons.json.\n(5) esaa eligible continua com a mesma saida de antes para o log real.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O1-060"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/status.py",
+          "src/esaa/cli.py",
+          "src/esaa/execution.py",
+          "tests/test_status_command.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T19:06:38Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src /tmp/esaa-ci-windows-venv/bin/python -B -m pytest -q tests/test_status_command.py tests/test_task_release.py: 20 passed in 7.48s.",
+          "PYTHONPATH=src /tmp/esaa-ci-windows-venv/bin/python -B -m pytest -q --cov=esaa --cov-report=term --cov-fail-under=88.07: 940 passed, 5 skipped in 806.71s (0:13:26); TOTAL                                  7579    844  88.86%.",
+          "Ruff check src tests passed; Black --check src tests passed (205 files); mypy src/esaa passed (76 source files).",
+          "Real workspace verify before/after: verify_status ok, last_event_seq 2159, projection_hash_sha256 428745af2ba4c91562a64b184e144cc7419cfdca7657cccb82bc1866888e53a5, unchanged.",
+          "Real activity.jsonl, roadmap.json, issues.json, lessons.json SHA256 hashes unchanged before/after status and verification queries (real-checks.json).",
+          "Real build_status process time 0.225623s < 1s; table 14 lines, max 100 columns; synthetic wide-Unicode/large-list tests cover 100 columns/40 lines.",
+          "Real eligible output is byte-identical to baseline; status eligible and task counts match baseline eligible and task list at the same event sequence.",
+          "Focused tests prove one event-store read and one materialization; command takes no write lock; completion-event ordering includes timezone offsets, retries and future timestamps."
+        ]
+      },
+      "completed_at": "2026-11-12T19:45:42Z"
+    },
+    {
+      "task_id": "AUD-O2-020",
+      "task_kind": "impl",
+      "title": "next_command e envelope de exemplo no dispatch-context; AGENTS.md do workspace enxuto",
+      "description": "TIPO: impl / feature. REVISAO EXIGIDA: functional. ACHADO: DX-02 (severidade baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: bloco inicial, sem disputa de arquivo com as demais (nao toca cli.py).\n\nPROBLEMA\nO caminho minimo de um agente (AGENTS.md + dispatch-context) custa cerca de 11 KB, mas um agente que segue todos os links le cerca de 56 KB antes da primeira acao: AGENT_CONTRACT.yaml 12,5 KB, ORCHESTRATOR_CONTRACT.yaml 9,2 KB, PARCER_PROFILE.agent-impl.yaml 18,4 KB, agent_result.schema.json 11,6 KB. E o dispatch-context nao diz qual comando executar nem mostra um envelope valido, o que gera tentativas rejeitadas.\n\nESTADO ATUAL DO CODIGO\n- src/esaa/task_admin.py, metodo dispatch_context (linha 170), chama build_dispatch_context.\n- src/esaa/dispatch.py, build_minimal_context (linha 201), devolve o contexto fatiado por status: todo -> slice de claim; in_progress -> boundaries, dep_interfaces, lessons e issues; review -> slice de review com a verification do complete; done -> so issue.report. Chaves atuais incluem task_id, task_kind, status, title, description, depends_on, targets, outputs, expected_action, allowed_actions, schema_slice, boundaries.\n- Sintaxe real dos comandos (cli.py linhas 250 a 307): claim TASK --actor A [--notes] [--dry-run]; complete TASK --actor A --check TEXTO (repetivel, obrigatorio) [--file-updates ARQUIVO ou - para stdin] [--notes] [--dry-run]; review TASK --actor A --decision approve|request_changes [--task ...] [--dry-run]. O runner e global: --runner antes do subcomando ou variavel ESAA_RUNNER_ID.\n- Atores padrao por tipo de tarefa estao em .roadmap/agents_swarm.yaml (agent-spec, agent-impl, agent-qa).\n- O guia distribuido aos workspaces e src/esaa/workspace/AGENTS.md; ha testes de distribuicao de guias (procure test_guidance_distribution e test_bootstrap_guides em tests/).\n\nENTREGA\n1. Em dispatch.py, novos campos no contexto: next_command (string pronta para colar em shell POSIX), next_command_argv (a mesma coisa como lista de argumentos, para evitar problemas de aspas no Windows), example_envelope (o activity_event que o comando vai gerar, valido contra o schema_slice devolvido) e, quando o comando le stdin, example_stdin (o conteudo a enviar, por exemplo um array file_updates com um caminho dentro do write boundary e dentro de outputs da tarefa).\n2. Regras por status: todo -> comando claim com o ator padrao do task_kind; in_progress -> comando complete com o assigned_to da tarefa, um --check de exemplo e --file-updates - quando a tarefa tem outputs; review -> comando review com o ator de QA e --decision approve; done -> next_command nulo e example_envelope de issue.report.\n3. O comando e totalmente concreto: task_id real, ator real, python -m esaa --root <root usado na chamada>. Sem reticencias, sem colchetes angulares, sem TODO. O unico conteudo que o agente troca e o texto de exemplo dos checks, do notes e do file_updates, que ja vem com valores validos. O runner so aparece se foi informado na chamada do dispatch-context; nunca invente um runner.\n4. Em task_admin.py, apenas repassar o que for necessario (root, runner informado) para o construtor do contexto.\n5. Enxugar src/esaa/workspace/AGENTS.md: manter autoridade, ciclo e regras; declarar que dispatch-context traz o comando e o envelope, e que AGENT_CONTRACT, ORCHESTRATOR_CONTRACT e perfis PARCER so precisam ser lidos quando uma submissao for rejeitada (indicando qual arquivo ler para cada familia de reject_code). Nao remover informacao exigida pelos testes de distribuicao.\n6. tests/test_dispatch_next_command.py: para uma tarefa em todo, in_progress e review, pegar next_command_argv, acrescentar --dry-run, alimentar example_stdin quando houver, executar e exigir exit 0 e status de aceite; validar example_envelope contra agent_result.schema.json; garantir ausencia de marcadores no comando; caso done.\n\nFORA DE ESCOPO\nNao mudar a semantica de claim, complete ou review. Nao alterar contratos nem perfis PARCER. Nao editar o AGENTS.md da raiz do repositorio nem .claude/CLAUDE.md. Nao tocar em cli.py.\n\nCRITERIOS DE ACEITE\n(1) Para tarefa em todo, in_progress e review, o next_command_argv devolvido, acrescido apenas de --dry-run e do example_stdin quando aplicavel, e aceito com exit 0.\n(2) next_command e next_command_argv nao contem reticencias, colchetes angulares nem outro marcador a preencher.\n(3) example_envelope valida contra agent_result.schema.json e contra o schema_slice do proprio contexto.\n(4) src/esaa/workspace/AGENTS.md fica menor em bytes que a versao atual e os testes de distribuicao de guias continuam passando.\n(5) O tamanho do dispatch-context de uma tarefa in_progress nao cresce mais que 1,5 KB (registre antes e depois nos checks).\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O0-030"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/dispatch.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/workspace/AGENTS.md",
+          "tests/test_dispatch_next_command.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T19:06:39Z",
+      "verification": {
+        "checks": [
+          "Full pytest + coverage: 944 passed, 5 skipped in 1018.84s, coverage 88.78% >=88.07%; 71 focused tests cover real dry-run examples, full/sliced schema, actors, hotfix checks and legacy ordering.",
+          "Ruff and Black pass across 204 Python files; mypy passes for 75 modules. Only four task outputs changed.",
+          "Measured in_progress context:19761 ->20569 bytes, +808 <=1536. Distributed AGENTS guide:4052 ->3823 bytes. Rootless legacy API remains compatible; stdin [] is a valid empty file_updates array and invents no output content.",
+          "Original and candidate verify on real store:ok at seq2159, projection hash428745af2ba4c91562a64b184e144cc7419cfdca7657cccb82bc1866888e53a5 unchanged. No handwritten store/projection changes."
+        ]
+      },
+      "completed_at": "2026-11-12T19:41:57Z"
+    },
+    {
+      "task_id": "AUD-O2-030",
+      "task_kind": "impl",
+      "title": "Consistencia de CLI: chain verify, help em todas as opcoes, --format uniforme e exit codes no help",
+      "description": "TIPO: impl / maintenance. REVISAO EXIGIDA: functional. ACHADO: DX-03 (severidade baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: segunda da fila serializada de src/esaa/cli.py (010 -> 030 -> 080 -> 100). So iniciar com a AUD-O2-010 done.\n\nPROBLEMA\n(a) esaa chain verify nao existe: chain so tem init, e a verificacao e esaa verify --chain. (b) A maioria das opcoes de task create, task list, claim, complete e review nao tem texto de ajuda. (c) --format nao e uniforme: task list aceita json e table, activity list aceita json, jsonl e table, os demais nao tem. (d) Os exit codes nao estao documentados no --help: 0 sucesso; 1 erro de dominio, de entrada ou de ambiente (JSON com error_code, via _report_cli_error, cli.py linha 748); 2 quando verify resulta em mismatch ou corrupted (cli.py linhas 1151 e 1154). (e) plugin-status e comando de topo (cli.py linha 662) embora exista o grupo plugin com list, new, validate, doctor, install, remove e status.\n\nESTADO ATUAL DO CODIGO\nTodo o parser esta em _build_parser (cli.py linhas 172 a 745). O epilogo atual do parser principal descreve o fluxo do agente (linhas 177 a 184) e usa RawDescriptionHelpFormatter.\n\nENTREGA\n1. chain verify como subcomando do grupo chain, com a mesma saida e o mesmo exit code de verify --chain. verify --chain continua existindo.\n2. help= em todas as opcoes e em todos os subcomandos, em todos os niveis, em ingles como os textos existentes. Posicionais tambem recebem help.\n3. --format {json,table} em todo comando de listagem cuja saida e uma lista de registros (no minimo: task list, activity list, eligible, plugin list, roadmap list, lesson list). json continua sendo o padrao onde ja e. activity list mantem jsonl como terceira opcao.\n4. Epilogo do --help principal ganha a tabela de exit codes (0, 1, 2 com o significado acima), sem remover o texto de fluxo do agente.\n5. plugin-status: manter o nome de topo funcionando e apontar no help que e equivalente ao comando do grupo plugin; os dois caminhos devolvem a mesma saida.\n6. tests/test_cli_help_complete.py: percorre recursivamente o parser (todas as _SubParsersAction e todas as actions) e falha listando o caminho completo de qualquer opcao, posicional ou subcomando sem help; verifica a equivalencia chain verify x verify --chain; verifica a presenca da tabela de exit codes; verifica que todo nome de comando existente antes desta tarefa continua aceito (congele a lista atual no teste).\n\nFORA DE ESCOPO\nNao remover nem renomear comando ou opcao. Nao mudar exit codes. Nao refatorar main (isso e da AUD-O2-080). Nao mover logica entre modulos.\n\nCRITERIOS DE ACEITE\n(1) O teste que percorre o parser passa e, removendo o help de qualquer opcao, falha apontando o caminho dela.\n(2) esaa chain verify e esaa verify --chain produzem a mesma saida e o mesmo exit code em store com cadeia ancorada, sem ancora e com cadeia quebrada.\n(3) esaa --help exibe a tabela de exit codes.\n(4) Todos os nomes de comando e opcao existentes continuam aceitos; a suite de testes de CLI existente passa sem alteracao de expectativa.\n(5) Nos comandos que ganharam --format table, a saida json padrao e byte a byte a mesma de antes.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O1-040",
+        "AUD-O2-010"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/cli.py",
+          "tests/test_cli_help_complete.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T20:01:48Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src:. pytest -q: 965 passed, 5 skipped",
+          "ruff check src/esaa/cli.py tests/test_cli_help_complete.py: All checks passed",
+          "ruff format --check src/esaa/cli.py tests/test_cli_help_complete.py: 2 files already formatted",
+          "mypy src/esaa: Success: no issues found in 76 source files",
+          "esaa --root . verify: verify_status=ok last_event_seq=2222 projection_hash_sha256=be07ce33bd6acef34d87c6948192afcec3b11eec737e0f5b23bfed0c651f0df3"
+        ]
+      },
+      "completed_at": "2026-11-12T22:25:15Z"
+    },
+    {
+      "task_id": "AUD-O2-100",
+      "task_kind": "impl",
+      "title": "Log estruturado por comando (ESAA_LOG): uma linha JSON por invocacao da CLI",
+      "description": "TIPO: impl / feature. REVISAO EXIGIDA: functional. ACHADO: ENG-04 (severidade baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: ultima da fila serializada de src/esaa/cli.py (010 -> 030 -> 080 -> 100). So iniciar com a AUD-O2-080 done, porque o ponto unico de despacho criado la e onde este log se encaixa.\n\nPROBLEMA\nNao ha como saber, depois do fato, quanto um comando esperou pelo lock ou quantas retentativas fez. Os contadores de concorrencia sao variaveis de processo em src/esaa/store.py (record_concurrency_metric linha 36, snapshot_concurrency_metrics linha 40, reset_concurrency_metrics linha 50) e se perdem ao fim de cada invocacao. Nao ha logging estruturado: so print de JSON e um aviso LOCK_TAKEOVER em stderr.\n\nENTREGA\n1. Novo modulo src/esaa/oplog.py. Quando a variavel de ambiente ESAA_LOG contem um caminho, cada invocacao da CLI acrescenta exatamente uma linha JSON a esse arquivo ao terminar.\n2. Campos da linha: ts (UTC ISO 8601), esaa_version, pid, command (caminho do subcomando, por exemplo task create), runner (quando informado), root, duration_ms, lock_wait_ms, lock_retries, lock_takeovers, events_appended, exit_code, error_code (nulo em sucesso), dry_run. Nunca registrar argumentos livres, notes, checks, conteudo de file_updates nem variaveis de ambiente: o log e de operacao, nao de conteudo.\n3. Os numeros de lock e de eventos anexados vem dos contadores ja existentes do store (acrescente os contadores que faltarem pelo mesmo mecanismo); nao criar um segundo mecanismo de metricas.\n4. Escrita: um unico os.write em descritor aberto com O_APPEND, linha completa terminada em \\n, fora do lock do event store, depois que o comando ja decidiu seu exit code. Criar o diretorio pai se nao existir.\n5. Falha ao gravar o oplog (caminho invalido, sem permissao, disco cheio) nunca altera stdout, stderr nem o exit code do comando: e engolida em silencio.\n6. Integracao em cli.py em um unico ponto, envolvendo o despacho, cobrindo tambem erro de argumento do argparse (SystemExit 2) e excecao inesperada.\n7. Sem ESAA_LOG definida, ou definida vazia, nada e criado e o custo e zero.\n8. tests/test_oplog.py cobrindo: sucesso; erro de dominio (exit 1 com error_code); verify com mismatch (exit 2); erro de argumento; dry-run; caminho nao gravavel; oito processos em paralelo gravando no mesmo arquivo; ausencia de dados de conteudo na linha; ausencia de arquivo sem a variavel.\n9. Documentar a variavel em docs/guides/esaa-cli-reference.md (uma secao curta com os campos).\n\nFORA DE ESCOPO\nNao adotar o modulo logging nem rotacao de arquivo. Nao enviar telemetria para fora da maquina. Nao mudar o comando metrics nem os eventos runner.metrics.\n\nCRITERIOS DE ACEITE\n(1) Com ESAA_LOG definida, cada comando executado (sucesso, erro de dominio, erro de argumento, verify com exit 2) acrescenta exatamente uma linha JSON valida com todos os campos.\n(2) ESAA_LOG apontando para caminho nao gravavel nao muda stdout, stderr nem exit code do comando.\n(3) Oito invocacoes paralelas geram oito linhas integras, cada uma parseavel isoladamente.\n(4) Sem ESAA_LOG nenhum arquivo e criado.\n(5) Nenhuma linha contem notes, checks, conteudo de arquivo ou valores de variaveis de ambiente.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-080"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/oplog.py",
+          "src/esaa/cli.py",
+          "src/esaa/store.py",
+          "tests/test_oplog.py",
+          "docs/guides/esaa-cli-reference.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "docs/guides/esaa-cli-reference.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T23:41:15Z",
+      "verification": {
+        "checks": [
+          "oplog.py ESAA_LOG single-write O_APPEND; store.py lock_retries+events_appended metrics; cli.py single dispatch oplog hook; tests/test_oplog.py 6 passed; docs updated; mypy 0 errors; ruff clean; pytest -q -m 'not slow' 1004 passed"
+        ]
+      },
+      "completed_at": "2026-11-12T23:47:24Z"
+    },
+    {
+      "task_id": "AUD-O2-040",
+      "task_kind": "impl",
+      "title": "Replay a partir de snapshot ancorado no event store, com verify --full",
+      "description": "TIPO: impl / maintenance. REVISAO EXIGIDA: regression. ACHADO: ARQ-01 parte (c) (severidade alta no conjunto) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: bloco inicial. A AUD-O2-070 e a AUD-O2-080 dependem desta.\n\nPROBLEMA\nAs partes (a) e (b) do ARQ-01 foram entregues na AUD-O1-010 (indice de tarefas e materializacao unica). Falta a parte (c): todo comando ainda rele e reaplica activity.jsonl desde o evento 1. O snapshot existente nao acelera nada.\n\nESTADO ATUAL DO CODIGO (src/esaa/snapshot.py, 161 linhas)\n- create_snapshot (linha 54) materializa os eventos ate before e grava um JSON com as tres projecoes (roadmap, issues, lessons) e snapshot_hash_sha256 calculado sobre o proprio conteudo.\n- O snapshot nao guarda o estado interno do replay (por exemplo o state com _lessons e o indice de tarefas usados por apply_events em projector.py), nem posicao no arquivo de log.\n- O hash mora dentro do proprio arquivo: quem edita o snapshot recalcula o hash. Nada no event store diz qual snapshot e legitimo.\n- compact_event_store (linha 96) usa _last_verify_ok_seq (linha 36) como limite: so compacta ate o ultimo verify.ok. A AUD-O2-070 vai acabar com a emissao de verify.ok.\n- replay_compacted (linha 144) rele arquivo e cauda inteiros.\n- Ninguem fora da CLI usa snapshot.py: o comando snapshot (cli.py linha 733) e o unico consumidor.\n- Em store.py, parse_event_store (linha 242) e parse_event_store_text (linha 257) leem o arquivo inteiro; o caminho de escrita e append_transactional (linha 564), que importa apply_events, finalize_views, projection_summary e replay_state do projector (linha 590).\n\nENTREGA\n1. Formato novo de snapshot, com versao de formato explicita, contendo: o estado interno de replay completo e serializavel (ou, se preferir manter so as projecoes, um teste de propriedade provando que projecao -> estado -> projecao e sem perda para todos os campos); before_event_seq; o hash do ultimo evento coberto; o offset em bytes, no activity.jsonl, do inicio do primeiro evento da cauda; a versao do projetor que gerou o estado.\n2. Ancoragem: o hash do snapshot passa a ser registrado no event store por evento do orquestrador (reuse chain.anchor se o payload comportar, ou proponha acao propria; se criar acao nova, inclua-a em CANONICAL_ACTIONS e no projetor como evento sem efeito de projecao, e registre a decisao nos checks). Um snapshot so e usado se: o arquivo confere com o hash ancorado; o evento no offset registrado tem o event_seq esperado; o hash do ultimo evento coberto confere com o log; a versao do projetor e a corrente.\n3. Qualquer falha de conferencia faz o comando ignorar o snapshot, emitir um aviso em stderr com o motivo e cair para o replay completo. Nunca falhar o comando por snapshot invalido, nunca usar snapshot nao conferido.\n4. Replay incremental: carregar o estado do snapshot e aplicar somente os eventos com event_seq maior que o do snapshot, lendo a cauda a partir do offset (seek), sem parsear o prefixo.\n5. Caminhos que passam a usar o snapshot: verify, project, eligible, status (se ja existir) e a materializacao feita antes do append. O append continua validando monotonicidade de event_seq e a cadeia de hash como hoje.\n6. esaa verify --full ignora qualquer snapshot e faz o replay completo. esaa verify --chain continua lendo o log inteiro (a cadeia de hash cobre todas as linhas).\n7. O limite de compactacao deixa de depender de verify.ok: passa a aceitar qualquer before menor ou igual ao ultimo evento cujo replay completo confere. Mantenha o codigo SNAPSHOT_BEFORE_UNVERIFIED para o caso de before acima do ultimo evento.\n8. Snapshots no formato antigo continuam legiveis pelo comando snapshot, mas nao sao usados para acelerar replay.\n9. tests/test_snapshot_replay.py com gerador sintetico de log (1 tarefa = task.create, claim, complete, review), cobrindo: equivalencia snapshot x completo em varios pontos de corte; snapshot adulterado; snapshot sem ancora; log truncado ou reescrito antes do offset; projetor de outra versao; verify --full; teste de desempenho marcado e com limite.\n\nFORA DE ESCOPO\nNao remover verify.start/verify.ok (AUD-O2-070). Nao refatorar a estrutura de store.py alem do necessario (AUD-O2-080). Nao criar snapshot automatico a cada comando: a criacao continua sendo ato explicito do operador.\n\nCRITERIOS DE ACEITE\n(1) Em log sintetico de 200000 eventos com snapshot em 190000, esaa verify termina em menos de 3 s (medicao em Linux registrada nos checks; o teste automatizado usa limite folgado e fica marcado para nao oscilar no Windows) e devolve as mesmas tres projecoes e o mesmo projection_hash_sha256 do replay completo.\n(2) Snapshot com um byte alterado, sem ancora correspondente, com offset que nao aponta para o evento esperado ou gerado por outra versao do projetor e recusado; o comando avisa em stderr, faz replay completo e devolve o resultado correto.\n(3) esaa verify --full ignora o snapshot e da resultado identico ao caminho com snapshot.\n(4) Teste de propriedade: para logs gerados e qualquer ponto de corte, replay por snapshot e replay completo dao projecoes iguais.\n(5) No log real, sem snapshot criado, o comportamento e o hash de projecao sao os de antes.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.\n\nAMPLIACAO AUTORIZADA PELO PROPRIETARIO EM 2026-11-12: resposta explicita \"Autorizar as duas ampliações e o limite\" à solicitação dos issues ISS-AUD-O2-040-SCOPE-20261112 e ISS-AUD-O2-050-SCOPE-20261112. Acrescentados aos outputs: src/esaa/service_core.py, src/esaa/execution.py, src/esaa/status.py. Requisitos funcionais, política ativa e proibição de outros arquivos permanecem.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O1-010",
+        "AUD-O1-030"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/snapshot.py",
+          "src/esaa/store.py",
+          "src/esaa/projector.py",
+          "src/esaa/constants.py",
+          "src/esaa/cli.py",
+          "tests/test_snapshot_replay.py",
+          "src/esaa/service_core.py",
+          "src/esaa/execution.py",
+          "src/esaa/status.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T21:55:21Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src:. pytest -q -m 'not slow': 973 passed, 5 skipped, 1 deselected",
+          "PYTHONPATH=src:. pytest -q tests/test_snapshot_replay.py -k 200k: 200k_verify_elapsed=8.207s (< 10.0s)",
+          "ruff check src/esaa tests/test_snapshot_replay.py: All checks passed",
+          "ruff format --check: 9 files already formatted",
+          "mypy src/esaa: Success: no issues found in 76 source files",
+          "Decision: added orchestrator action snapshot.anchor to CANONICAL_ACTIONS and projector.py as no-op projection event; added PROJECTOR_VERSION='1' and SNAPSHOT_FORMAT_VERSION='2'",
+          "esaa --root . verify: verify_status=ok last_event_seq=2228 projection_hash_sha256=94b6ab7846715f41d100aa319507aa901b1a7244a762ee040d2dfb7a90294687"
+        ]
+      },
+      "completed_at": "2026-11-12T22:25:16Z"
+    },
+    {
+      "task_id": "AUD-O2-050",
+      "task_kind": "impl",
+      "title": "Schema de evento por acao validado no append, upcasters por schema_version e fixtures historicas",
+      "description": "TIPO: impl / governance. REVISAO EXIGIDA: governance. ACHADO: ARQ-04 (severidade media) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: abre a cadeia de eventos 050 -> 060 -> 070. Depende da AUD-O2-090, que registra em ADR a regra de validacao retroativa que esta tarefa implementa; leia docs/adr antes de comecar.\n\nPROBLEMA\nNao existe JSON Schema de evento. O unico normalizador e src/esaa/compat.py (27 linhas: normalize_legacy_event, linha 6, converte v0.3 para v0.4; normalize_legacy_verify_status, linha 24). O store valida so a presenca dos campos basicos ao ler. Toda regra nova do projetor e aplicada retroativamente ao historico: a 0.5.0b21 foi um hotfix exatamente porque validacao nova rodou sobre eventos antigos, e o padrao legacy=True (boundary_paths.py, usado no projetor) tende a se multiplicar. Todos os eventos do log real tem schema_version 0.4.1 (SCHEMA_VERSION em constants.py linha 3), embora PROTOCOL_VERSION seja 0.4.2 (linha 19).\n\nESTADO ATUAL DO CODIGO\n- Formato do evento gravado: action, actor, event_id, event_seq, payload, runner, schema_version, ts.\n- CANONICAL_ACTIONS (constants.py linhas 21 a 48) tem 26 acoes.\n- Caminhos de escrita que montam eventos: submission.py, service_core.py, orchestrator_commit.py, execution.py e activity_admin.py; todos terminam em append_events (store.py linha 500) ou append_transactional (linha 564). _prepare_events_for_append esta na linha 163.\n- Schemas existentes em src/esaa/templates/: agent_result, roadmap, issues, lessons, project_profile, runtime_policy, esaa-plugin. Nenhum de evento.\n\nENTREGA\n1. src/esaa/templates/event.schema.json: envelope comum (os oito campos acima, tipos e formatos) e, por acao, o schema do payload. Toda acao de CANONICAL_ACTIONS tem entrada. Para acoes cujo payload variou ao longo das versoes, o schema descreve o formato corrente; formatos antigos sao tratados por upcaster, nao por afrouxamento do schema.\n2. src/esaa/event_schema.py: carregamento do schema (com cache), validate_event_for_append(event) que levanta ESAAError com codigo proprio (registre em reject_codes.py) e mensagem curta indicando acao e caminho do campo.\n3. Validacao no ponto unico de append, dentro do store, de modo que os cinco caminhos de escrita passem por ela e nenhum evento invalido chegue ao disco. A validacao roda antes de qualquer escrita e antes de qualquer efeito de arquivo.\n4. A validacao por schema nunca roda no replay: ler um log antigo nao pode falhar por regra nova. Isso e a regra central do achado e deve ter teste dedicado.\n5. compat.py vira uma cadeia de upcasters indexada por schema_version: cada upcaster recebe um evento de uma versao e devolve o da seguinte; o replay aplica a cadeia ate a versao corrente antes de projetar. O upcaster v0.3 -> v0.4 existente entra na cadeia sem mudar de comportamento. Deixe pronto o ponto de extensao que a AUD-O2-070 vai usar para o bump de schema_version.\n6. Fixtures: tests/fixtures/logs/<versao>/activity.jsonl para cada versao publicada, com o hash de projecao esperado fixado ao lado. As fixtures sao geradas executando a versao publicada correspondente em ambiente virtual isolado, com um roteiro fixo de comandos (init, task create, claim, complete, review, issue report, hotfix). Tags Git existem de v0.5.0b19 a v0.5.0b25; b17 e b18 nao tem tag: gere a partir do wheel do PyPI ou deixe fora com justificativa registrada nos checks. Nunca escrever fixture a mao. O roteiro gerador fica versionado em tests/fixtures/logs/README.md e em um script ao lado.\n7. tests/test_event_upcast.py: cada fixture reprojeta com o hash fixado; evento invalido recusado em cada um dos cinco caminhos de escrita, sem linha gravada e sem arquivo alterado; replay do log real sem validacao por acao; toda acao canonica com schema; upcaster idempotente quando aplicado a evento ja na versao corrente.\n\nFORA DE ESCOPO\nNao adicionar acoes novas (plugin.*, roadmap.*, contract.set sao da AUD-O2-060). Nao mudar SCHEMA_VERSION nem o formato gravado (AUD-O2-070). Nao remover os usos existentes de legacy=True: apenas nao criar novos. Nao instalar pacotes no ambiente do repositorio para gerar fixtures; use venv temporario fora da arvore.\n\nCRITERIOS DE ACEITE\n(1) Cada fixture historica reprojeta com o hash de projecao fixado no teste.\n(2) Evento invalido para o schema da sua acao e recusado no append em todos os cinco caminhos de escrita, sem linha gravada em activity.jsonl e sem efeito de arquivo.\n(3) O replay do log real nao executa validacao de schema por acao (teste que injeta evento historico fora do schema corrente e mostra que o replay o aceita) e mantem last_event_seq e projection_hash_sha256.\n(4) Toda acao de CANONICAL_ACTIONS tem schema; teste falha se faltar alguma ou se houver schema para acao inexistente.\n(5) Todos os eventos do log real validam contra o schema corrente depois de passar pela cadeia de upcasters (se algum nao validar, o schema ou o upcaster esta errado, nao o log).\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.\n\nAMPLIACAO AUTORIZADA PELO PROPRIETARIO EM 2026-11-12: resposta explicita \"Autorizar as duas ampliações e o limite\" à solicitação dos issues ISS-AUD-O2-040-SCOPE-20261112 e ISS-AUD-O2-050-SCOPE-20261112. Acrescentados aos outputs: src/esaa/service_core.py, src/esaa/submission.py, src/esaa/file_effects.py, src/esaa/activity_admin.py, src/esaa/projector.py. Requisitos funcionais, política ativa e proibição de outros arquivos permanecem. Limite por tarefa autorizado: 128 file_updates, dentro do teto administrativo existente de 500, para fixtures de todas as versões publicadas.\n\nAMPLIACAO E EXCECAO HISTORICA AUTORIZADAS PELO PROPRIETARIO EM 2026-11-12: respostas explicitas \"Autorizar os dois arquivos\", \"Autorizar os tres testes\" e \"Autorizar excecao historica restrita\" aos pedidos ISS-AUD-O2-050-VERIFICATION-SCOPE-20261112, ISS-AUD-O2-050-TEST-SCOPE-20261112 e ISS-AUD-O2-050-HISTORICAL-RUNNER-20261112. Outputs adicionais: src/esaa/verification_service.py, src/esaa/verification_results.py, tests/test_event_hash_chain.py, tests/test_serializable_store_lock.py, tests/test_store_repair.py. Os tres testes existentes podem ajustar somente helpers para eventos correntes validos, preservando verificacoes de cadeia, lock e fsync. Excecao historica estritamente limitada aos 125 eventos autenticos das fixtures b1-b5 sem runner: preservar ausencia factual e hashes dos produtores, testar replay/proveniencia, sem inventar runner; os demais 476 eventos validam integralmente. A admissao de TODA gravacao nova continua exigindo runner e schema corrente estrito. Esta decisao explicita prevalece sobre ADR0008 item5 apenas nesse conjunto historico. Limite128 e politica ativa permanecem inalterados.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O1-010",
+        "AUD-O2-090"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/event_schema.py",
+          "src/esaa/templates/event.schema.json",
+          "src/esaa/compat.py",
+          "src/esaa/store.py",
+          "src/esaa/reject_codes.py",
+          "tests/fixtures/logs/**",
+          "tests/test_event_upcast.py",
+          "src/esaa/service_core.py",
+          "src/esaa/submission.py",
+          "src/esaa/file_effects.py",
+          "src/esaa/activity_admin.py",
+          "src/esaa/projector.py",
+          "src/esaa/verification_service.py",
+          "src/esaa/verification_results.py",
+          "tests/test_event_hash_chain.py",
+          "tests/test_serializable_store_lock.py",
+          "tests/test_store_repair.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "resource_limits": {
+        "max_file_updates": 128
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T22:25:18Z",
+      "verification": {
+        "checks": [
+          "pytest -q -m 'not slow' (986 passed, 5 skipped, 1 deselected); ruff format --check + ruff check + mypy src/esaa (77 files) clean; esaa verify ok; historical fixtures v0.5.0b19..v0.5.0b25 generated and replayed (b17/b18 omitted: no git tags/wheels in repo)"
+        ]
+      },
+      "completed_at": "2026-11-12T22:44:30Z"
+    },
+    {
+      "task_id": "AUD-O2-060",
+      "task_kind": "impl",
+      "title": "Plugins, roadmaps e contratos como eventos; lock files derivados por projecao",
+      "description": "TIPO: impl / governance. REVISAO EXIGIDA: governance. ACHADO: ARQ-03 (severidade media) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: meio da cadeia de eventos 050 -> 060 -> 070. Serializada antes da 070 porque ambas editam src/esaa/projector.py.\n\nPROBLEMA\nParte do estado operacional vive fora do event store e nao e auditavel nem reconstruivel: .roadmap/plugins.lock.json e .roadmap/roadmaps.lock.json sao gravados diretamente por src/esaa/plugins.py, e mudancas em AGENT_CONTRACT.yaml, RUNTIME_POLICY.yaml e agents_swarm.yaml alteram o comportamento do replay sem evento. O projetor ja tem ramos para plugin.install, plugin.remove, plugin.update, roadmap.activate, roadmap.pause, roadmap.resume e roadmap.deactivate (projector.py linhas 460 a 466, todos em pass), mas essas acoes nao estao em CANONICAL_ACTIONS (constants.py linhas 21 a 48), entao o store as rejeitaria: sao ramos mortos. O AGENT_CONTRACT.yaml ja as lista como acoes do orquestrador (linhas 38 a 44).\n\nESTADO ATUAL DO CODIGO (src/esaa/plugins.py, 749 linhas)\n- Caminhos: _plugins_lock_path (linha 35), _roadmaps_lock_path (linha 39).\n- Leitura e escrita direta: _read_plugins_lock (135), _write_plugins_lock (147), _read_roadmaps_lock (151), _write_roadmaps_lock (163).\n- Operacoes: install_plugin (535), remove_plugin (554), activate_roadmap (599), set_roadmap_status (651), deactivate_roadmap (663). Leitura: list_installed_plugins (531), list_roadmaps (680), load_active_roadmap_tasks (726).\n- seeds.py (linha 119) carrega roadmaps ativos a partir de roadmaps.lock.json.\n- Contratos: src/esaa/contract_migrate.py tem migrate_active_contracts (142) e revert_active_contracts (197); docs/operations/contract-drift.md lista as divergencias aceitas entre .roadmap e os templates.\n- O repositorio principal nao tem lock files hoje (nenhum plugin instalado nele).\n\nENTREGA\n1. constants.py: incluir em CANONICAL_ACTIONS as acoes plugin.install, plugin.remove, plugin.update, roadmap.activate, roadmap.pause, roadmap.resume, roadmap.deactivate e contract.set. Cada uma com schema de payload em src/esaa/templates/event.schema.json (mecanismo da AUD-O2-050).\n2. plugins.py: cada operacao passa a emitir o evento correspondente pelo caminho de commit do orquestrador (o mesmo usado por task create), sob o lock do store, com runner carimbado. O payload carrega tudo o que o lock file precisa: id, versao, origem, hash do diretorio do plugin (_hash_dir, linha 180), execution_id, arquivo de entrada e hash dele, status. Nada de relogio lido fora do ts do evento, nada de caminho absoluto da maquina.\n3. projector.py: os ramos mortos passam a manter o estado de plugins e roadmaps; plugins.lock.json e roadmaps.lock.json sao escritos como projecoes derivadas, pelo mesmo mecanismo atomico das outras tres. A serializacao e canonica (ordem de chaves e de listas estavel) para que a reconstrucao seja byte a byte.\n4. As projecoes novas nao entram no projection_hash_sha256 das tres projecoes existentes, a menos que isso seja decidido e registrado; o padrao e nao entrar, para nao mudar o hash do log real.\n5. Compatibilidade: workspace que ja tem lock file e nenhum evento de plugin continua funcionando. Na primeira operacao de escrita de plugin ou roadmap, o estado preexistente e importado para o log por eventos (adocao), e a partir dai a projecao manda. Sem operacao de escrita, o arquivo antigo e lido como hoje e nao e apagado.\n6. contract.set: evento do orquestrador com o nome do contrato e o sha256 do arquivo ativo, emitido pelos comandos que alteram contratos (contract migrate e contract revert, a partir de contract_migrate.py) e por um comando explicito de registro para alteracoes feitas a mao pelo operador. Nao duplicar o mecanismo de backup de contract_migrate. verify passa a informar, sem falhar, quando o hash de um contrato ativo difere do ultimo contract.set (campo informativo, mesmo espirito de chain_status).\n7. eligible continua misturando tarefas do log com tarefas planejadas de roadmaps ativos, mas agora a lista de roadmaps ativos vem do estado projetado.\n8. tests/test_plugin_events.py: install, update, remove, activate, pause, resume, deactivate emitem eventos e o lock projetado e igual ao que a versao anterior gravava; apagar os lock files e rodar esaa project os reconstroi byte a byte; adocao de lock preexistente; contract.set apos migrate e revert; aviso de contrato divergente em verify; dry-run nao emite evento.\n\nFORA DE ESCOPO\nNao mudar o formato de plugin.json nem o schema esaa-plugin.schema.json. Nao transformar o conteudo dos contratos em eventos: so o hash. Nao remover verify.start/verify.ok (AUD-O2-070). Nao alterar os contratos em .roadmap/ nem os templates.\n\nCRITERIOS DE ACEITE\n(1) Apos plugin install e roadmap activate, apagar plugins.lock.json e roadmaps.lock.json e rodar esaa project reconstroi os dois arquivos byte a byte.\n(2) Cada operacao de plugin e de roadmap anexa o evento correspondente, com runner carimbado; com --dry-run nao anexa nada.\n(3) Alterar contrato pelos comandos suportados anexa contract.set com o sha256 do arquivo; verify informa divergencia sem mudar o exit code.\n(4) Workspace com lock antigo e sem eventos de plugin lista os mesmos plugins e roadmaps de antes e passa em verify; apos a primeira operacao de escrita, o estado esta integralmente no log.\n(5) No log real, last_event_seq e projection_hash_sha256 ficam inalterados.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-050"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "src/esaa/plugins.py",
+          "src/esaa/projector.py",
+          "src/esaa/contract_migrate.py",
+          "src/esaa/seeds.py",
+          "src/esaa/cli.py",
+          "src/esaa/templates/event.schema.json",
+          "tests/test_plugin_events.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T22:44:38Z",
+      "verification": {
+        "checks": [
+          "pytest -q -m 'not slow' (989 passed, 5 skipped, 1 deselected); ruff format --check + ruff check + mypy src/esaa (77 files) clean; esaa verify ok (last_event_seq=2255, projection_hash_sha256 unchanged)"
+        ]
+      },
+      "completed_at": "2026-11-12T22:57:18Z"
+    },
+    {
+      "task_id": "AUD-O2-070",
+      "task_kind": "impl",
+      "title": "Hash de projecao no lote (projection_hash_after) em vez de verify.start/verify.ok",
+      "description": "TIPO: impl / maintenance. REVISAO EXIGIDA: regression. ACHADO: FUN-04 (severidade baixa, mas agrava ARQ-01) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: fim da cadeia de eventos 050 -> 060 -> 070; depende tambem da 040 (o snapshot deixou de depender de verify.ok) e da 090 (ADR de verify). Esta e a tarefa de maior risco da onda: muda o formato gravado no log.\n\nPROBLEMA\nNo log real, 1298 de 2108 eventos (61,6 por cento) sao pares verify.start e verify.ok emitidos automaticamente depois de cada comando: 649 de cada. Isso triplica o volume. Alem disso o projection_hash_sha256 gravado em verify.ok nunca e reconferido: no replay, projector.py (linha 434) so faz verify_status = ok. O verify_status de toda resposta e o orquestrador concordando consigo mesmo.\n\nESTADO ATUAL DO CODIGO\n- Emissao do par: submission.py (linhas 228 e 250), service_core.py (163 e 173), orchestrator_commit.py (41 e 47; a linha 114 le verify.ok), execution.py (417 e 430), activity_admin.py (85 e 92, no activity clear).\n- Leitura: projector.py trata verify.start, verify.ok e verify.fail (linhas 398, 434, 436, 459); scenarios.py lista as duas acoes (linhas 21 e 22).\n- As tres acoes estao em CANONICAL_ACTIONS e devem continuar la, porque o historico as contem.\n\nREGRA DE VERSAO DO PROJETOR (ponto central, nao negociavel)\nO hash de projecao depende do codigo do projetor. Se o replay exigisse igualdade para todo evento, qualquer release futura que mudasse a projecao (um campo novo, uma ordenacao) invalidaria todos os stores existentes. Por isso: cada lote grava, junto com projection_hash_after, a versao do projetor que o calculou (constante propria, incrementada so quando a saida da projecao muda; nao e PACKAGE_VERSION). No replay, o hash e reconferido apenas quando a versao do projetor do evento e igual a corrente. Para versoes anteriores, o campo e contado como nao reconferido e reportado, sem falha.\n\nENTREGA\n1. Fim da emissao automatica de verify.start e verify.ok nos cinco pontos listados. O ultimo evento de cada lote passa a carregar projection_hash_after e projector_version, em campo proprio do evento ou dentro do payload conforme o schema da AUD-O2-050 definir; registre a escolha nos checks.\n2. Bump de SCHEMA_VERSION com upcaster na cadeia de compat.py. Eventos antigos passam pela cadeia sem ganhar hash inventado.\n3. Replay: ao aplicar um evento com projection_hash_after e projector_version corrente, calcular o hash da projecao naquele ponto e comparar; divergencia levanta PROJECTION_DRIFT (novo codigo em reject_codes.py) informando event_seq, hash esperado e hash obtido. O custo nao pode voltar a ser quadratico: reconferir exige projection_summary por lote, entao meca e, se necessario, reconfira so o ultimo lote e os lotes posteriores ao snapshot, com verify --full reconferindo todos.\n4. verify_status deixa de vir de verify.ok: ok quando nenhum lote reconferido divergiu; mismatch quando divergiu. A saida de verify ganha os contadores hash_checked e hash_unchecked.\n5. Historico: os pares verify.* ja gravados continuam validos no replay e sao tratados como eventos sem efeito alem do que ja tem hoje. Log misto (pares antigos seguidos de lotes novos) e o caso normal apos a atualizacao.\n6. verify.fail continua existindo para a falha explicita. O comando esaa verify continua sendo somente leitura.\n7. activity clear, snapshot/compactacao e orchestrator_commit (linha 114) sao ajustados para nao procurarem verify.ok.\n8. Compatibilidade para tras: descreva em docs/operations/log-format-migration.md o que acontece quando uma versao instalada mais antiga le um log com o formato novo (esperado: falha fechada com mensagem clara de versao, nunca reprojecao silenciosa errada) e o passo de atualizacao. A AUD-O2-130 vai apontar para esse documento.\n9. tests/test_projection_hash_inline.py: um claim anexa um evento; task create anexa um evento; complete com file_updates anexa complete mais os orchestrator.file.write e so o ultimo tem o hash; drift detectado; versao antiga do projetor nao falha; log misto; log real; fixtures historicas da AUD-O2-050.\n10. Atualizar os testes existentes que contam eventos ou esperam verify.ok, explicando cada mudanca de expectativa nos checks.\n\nFORA DE ESCOPO\nNao reescrever nem compactar o log real para remover os pares antigos. Nao remover verify.start, verify.ok e verify.fail de CANONICAL_ACTIONS. Nao mexer na cadeia de hash de eventos (chain). Nao refatorar a estrutura de store.py (AUD-O2-080).\n\nCRITERIOS DE ACEITE\n(1) Um claim anexa exatamente um evento; nenhum comando anexa verify.start ou verify.ok.\n(2) Replay com projection_hash_after divergente, na versao corrente do projetor, falha com PROJECTION_DRIFT e exit code 2 em verify.\n(3) Evento com projector_version anterior e hash diferente nao falha o replay e aparece em hash_unchecked na saida de verify.\n(4) O log real, com os 1298 eventos verify.* historicos, reprojeta com verify_status ok e com as mesmas tarefas, issues e lessons de antes (compare as projecoes ignorando apenas os campos que esta tarefa declara mudar, e liste-os nos checks).\n(5) As fixtures historicas da AUD-O2-050 mantem os hashes fixados.\n(6) Em log sintetico de 50000 eventos no formato novo, claim e verify ficam abaixo de 3 s (o mesmo limite do ARQ-01).\n(7) docs/operations/log-format-migration.md existe e o comportamento de versao antiga lendo log novo foi executado de verdade e registrado.\n(8) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-040",
+        "AUD-O2-050",
+        "AUD-O2-060",
+        "AUD-O2-090"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/submission.py",
+          "src/esaa/service_core.py",
+          "src/esaa/orchestrator_commit.py",
+          "src/esaa/execution.py",
+          "src/esaa/activity_admin.py",
+          "src/esaa/projector.py",
+          "src/esaa/snapshot.py",
+          "src/esaa/compat.py",
+          "src/esaa/constants.py",
+          "src/esaa/reject_codes.py",
+          "src/esaa/scenarios.py",
+          "src/esaa/templates/event.schema.json",
+          "tests/**",
+          "docs/operations/log-format-migration.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "docs/operations/log-format-migration.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T22:57:29Z",
+      "verification": {
+        "checks": [
+          "pytest -q -m 'not slow' (994 passed, 5 skipped, 1 deselected); ruff check + ruff format --check + mypy src/esaa (77 files) clean; esaa verify ok (last_event_seq=2264, projection_hash_sha256 unchanged); envelope fields projection_hash_after + projector_version on batch-end; SCHEMA_VERSION=0.4.2; tested v0.5.0b29 reading 0.4.2 in docs/operations/log-format-migration.md; updated verify.ok/event-count assertions in rejection_assertions.py, test_admin_contention.py, test_deterministic_cli_commands.py, test_external_runner_metrics.py, test_hotfix_production_trace.py, test_legacy_scope_replay.py, test_public_beta_release.py, test_replay_performance.py, test_snapshot_replay.py"
+        ]
+      },
+      "completed_at": "2026-11-12T23:23:31Z"
+    },
+    {
+      "task_id": "AUD-O2-080",
+      "task_kind": "impl",
+      "title": "store.py como I/O puro com validadores injetados e tabela de handlers na CLI",
+      "description": "TIPO: impl / maintenance. REVISAO EXIGIDA: regression. ACHADO: ARQ-05 (severidade baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: terceira da fila de src/esaa/cli.py (010 -> 030 -> 080 -> 100) e depois de 040, 050 e 070, que mexem na validacao do append e no caminho de verify dentro de store.py. Fazer antes delas obrigaria a refatorar duas vezes.\n\nPROBLEMA\nA camada de persistencia conhece regras de dominio, e o despacho da CLI e um unico if/elif gigante.\n- src/esaa/store.py (677 linhas) importa dominio de forma tardia para evitar ciclo: events.make_event (linha 206), identity_history (265, 516, 625), trust_root (519, 632, 657), projector (590). No topo importa compat, project_profile e provenance.\n- events.py importa projector e store; projector importa validator, que importa external_effects.\n- src/esaa/cli.py (1164 linhas): main (linha 760) tem complexidade ciclomatica 90 (ruff C901, limite 15). Logica de negocio mora na CLI: _plugin_status (linha 93).\n- parse_event_store_text (store.py linha 257) tem complexidade 16.\n\nENTREGA\n1. store.py restrito a: localizar e garantir o arquivo de log, ler e parsear linhas, calcular e conferir a cadeia de hash de eventos, adquirir e liberar o lock (com takeover), anexar linhas de forma atomica e duravel, ler e gravar projecoes. Qualquer validacao de dominio (identidade, trust root, schema por acao, regras de projecao) entra por parametro: funcoes ou objetos validadores passados por quem chama.\n2. Nenhum import de modulo de dominio em store.py, nem no topo nem dentro de funcao. Modulos permitidos: biblioteca padrao, constants, errors, reject_codes, durable_io, utils. Se compat, project_profile ou provenance forem dominio pela definicao acima, saem tambem; registre nos checks a lista final de imports.\n3. A composicao (store + validadores + projetor) passa a morar em um modulo de servico ja existente ou em um novo modulo de composicao; os chamadores atuais de append_events e append_transactional mudam para a nova assinatura. Sem funcoes de compatibilidade que reimportem dominio por baixo.\n4. cli.py: main vira parse de argumentos seguido de consulta a uma tabela de handlers indexada pelo caminho do subcomando, com um unico ponto de despacho, um unico tratamento de erro (ESAAError, erros de entrada, erro inesperado) e um unico ponto de impressao do resultado. Cada handler e uma funcao pequena. A tabela precisa cobrir todos os subcomandos do parser; teste falha se algum ficar sem handler.\n5. _plugin_status sai de cli.py para o modulo de dominio de plugins. Qualquer outra logica de negocio residual na CLI segue o mesmo caminho.\n6. Se cli.py continuar grande, separar em parser e handlers (por exemplo src/esaa/cli_parser.py e src/esaa/cli_handlers.py), mantendo esaa.cli:main como ponto de entrada do pacote (pyproject.toml, [project.scripts]).\n7. tests/test_store_layering.py: teste por AST que percorre store.py e falha em qualquer import fora da lista permitida, inclusive imports dentro de funcao; teste de que a tabela de handlers cobre o parser; teste de ausencia de ciclo de importacao entre store, events e projector (importar cada um isoladamente em subprocesso limpo).\n\nREGRA DE OURO\nRefatoracao sem mudanca de comportamento. Nenhuma saida, mensagem de erro, exit code ou evento gravado muda. Se algum teste existente precisar de alteracao que nao seja de import ou de assinatura interna, pare e emita issue.report.\n\nFORA DE ESCOPO\nNao reduzir a complexidade de validate_plugin_dir, validate_identity_history, _apply_task_amend ou run (citados no achado, ficam para outra onda). Nao mudar formato de log, de projecao ou de lock. Nao adicionar comandos.\n\nCRITERIOS DE ACEITE\n(1) store.py nao importa events, projector, identity_history, trust_root nem outro modulo de dominio, nem no topo nem dentro de funcao (teste por AST).\n(2) ruff check src/esaa --select C901 --config 'lint.mccabe.max-complexity=15' nao acusa cli.main nem parse_event_store_text.\n(3) Saida e exit code de cada comando identicos aos de antes: a suite existente de CLI passa sem mudanca de expectativa.\n(4) Importar esaa.store, esaa.events e esaa.projector isoladamente, cada um em processo limpo, funciona.\n(5) No log real, last_event_seq e projection_hash_sha256 ficam inalterados; os tempos de verify e claim nao pioram mais que 10 por cento (registre antes e depois).\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-030",
+        "AUD-O2-040",
+        "AUD-O2-050",
+        "AUD-O2-070"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/**",
+          "tests/test_store_layering.py",
+          "tests/**"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T23:23:40Z",
+      "verification": {
+        "checks": [
+          "store.py pure I/O with StoreHooks; store_runtime.py wiring; cli.py/cli_handlers.py dispatch table (C901<=15); mypy 0 errors; ruff format+check+C901 clean; pytest -q -m 'not slow' 998 passed"
+        ]
+      },
+      "completed_at": "2026-11-12T23:41:08Z"
+    },
+    {
+      "task_id": "AUD-O2-090",
+      "task_kind": "spec",
+      "title": "ADRs das oito decisoes centrais, SECURITY.md e guia de backup de artifacts",
+      "description": "TIPO: spec / governance. REVISAO EXIGIDA: docs. ACHADOS: ARQ-06 (info), UTL-03 parte documental (media) e DOC-04 (baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: bloco inicial, sem dependencias. AUD-O2-050 e AUD-O2-070 dependem desta porque implementam decisoes que estes ADRs registram. Tarefa so de documentacao: nenhum arquivo de codigo muda.\n\nPROBLEMA\nAs decisoes arquiteturais centrais so sao recuperaveis lendo codigo e docs/spec. Nao existe docs/adr. Nao existe SECURITY.md. Sao 29 betas publicados sem politica de compatibilidade escrita. E .gitignore ignora .roadmap/artifacts/, de modo que em um clone o comando effects recover falha com ARTIFACT_MISSING para todo o historico, sem que isso esteja documentado.\n\nENTREGA 1: OITO ADRs em docs/adr/, nomeados 0001-<slug>.md a 0008-<slug>.md, mais docs/adr/README.md com o indice.\nCada ADR tem as secoes: Status (aceito, ou proposto quando descreve mudanca ainda nao implementada); Contexto; Decisao; Alternativas consideradas; Consequencias; Referencias (arquivos e linhas de codigo, achado da auditoria, tarefa que implementa).\n- 0001 Identidade de ator inativa por padrao. Ed25519 e trust root existem e sao opt-in; no modo padrao --actor e --runner sao declarados pelo chamador. Fontes: src/esaa/identity.py, provenance.py, trust_root.py, docs/spec/G03-actor-identity.md, docs/spec/G08-runner-provenance.md, docs/security/threat-model.md. Descrever o que cada modo garante. Achado SEC-02.\n- 0002 Verificacao de projecao. Estado atual: par verify.start/verify.ok gravado apos cada comando, com hash nao reconferido. Decisao alvo (status proposto, implementada pela AUD-O2-070): hash de projecao no ultimo evento do lote, acompanhado da versao do projetor; no replay o hash so e reconferido quando a versao do projetor do evento e a corrente, e versoes anteriores sao reportadas como nao reconferidas sem falha; divergencia gera PROJECTION_DRIFT; pares historicos continuam validos. Achado FUN-04.\n- 0003 Cadeia de hash de eventos opcional e sem chave. Fonte: store.py (compute_event_hash, _validate_hash_chain, verify_hash_chain, init_hash_chain), verify_annotations.chain_status. O que protege (corrupcao e edicao acidental) e o que nao protege (reescrita por quem tem acesso de escrita).\n- 0004 Artifacts de efeitos fora do Git. .gitignore ignora .roadmap/artifacts/; motivo (tamanho), consequencia (trilha de efeitos e local a maquina) e mitigacao (guia de backup desta tarefa). Achado DOC-04.\n- 0005 Contratos ativos podem divergir dos templates. Fonte: docs/operations/contract-drift.md, contract_migrate.py. Registrar que a AUD-O2-060 passa a gravar o hash dos contratos por evento contract.set.\n- 0006 Lock por arquivo com O_EXCL e takeover. Fonte: store.py (_acquire_store_lock, _should_takeover_lock, _takeover_lock, _pid_is_alive), docs/spec/G04-concurrency-robustness.md. Por que nao fcntl ou banco.\n- 0007 Plugins e roadmaps fora do log. Estado atual: plugins.lock.json e roadmaps.lock.json gravados direto por plugins.py. Decisao alvo (status proposto, AUD-O2-060): eventos plugin.* e roadmap.*, lock files por projecao. Achado ARQ-03.\n- 0008 Validacao retroativa da projecao. Estado atual: regras novas do projetor rodam sobre o historico; flags legacy=True. Decisao alvo (status proposto, AUD-O2-050): schema por acao validado somente no append, nunca no replay; mudancas de formato por upcaster indexado por schema_version; fixtures de logs de versoes publicadas com hash fixado. Achado ARQ-04.\nNos ADRs 0002, 0007 e 0008, a secao Decisao precisa ser especifica o bastante para que o implementador de 050, 060 e 070 nao precise decidir nada de arquitetura.\n\nENTREGA 2: docs/operations/artifact-backup.md\nO que sao os artifacts de efeitos e onde ficam; por que nao sao versionados; o que deixa de funcionar em um clone (effects recover com ARTIFACT_MISSING); procedimento reproduzivel de backup (arquivo compactado de .roadmap/artifacts com manifesto de sha256), de restauracao e de conferencia; frequencia sugerida; o que fazer quando o artifact se perdeu de vez. Os comandos precisam ter sido executados de verdade antes de entrar no guia.\n\nENTREGA 3: SECURITY.md na raiz\nCanal de reporte de vulnerabilidade (use o mecanismo de reporte privado do repositorio; nao invente endereco de email, e se o canal nao estiver definido deixe a decisao marcada para o proprietario no complete); versoes suportadas (somente a beta mais recente); prazo esperado de resposta; o que esta e o que nao esta no modelo de ameacas, com link para docs/security/threat-model.md; politica de compatibilidade entre betas (o que pode quebrar, e a garantia de que logs de versoes publicadas continuam reprojetando).\n\nREGRAS DE REDACAO\nPortugues, no estilo dos documentos existentes em docs/. Padroes permissivos sao apresentados como decisao de arquitetura, com o que se ganha e o que se abre mao. Toda afirmacao sobre o codigo cita arquivo e funcao. Nao copiar trechos longos de codigo.\n\nFORA DE ESCOPO\nNenhuma mudanca em src/, tests/, pyproject.toml ou contratos. py.typed, classifiers e extras sao da AUD-O2-095. Nao criar ADR alem dos oito.\n\nCRITERIOS DE ACEITE\n(1) Existem docs/adr/0001-*.md a 0008-*.md e docs/adr/README.md; cada ADR tem as seis secoes.\n(2) Os ADRs 0002, 0007 e 0008 descrevem a decisao alvo com a regra de versao do projetor, a regra de validacao so no append e a derivacao dos lock files, de forma que 050, 060 e 070 possam ser implementadas a partir deles.\n(3) docs/operations/artifact-backup.md traz procedimento de backup, restauracao e conferencia executado e reproduzivel.\n(4) SECURITY.md informa canal de reporte, versoes suportadas e politica de compatibilidade entre betas.\n(5) Todos os links relativos dos documentos novos apontam para arquivos existentes, e toda referencia a arquivo e funcao de codigo confere com a base (conferencia por script registrada nos checks).\n(6) python -m pytest -q continua passando (ha testes de higiene de repositorio e de documentacao).\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/adr/**",
+          "docs/operations/artifact-backup.md",
+          "SECURITY.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "SECURITY.md"
+      ],
+      "assigned_to": "agent-spec",
+      "started_at": "2026-11-12T19:06:41Z",
+      "verification": {
+        "checks": [
+          "Document checks PASS:11 Markdown files,8 ADRs with exact six sections,152 relative links,63 code path/function/line anchors.",
+          "Backup drill PASS:3 artifacts incl binary blob,2 recovered final files,all bytes match,seq24 and projection hash unchanged,second restore idempotent,corrupted archive rejected.",
+          "python -m pytest -q PASS:926 passed,5 skipped in593.43s(private checkout overlay).",
+          "ruff check src tests PASS.",
+          "black --check src tests PASS:203 files unchanged.",
+          "mypy src/esaa PASS:75 source files.",
+          "Live verify before/after PASS:seq2159,projection_hash_sha256=428745af2ba4c91562a64b184e144cc7419cfdca7657cccb82bc1866888e53a5,verify_status=ok."
+        ]
+      },
+      "completed_at": "2026-11-12T19:36:15Z"
+    },
+    {
+      "task_id": "AUD-O2-095",
+      "task_kind": "impl",
+      "title": "Empacotamento: py.typed, classifier Python 3.14 no CI e extra opcional demo",
+      "description": "TIPO: impl / release. REVISAO EXIGIDA: regression. ACHADOS: UTL-03 parte de pacote (media) e UTL-02 (baixa) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: depois da fila de src/esaa/cli.py (depende da AUD-O2-100). Separada da AUD-O2-090 porque altera pacote e superficie da CLI, o que nao cabe em revisao de documentacao.\n\nPROBLEMA\n(a) O pacote nao distribui py.typed, embora mypy ja seja bloqueante no CI. (b) Os classifiers vao ate Python 3.13 (pyproject.toml linhas 24 a 27) e o CI roda 3.11, 3.12 e 3.13 em Linux e Windows (.github/workflows/ci.yml linhas 25 e 26); a auditoria rodou em 3.14 sem falhas. (c) O pacote base expoe comandos de demonstracao que os runners reais nao usam: scenario hotfix (src/esaa/scenarios.py, cli.py linha 705) e run com adaptador mock (cli.py linha 222, src/esaa/adapters/mock.py, execution.py); e a sintese de voz de src/esaa/notifications.py, acionada pelas flags --notify-transition e --notify-completion em claim, complete e review (cli.py linhas 255, 274, 295 e 300).\nObservacao: target-version ja foi corrigido para py311 na AUD-O1-070; nao ha o que fazer nesse item.\n\nENTREGA\n1. src/esaa/py.typed (arquivo vazio) incluido em package-data no pyproject.toml (hoje: templates/* e workspace/*). O wheel precisa conter o arquivo.\n2. Python 3.14: acrescentar 3.14 a matriz de testes do CI em Linux e Windows e so entao o classifier. Se alguma dependencia nao tiver wheel para 3.14, nao acrescente o classifier e registre o bloqueio por issue.report.\n3. Extra opcional esaa-core[demo] em [project.optional-dependencies]. Primeiro levante, por leitura do codigo, quais dependencias de terceiros so sao usadas por scenario, run com mock e notificacao por voz. Se houver, elas saem das dependencias base e entram no extra. Se nao houver nenhuma dependencia exclusiva, nao crie um extra vazio so para constar: registre o levantamento nos checks, marque os comandos como demonstracao no help e pare ai neste item.\n4. Se o extra for criado: sem ele instalado, os comandos de demonstracao continuam aparecendo no help marcados como demo e respondem com erro JSON (padrao de _report_cli_error) e exit 1 indicando pip install esaa-core[demo]. As flags --notify-* sem o extra sao aceitas e ignoradas com aviso em stderr, sem falhar o comando. Com o extra, tudo funciona como hoje.\n5. tests/test_packaging_extras.py: wheel construido contem esaa/py.typed, templates e workspace; metadados com o classifier quando aplicavel; comportamento dos comandos de demonstracao com e sem o extra (simule a ausencia do modulo por monkeypatch, sem desinstalar pacotes).\n6. python -m build e twine check dist/* executados em ambiente virtual temporario fora da arvore do repositorio; nao instalar nada no ambiente do repositorio.\n\nFORA DE ESCOPO\nNao remover comandos nem flags. Nao mover a saida de hotfix para docs/hotfix nem tratar tools/audit (tambem citados em UTL-02; ficam para outra onda, registre por issue.report se julgar necessario). Nao mudar PACKAGE_VERSION. Nao publicar no PyPI.\n\nCRITERIOS DE ACEITE\n(1) python -m build seguido de twine check dist/* termina sem avisos.\n(2) O wheel contem esaa/py.typed.\n(3) O CI roda a suite em Python 3.14 em Linux e Windows e o classifier esta presente; ou o bloqueio esta registrado em issue e o classifier ausente.\n(4) O levantamento de dependencias exclusivas de demonstracao esta nos checks. Se o extra existe: sem ele, comando de demonstracao sai com erro JSON e exit 1 citando esaa-core[demo]; com ele, funciona como antes.\n(5) Todos os comandos e flags existentes continuam aceitos pelo parser; o teste de help completo da AUD-O2-030 continua passando.\n(6) Portoes de qualidade das regras comuns passam.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-100"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "pyproject.toml",
+          "src/esaa/py.typed",
+          "src/esaa/cli.py",
+          "src/esaa/notifications.py",
+          ".github/workflows/ci.yml",
+          "tests/test_packaging_extras.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "pyproject.toml",
+        ".github/workflows/ci.yml"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T23:47:33Z",
+      "verification": {
+        "checks": [
+          "py.typed packaged; Python 3.14 classifier+CI matrix; dep audit: scenarios/mock/notifications use stdlib only (no empty demo extra), marked [demo] in help; build+twine check PASSED; tests/test_packaging_extras.py+affected 55 passed; 1004+ passed"
+        ]
+      },
+      "completed_at": "2026-11-12T23:53:16Z"
+    },
+    {
+      "task_id": "AUD-O2-110",
+      "task_kind": "qa",
+      "title": "Ativacao de identidade no proprio repositorio (operacao assistida pelo proprietario)",
+      "description": "TIPO: qa / audit. REVISAO EXIGIDA: security. ACHADO: SEC-02 (severidade alta) de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: independente das frentes de codigo; depende da AUD-O2-090 (ADR 0001). So pode ser iniciada quando as tres issues abaixo estiverem resolvidas.\n\nCONTEXTO\nA identidade criptografica (Ed25519) e o trust root estao implementados e testados com fixtures, e sao inativos por padrao por decisao de arquitetura. No repositorio principal do ESAA-Core, --actor e --runner seguem declarados pelo chamador: o log real nao tem nenhum evento actor.*, e .roadmap/RUNTIME_POLICY.yaml tem runner_validation permissive (linha 13). Esta tarefa e o dogfooding: ativar a identidade no proprio repositorio.\n\nPRE-CONDICOES (conferir antes do claim; se alguma falhar, nao fazer claim)\nDevem estar com status resolved em .roadmap/issues.json:\n- ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026 (fechamento bloqueado por avaliacao automatica e persistencia do scanner).\n- ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001 (autoridade de bootstrap autenticavel ausente).\n- ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001 (BLOCKED_STORAGE no scan original).\nA ISS-CORE-BINARY-RESOURCE-CONTRACT-20261102 nao bloqueia esta tarefa.\n\nESTADO ATUAL DO CODIGO\n- Comandos: esaa actor com bootstrap, register, bind-alias e show (cli.py linhas 309 a 348); implementacao em src/esaa/actor_admin.py (bootstrap_actor_authority linha 39, register_actor 73, bind_actor_alias 115, import_owner_trust_pin 150, show_actor_registry 159).\n- Validacao: src/esaa/identity.py, identity_history.py, trust_root.py, trust_enrollment.py. Codigo de rejeicao ACTOR_AUTH_FAILED (reject_codes.py linha 145).\n- Documentos: docs/spec/G03-actor-identity.md, docs/security/threat-model.md, docs/qa/actor-registration/.\n\nDIVISAO DE PAPEIS\nO agente desta tarefa prepara o plano, executa o ensaio em copia e registra evidencia. Toda acao no store real que crie autoridade (bootstrap, registro de chaves, importacao de trust pin) e executada pelo proprietario, no terminal dele, com as chaves dele. O agente nunca gera, le, copia nem registra chave privada.\n\nENTREGA: docs/qa/identity-activation.md\n1. Plano: quais principais serao cadastrados (cada runner e cada actor em uso), quem guarda cada chave, ordem dos comandos, criterio de sucesso de cada passo.\n2. Plano de retorno: como voltar ao modo anterior se a ativacao travar o fluxo, o que e reversivel e o que nao e (eventos actor.* sao append-only), e como manter o trabalho andando durante a transicao.\n3. Ensaio completo em copia do store (copie .roadmap para um diretorio temporario fora do repositorio e use --root): bootstrap, registro, alias, review com assinatura valida aceito, review sem assinatura rejeitado com ACTOR_AUTH_FAILED, review com assinatura de outro principal rejeitado, claim e complete assinados, verify e verify --chain. Comandos e saidas registrados, com chaves de ensaio descartadas ao final.\n4. Roteiro para o proprietario executar no store real, passo a passo, com o resultado esperado de cada comando.\n5. Evidencia pos-ativacao: saida de esaa actor show, tentativa de review sem assinatura rejeitada, verify ok. Somente chaves publicas e impressoes digitais aparecem na evidencia.\n6. Impacto nos runners: o que cada runner (claude-code, codex, human-terminal e os demais em uso) precisa configurar para continuar operando, e o que muda nos guias. Se os guias precisarem de alteracao, registre por issue.report; nao edite guias nesta tarefa.\n\nFORA DE ESCOPO\nNenhuma mudanca em src/. Nao alterar RUNTIME_POLICY.yaml nem contratos a mao: mudancas de politica passam pelos comandos de operador. Nao ativar no store real sem o proprietario presente.\n\nCRITERIOS DE ACEITE\n(1) As tres issues de pre-condicao constam como resolved antes do claim, com a conferencia registrada nos checks.\n(2) O ensaio em copia esta registrado com comandos e saidas, incluindo os dois casos de rejeicao.\n(3) No store real, esaa actor show lista os principais cadastrados.\n(4) No store real, uma tentativa de review sem assinatura valida e rejeitada com ACTOR_AUTH_FAILED.\n(5) esaa verify e esaa verify --chain ficam ok apos a ativacao, e o fluxo claim, complete e review de uma tarefa real foi executado com identidade ativa.\n(6) Nenhuma chave privada, semente ou segredo aparece no repositorio, no log ou na evidencia (conferencia por busca registrada nos checks).\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-090"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/identity-activation.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-11-13T15:12:24Z",
+      "verification": {
+        "checks": [
+          "owner waiver 2026-11-13: claim com ISS-ESAA-CLOSE-INDEPENDENT-REVIEW, ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001 e ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001 ainda open",
+          "actor show vivo identity_contract active; principals agent-spec, agent-impl, agent-qa, agent-qa-review; bootstrap seq 2479",
+          "claim sem authorization -> ACTOR_AUTH_FAILED; claim assinado agent-qa seq 2484 verify ok",
+          "verify e verify --chain ok apos bootstrap; chain_status unanchored; nenhuma chave privada neste documento nem em governance-anchor.json"
+        ]
+      },
+      "completed_at": "2026-11-13T15:18:42Z"
+    },
+    {
+      "task_id": "AUD-O2-120",
+      "task_kind": "qa",
+      "title": "QA de fechamento da Onda 2: propriedades de replay, formato de log, plugins e CLI",
+      "description": "TIPO: qa / audit. REVISAO EXIGIDA: regression. Fechamento da Onda 2 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md, no modelo da AUD-O0-070.\nPOSICAO NA ONDA: depois de todas as tarefas de codigo e de documentacao da onda (010, 020, 030, 040, 050, 060, 070, 080, 090, 095, 100). Nao depende da AUD-O2-110, que tem calendario proprio.\n\nOBJETIVO\nCada tarefa da onda foi revisada isoladamente. Esta verifica o conjunto: as mudancas de formato de log, de replay e de CLI funcionando juntas, em Linux e Windows, sobre o log real e sobre logs sinteticos.\n\nENTREGA 1: tests/test_onda2_properties.py (testes de propriedade e de integracao)\n- Replay: para logs gerados e qualquer ponto de corte, replay por snapshot e replay completo dao as mesmas projecoes (AUD-O2-040).\n- Log misto: prefixo no formato antigo, com pares verify.start/verify.ok, seguido de lotes no formato novo com projection_hash_after, reprojeta com verify_status ok (AUD-O2-070).\n- Drift: alterar um byte de projection_hash_after na versao corrente do projetor gera PROJECTION_DRIFT; na versao anterior, nao gera.\n- Append: evento fora do schema da sua acao e recusado em todos os caminhos de escrita, e o replay nunca valida schema por acao (AUD-O2-050).\n- Plugins: apagar plugins.lock.json e roadmaps.lock.json e rodar esaa project reconstroi byte a byte; workspace com lock antigo continua funcionando (AUD-O2-060).\n- Camadas: store.py sem imports de dominio; cli.main dentro do limite C901 (AUD-O2-080).\n- CLI: toda opcao com help; chain verify equivalente a verify --chain; status somente leitura; next_command de dispatch-context aceito em dry-run nos tres estados (AUD-O2-010, 020, 030).\n- Oplog: uma linha por comando com ESAA_LOG, nenhuma sem (AUD-O2-100).\n- Concorrencia: oito claims simultaneos da mesma tarefa continuam resultando em um vencedor, agora com um evento por claim.\nNao duplique teste que ja existe na tarefa de origem: aqui entram os cruzamentos entre tarefas.\n\nENTREGA 2: docs/qa/AUD-O2-closeout.md\n- Tabela com cada tarefa da onda, o achado de origem, o criterio de aceite e a evidencia (teste ou comando com saida).\n- Medicoes em log sintetico de 2000, 10000, 50000 e 200000 eventos para project, verify, eligible, task create e claim, comparadas com a tabela do achado ARQ-01 do relatorio (onde 50000 eventos levavam 22 s em verify e 75 s em claim).\n- Tamanho do log: eventos por comando antes e depois da onda.\n- Log real: last_event_seq e projection_hash_sha256 antes e depois da onda, com cada diferenca de projecao explicada pela tarefa que a causou.\n- Lista do que ficou de fora da onda e das issues abertas durante ela.\n\nREGRAS\nTarefa de QA: escreve somente em tests/ e docs/qa/. Defeito encontrado vira issue.report com reproducao; nao corrija codigo de src/ aqui. Se um defeito impedir o fechamento, a tarefa fica em in_progress ate o hotfix correspondente.\n\nCRITERIOS DE ACEITE\n(1) Teste de propriedade: para logs gerados, replay por snapshot e replay completo dao as mesmas projecoes.\n(2) Log misto (formato antigo seguido do novo) reprojeta com verify_status ok.\n(3) Suite completa verde em Linux e Windows no CI, nas versoes de Python da matriz, com a cobertura no minimo no valor exigido pelo CI.\n(4) No log sintetico de 50000 eventos, claim e verify ficam abaixo de 3 s; no de 200000 com snapshot em 190000, verify fica abaixo de 3 s. Medicoes registradas com maquina e versao de Python.\n(5) last_event_seq e projection_hash_sha256 do log real registrados antes e depois da onda, com a diferenca explicada.\n(6) docs/qa/AUD-O2-closeout.md lista cada tarefa da onda com a evidencia correspondente e nenhuma linha fica sem evidencia.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-010",
+        "AUD-O2-020",
+        "AUD-O2-030",
+        "AUD-O2-040",
+        "AUD-O2-050",
+        "AUD-O2-060",
+        "AUD-O2-070",
+        "AUD-O2-080",
+        "AUD-O2-090",
+        "AUD-O2-095",
+        "AUD-O2-100"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "tests/test_onda2_properties.py",
+          "docs/qa/AUD-O2-closeout.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-11-12T23:53:26Z",
+      "verification": {
+        "checks": [
+          "tests/test_onda2_properties.py 8 passed; docs/qa/AUD-O2-closeout.md complete with 2k/10k/50k/200k benchmark (verify 50k=1.0169s, verify 200k+snap=0.1942s); ISS-AUD-O2-120-SNAPSHOT-HASH-20261112 reported; mypy+ruff clean"
+        ]
+      },
+      "completed_at": "2026-11-12T23:58:58Z"
+    },
+    {
+      "task_id": "AUD-O2-130",
+      "task_kind": "impl",
+      "title": "Release da Onda 2: versao, changelog e nota de compatibilidade do formato de log",
+      "description": "TIPO: impl / release. REVISAO EXIGIDA: release. Empacota as mudancas da Onda 2 de docs/audit/ESAA-CORE-AUDIT-2026-11-10.md.\nPOSICAO NA ONDA: ultima; depende da AUD-O2-120.\n\nCONTEXTO\nA onda muda o formato gravado no log (fim de verify.start/verify.ok, projection_hash_after, novo SCHEMA_VERSION), acrescenta acoes (plugin.*, roadmap.*, contract.set), comandos (status, chain verify) e uma variavel de ambiente (ESAA_LOG). Quem atualiza um workspace existente precisa saber o que muda. A versao do pacote tem fonte unica em src/esaa/constants.py (PACKAGE_VERSION, linha 5; pyproject le por tool.setuptools.dynamic). O CHANGELOG.md segue o padrao das entradas b26 a b29. Ha teste que exige que a primeira secao versionada do changelog corresponda a PACKAGE_VERSION.\n\nENTREGA\n1. Bump de PACKAGE_VERSION para a proxima beta. Use tools/audit/bump_version.py se for o caminho usado nas releases anteriores (confira no historico de commits de release).\n2. Entrada no CHANGELOG.md com: novidades (status, next_command, chain verify, ESAA_LOG, snapshot acelerando replay); mudancas de formato (um evento por comando, projection_hash_after, schema por acao, eventos de plugin e contract.set); o que quebra e o que nao quebra; passos de atualizacao.\n3. Nota de compatibilidade, apontando para docs/operations/log-format-migration.md (criado na AUD-O2-070): logs antigos continuam reprojetando; versao anterior instalada lendo log novo falha fechada com mensagem de versao; todas as maquinas e runners que escrevem no mesmo store precisam atualizar juntos; como conferir depois de atualizar (esaa verify --full).\n4. readme.md: atualizar o quickstart e a lista de comandos somente no que a onda mudou (status, exit codes).\n5. Construir o pacote em ambiente virtual temporario fora da arvore e validar com twine check. Instalar o wheel em venv limpo e executar o quickstart do readme (bootstrap, init, verify, eligible, status).\n6. Teste de atualizacao: pegar uma fixture de log de versao publicada (AUD-O2-050), rodar a versao nova sobre ela, executar um ciclo claim, complete e review, e conferir verify ok.\n\nLIMITE DESTA TAREFA\nPublicacao no PyPI, criacao de tag, push e atualizacao de outras maquinas sao executados pelo operador depois do review. Esta tarefa termina com o pacote construido e validado localmente e os arquivos de versao prontos. Nao fazer upload, nao criar tag, nao instalar nada no ambiente do repositorio.\n\nCRITERIOS DE ACEITE\n(1) A primeira secao versionada do CHANGELOG.md corresponde a PACKAGE_VERSION e o teste de fonte unica de versao passa.\n(2) A nota de compatibilidade descreve o que acontece com versao anterior lendo log novo, e esse comportamento foi executado e registrado nos checks.\n(3) python -m build e twine check dist/* terminam sem avisos; o wheel instalado em venv limpo executa o quickstart do readme.\n(4) O teste de atualizacao sobre fixture de versao publicada termina com verify ok.\n(5) python -m esaa --root . verify fica ok no log real e os portoes de qualidade das regras comuns passam.\n(6) Nenhum upload, tag ou push foi feito pelo agente.\n\nREGRAS COMUNS DA ONDA 2 (valem para esta tarefa)\n- Base de codigo de referencia: esaa-core 0.5.0b29, branch audit/onda-0. Os numeros de linha citados sao dessa base e servem de ancora; confirme com grep antes de editar.\n- Relatorio de origem: docs/audit/ESAA-CORE-AUDIT-2026-11-10.md. Esta descricao e autossuficiente; o relatorio so precisa ser lido em caso de duvida sobre a evidencia.\n- Fluxo: dispatch-context -> claim -> trabalho -> complete (com file_updates) -> review por runner distinto do executor -> done. Nunca juntar claim e complete. Nao editar .roadmap/** a mao.\n- Escreva somente nos arquivos listados em outputs. Se precisar de outro arquivo, pare e emita issue.report pedindo ampliacao; nao amplie o escopo por conta propria.\n- Nao altere PACKAGE_VERSION, CHANGELOG.md nem contratos em .roadmap/ ou src/esaa/templates/, salvo se esta tarefa disser o contrario. Versao e changelog sao da AUD-O2-130.\n- Portoes de qualidade que precisam passar antes do complete: python -m pytest -q ; ruff check src tests ; black --check src tests ; mypy src/esaa. O CI roda Linux e Windows em Python 3.11, 3.12 e 3.13 com cobertura minima de 88.07 por cento; codigo novo precisa de teste para nao derrubar a cobertura.\n- Invariante de replay: python -m esaa --root . verify no log real do repositorio continua com verify_status ok. Registre nos checks o last_event_seq e o projection_hash_sha256 antes e depois; se a tarefa nao declara mudanca de projecao, o hash das projecoes das tarefas ja existentes nao pode mudar.\n- Padroes permissivos do ESAA-Core (identidade inativa, runner_validation permissive, cadeia de hash opcional) sao decisoes de arquitetura. Nao os descreva como defeito em codigo, teste ou documento.\n- Achado fora do escopo vira issue.report com evidencia reproduzivel; nao corrija dentro desta tarefa.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-120"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "src/esaa/constants.py",
+          "CHANGELOG.md",
+          "readme.md",
+          "tests/**"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "readme.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-12T23:59:06Z",
+      "verification": {
+        "checks": [
+          "PACKAGE_VERSION=0.5.0b30; CHANGELOG.md + readme.md updated; build+twine PASSED; clean-venv quickstart passed; tests/test_release_b30_upgrade.py 2 passed; ruff+mypy clean; pytest -q -m 'not slow' 1017 passed"
+        ]
+      },
+      "completed_at": "2026-11-13T00:04:34Z"
+    },
+    {
+      "task_id": "HF-ISS-AUD-O2-120-SNAPSHOT-HASH-20261112",
+      "task_kind": "impl",
+      "title": "Hotfix: append seguro apos snapshot",
+      "description": "Corrigir PROJECTION_DRIFT ao criar tarefa apos snapshot, sem mudar hashes/projecoes de eventos existentes nem inventar historico. Reproducao: bootstrap/init/create_task/195 runner.metrics/project/create_snapshot(before=100)/create_task. Cobrir create, claim, complete e review apos snapshot; corte arbitrario, cadeia/identidade/fallback e verify --full. Nenhum efeito no log real alem dos eventos de governanca. Preservar StoreHooks e layering/C901. Revisao regression por runner distinto.\nAutorizacao explicita usuario em2026-11-13: criar hotfixes e corrigir os quatro problemas. Usar candidatos privados e efeitos finais somente por complete/file_updates; minimo2checks, pytest completo/cov>=88.07,ruff,black,mypy e verify--full no log real. Originais done permanecem imutaveis. Sem publicar, tag, push, bumpversao, ativacao identidade ou leitura de segredos.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-AUD-O2-120-SNAPSHOT-HASH-20261112"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/snapshot.py",
+          "src/esaa/store_runtime.py",
+          "src/esaa/store.py",
+          "src/esaa/projector.py",
+          "src/esaa/orchestrator_commit.py",
+          "tests/test_snapshot_replay.py",
+          "tests/test_snapshot_append_regression.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUD-O2-120-SNAPSHOT-HASH-20261112",
+      "fixes": "AUD-O2-040",
+      "scope_patch": [
+        "src/esaa/snapshot.py",
+        "src/esaa/store_runtime.py",
+        "src/esaa/store.py",
+        "src/esaa/projector.py",
+        "src/esaa/orchestrator_commit.py",
+        "tests/test_snapshot_replay.py",
+        "tests/test_snapshot_append_regression.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T12:30:03Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_snapshot_replay.py tests/test_snapshot_append_regression.py",
+          "ruff check src/esaa/store.py src/esaa/store_runtime.py tests/test_snapshot_append_regression.py && mypy src/esaa/store.py src/esaa/store_runtime.py"
+        ]
+      },
+      "completed_at": "2026-11-13T14:33:04Z"
+    },
+    {
+      "task_id": "HF-ISS-AUD-O2-APPEND-EFFECTS-20261113",
+      "task_kind": "impl",
+      "title": "Hotfix: validar lote antes de artifacts e logs",
+      "description": "Adiar artifacts textuais/binarios, efeitos finais e logs de verification.configure/run ate validacao schema do LOTE INTEIRO. Preservar gate central via StoreHooks sem imports de dominio em store.py, formato publicado, hashing/assinaturas/digest result e recovery. Planos privados nunca entram em eventos, hashes, projecoes, artifacts ou retorno SDK. Testes devem passar por caminhos reais submission/service_core/orchestrator_commit/execution/activity_admin/verification, forcar evento final invalido e comparar bytes de todos arquivos antes/depois, e verificar caminho valido com find_result/recuperacao e stale/retry. Nao afrouxar schema para testes. Revisao governance por runner distinto.\nAutorizacao explicita usuario em2026-11-13: criar hotfixes e corrigir os quatro problemas. Usar candidatos privados e efeitos finais somente por complete/file_updates; minimo2checks, pytest completo/cov>=88.07,ruff,black,mypy e verify--full no log real. Originais done permanecem imutaveis. Sem publicar, tag, push, bumpversao, ativacao identidade ou leitura de segredos.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-AUD-O2-APPEND-EFFECTS-20261113"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/file_effects.py",
+          "src/esaa/submission.py",
+          "src/esaa/execution.py",
+          "src/esaa/activity_admin.py",
+          "src/esaa/verification_service.py",
+          "src/esaa/verification_results.py",
+          "src/esaa/service_core.py",
+          "src/esaa/store.py",
+          "src/esaa/store_runtime.py",
+          "src/esaa/event_schema.py",
+          "src/esaa/templates/event.schema.json",
+          "tests/test_append_effects_atomicity.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUD-O2-APPEND-EFFECTS-20261113",
+      "fixes": "AUD-O2-050",
+      "scope_patch": [
+        "src/esaa/file_effects.py",
+        "src/esaa/submission.py",
+        "src/esaa/execution.py",
+        "src/esaa/activity_admin.py",
+        "src/esaa/verification_service.py",
+        "src/esaa/verification_results.py",
+        "src/esaa/service_core.py",
+        "src/esaa/store.py",
+        "src/esaa/store_runtime.py",
+        "src/esaa/event_schema.py",
+        "src/esaa/templates/event.schema.json",
+        "tests/test_append_effects_atomicity.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T12:30:10Z",
+      "verification": {
+        "checks": [
+          "ruff check src tests",
+          "mypy src/esaa"
+        ]
+      },
+      "completed_at": "2026-11-13T14:33:05Z"
+    },
+    {
+      "task_id": "HF-ISS-AUD-O2-HISTORICAL-FIXTURES-20261113",
+      "task_kind": "impl",
+      "title": "Hotfix: cobertura autentica de todas releases historicas",
+      "description": "Incorporar e testar todas 25 versoes publicadas (b1-b11,b13,b14,b17-b27,b29),601eventos autenticos. Reutilizar fixtures produtoras SHA-verificadas em /tmp/esaa-onda2/050-fixtures-candidate, jamais escrever JSONL manualmente nem recalcular expected pelo candidato. Hash do produtor permanece fixado. Migra SCHEMA_VERSION0.4.1->0.4.2 explicitamente declarada na070: para conferir golden original pode reconstruir representacao hash legada alterando APENAS metadata schema_version em copia das projecoes, com prova que restante e igual; relatar quaisquer outras divergencias, nao mascarar. Excecao autorizada pelo owner:125eventos b1-b5 semrunner preservam ausencia;476demais validam integralmente apos upcast, todo novoappend exigeproveniencia conforme formatoatual. Preservar7fixtures existentes alem de adicionar25originais com nomes distintos se necessario, documentar origem e scriptreprodutivel; .gitattributes protege rawbytes Windows. Revisao regression por runner distinto.\nAutorizacao explicita usuario em2026-11-13: criar hotfixes e corrigir os quatro problemas. Usar candidatos privados e efeitos finais somente por complete/file_updates; minimo2checks, pytest completo/cov>=88.07,ruff,black,mypy e verify--full no log real. Originais done permanecem imutaveis. Sem publicar, tag, push, bumpversao, ativacao identidade ou leitura de segredos.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-AUD-O2-HISTORICAL-FIXTURES-20261113"
+      ],
+      "outputs": {
+        "files": [
+          "tests/fixtures/logs/**",
+          "tests/test_event_upcast.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUD-O2-HISTORICAL-FIXTURES-20261113",
+      "fixes": "AUD-O2-050",
+      "scope_patch": [
+        "tests/fixtures/logs/",
+        "tests/test_event_upcast.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "resource_limits": {
+        "max_file_updates": 128
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T12:30:30Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_event_upcast.py",
+          "ruff check tests/test_event_upcast.py"
+        ]
+      },
+      "completed_at": "2026-11-13T14:33:06Z"
+    },
+    {
+      "task_id": "HF-ISS-AUD-O2-CLAIM-PERFORMANCE-20261113",
+      "task_kind": "impl",
+      "title": "Hotfix: claim abaixo de tres segundos em 50000 eventos",
+      "description": "Medir perfil e otimizar claim/verify sobre50000eventos formato0.4.2 comhashinline, meta<3sLinux em processoCLI novo (sem cache artificial ou afrouxar validacao/cadeia/identidade). Snapshot200000/190000 verify<3s preservado. Cobrir concorrencia e fronteiras schema/trust/chain; nenhum cache global sem invalidacao verificavel. Depende do hotfixsnapshot para reutilizar integracao corrigida. Revisao regression por runner distinto.\nAutorizacao explicita usuario em2026-11-13: criar hotfixes e corrigir os quatro problemas. Usar candidatos privados e efeitos finais somente por complete/file_updates; minimo2checks, pytest completo/cov>=88.07,ruff,black,mypy e verify--full no log real. Originais done permanecem imutaveis. Sem publicar, tag, push, bumpversao, ativacao identidade ou leitura de segredos.\nIntegracao necessaria a meta real de verify CLI: check_contract_drift em contract_migrate.py relia/reprojetava log inteiro apos service.verify, anulando aceleracao do snapshot; incluir esse unico consumidor nos outputs/scope para reutilizar estado validado sem remover checagem informativa de hashes de contratos. Medir coldCLI, nao apenas motorSDK. Perfil independente /tmp/esaa-hf-onda2/snapshot-metrics-cold-cli-profile.log.\nAJUSTE DE ORDEM OPERACIONAL: candidatos privados de snapshot e efeitos ja corrigidos e congelados em integration; a suite global revelou a falha de desempenho ja alvo deste HF. Retira-se a dependencia administrativa done para permitir implementar/testar o candidato de performance em copia da integracao enquanto a revisao de snapshot ocorre. Aplicacao final continuara apos efeitos correspondentes, sem fontes concorrentes no workspace. Nao muda aceites funcionais nem autorizacoes de seguranca. Incluir teste_projection_hash_inline.py apenas para preservar regressao e medir limite3s com instrumentacao apropriada (benchmark coldCLI sem coverage/artificialcache), nunca remover/afrouxar limite. Perfil completo e provas originais preservados.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-AUD-O2-CLAIM-PERFORMANCE-20261113"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/submission.py",
+          "src/esaa/task_admin.py",
+          "src/esaa/service_core.py",
+          "src/esaa/orchestrator_commit.py",
+          "src/esaa/store.py",
+          "src/esaa/store_runtime.py",
+          "src/esaa/snapshot.py",
+          "src/esaa/identity_history.py",
+          "src/esaa/provenance.py",
+          "tests/test_replay_performance.py",
+          "tests/test_claim_performance.py",
+          "src/esaa/contract_migrate.py",
+          "tests/test_projection_hash_inline.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUD-O2-CLAIM-PERFORMANCE-20261113",
+      "fixes": "AUD-O2-070",
+      "scope_patch": [
+        "src/esaa/submission.py",
+        "src/esaa/task_admin.py",
+        "src/esaa/service_core.py",
+        "src/esaa/orchestrator_commit.py",
+        "src/esaa/store.py",
+        "src/esaa/store_runtime.py",
+        "src/esaa/snapshot.py",
+        "src/esaa/identity_history.py",
+        "src/esaa/provenance.py",
+        "tests/test_replay_performance.py",
+        "tests/test_claim_performance.py",
+        "src/esaa/contract_migrate.py",
+        "tests/test_projection_hash_inline.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T12:59:36Z",
+      "verification": {
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_claim_performance.py tests/test_snapshot_append_regression.py",
+          "ruff check src tests && mypy src/esaa"
+        ]
+      },
+      "completed_at": "2026-11-13T14:33:07Z"
+    },
+    {
+      "task_id": "AUD-O2-110-REHEARSAL-20261113",
+      "task_kind": "qa",
+      "title": "Ensaio em copia e plano de ativacao de identidade (recorte da AUD-O2-110)",
+      "description": "TIPO: qa. Recorte do agente da AUD-O2-110 (plano, ensaio em copia, roteiro do proprietario). NAO e ativacao do store real.\n\nCONTEXTO\nAUD-O2-110 permanece todo: as tres issues de pre-condicao seguem open (ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026, ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001, ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001). O operador autorizou em 2026-11-13 o recorte executavel pelo agente: ensaio em copia com chaves descartaveis e o documento docs/qa/identity-activation.md. Esta tarefa NAO faz claim da AUD-O2-110, NAO executa actor bootstrap/register/trust-import no store vivo, e NAO gera chave do proprietario.\n\nENTREGA: docs/qa/identity-activation.md\n1. Plano de principais (actors e runners em uso), guarda de chaves, ordem de comandos e criterio de sucesso.\n2. Plano de retorno (o que e append-only, o que e reversivel, como continuar o trabalho).\n3. Ensaio completo em copia de .roadmap fora do repositorio (--root temporario): trust-import, bootstrap, register, bind-alias, claim/complete assinados, review sem assinatura -> ACTOR_AUTH_FAILED, review com assinatura de outro principal rejeitado, review assinado aceito, verify e verify --chain. Comandos e saidas no documento; chaves de ensaio destruidas.\n4. Roteiro passo a passo para o proprietario no store real, com resultado esperado. Criterios (3)(4)(5) da AUD-O2-110 ficam pendentes.\n5. Impacto nos runners (claude-code, codex, grok/human-terminal e demais). Se guias precisarem de alteracao, issue.report; nao editar guias aqui.\n\nFORA DE ESCOPO\nNenhuma mudanca em src/. Nao alterar RUNTIME_POLICY.yaml nem contratos a mao. Nao ativar identidade no store real. Nao commitar, publicar PyPI nem instalar. Nenhuma chave privada no repositorio, no log ou na evidencia.\n\nCRITERIOS\n(1) Store vivo permanece identity_contract inactive; actor show sem principals; nenhum evento actor.* novo no log real.\n(2) Ensaio em copia registrado com os dois casos de rejeicao e verify ok na copia.\n(3) Chaves de ensaio destruidas; busca no documento e no repositorio sem chave privada/semente.\n(4) AUD-O2-110 continua todo.",
+      "status": "done",
+      "depends_on": [
+        "AUD-O2-090"
+      ],
+      "targets": [],
+      "outputs": {
+        "files": [
+          "docs/qa/identity-activation.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-qa",
+      "started_at": "2026-11-13T14:47:40Z",
+      "verification": {
+        "checks": [
+          "ensaio-copia: review sem assinatura -> ACTOR_AUTH_FAILED; review chave de outro principal -> AUTH_SIGNATURE_INVALID; claim/complete/review assinados; verify e verify --chain ok na copia seq 2484",
+          "store vivo permanece identity_contract inactive, actors [], zero eventos actor.* no activity.jsonl; AUD-O2-110 continua todo",
+          "chaves de ensaio destruidas; enrollment da copia removido; enrollment do vivo ausente; busca sem chave privada no documento",
+          "tests/test_actor_registration.py+test_trust_rollback.py 33 passed in 8.24s"
+        ]
+      },
+      "completed_at": "2026-11-13T14:52:49Z"
+    },
+    {
+      "task_id": "REL-0.5.0b30-PUBLISH-20261113",
+      "task_kind": "impl",
+      "title": "Publish b30 and upgrade notebook installations",
+      "description": "Operator authorized commit/push, PyPI upload using /home/elzobrito/desenvolvimento/pypi_token.txt without exposing its value, and notebook upgrade. Commit Onda 2 (0.5.0b30) on audit/onda-0; push origin/audit/onda-0 and origin/main; annotated tag v0.5.0b30. Do not create a GitHub Release. Before upload, verify hosted CI including Windows. Publish exactly the tagged wheel/sdist, compare official PyPI hashes, then upgrade existing user-pip and pipx installations to 0.5.0b30 and verify versions and CLI integrity. No token disclosure.",
+      "status": "in_progress",
+      "depends_on": [],
+      "targets": [],
+      "outputs": {
+        "files": []
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T15:28:54Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 145
+      "done": 164,
+      "in_progress": 1
     },
     "by_kind": {
-      "impl": 93,
-      "qa": 25,
-      "spec": 27
+      "impl": 109,
+      "qa": 28,
+      "spec": 28
     }
   }
 }

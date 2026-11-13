@@ -1,0 +1,319 @@
+{
+  "producer_version": "0.5.0b21",
+  "runtime_module_path": "/tmp/esaa-historical-79q69egw/0.5.0b21/venv/lib/python3.11/site-packages/esaa/__init__.py",
+  "python_version": "3.11.16 (main, Aug 14 2026, 15:35:36) [Clang 22.1.3 ]",
+  "log_sha256": "3fc468b4384bd5b8190a18f17c5d6f5eb9e56cac64aa086c6572b19a701b3066",
+  "projection_hash_sha256": "2d59436ad8653d854e3ccaec37486eff0e4232276527e5d7cf075b71e409c881",
+  "last_event_seq": 23,
+  "api_calls": [
+    {
+      "method": "bootstrap_workspace",
+      "kwargs": {
+        "profile": "public"
+      },
+      "result": {
+        "status": "bootstrapped",
+        "profile": "public",
+        "force": false,
+        "guide_mode": "default",
+        "files_written": [
+          ".roadmap/AGENT_CONTRACT.yaml",
+          ".roadmap/ORCHESTRATOR_CONTRACT.yaml",
+          ".roadmap/RUNTIME_POLICY.yaml",
+          ".roadmap/STORAGE_POLICY.yaml",
+          ".roadmap/PROJECTION_SPEC.md",
+          ".roadmap/agent_result.schema.json",
+          ".roadmap/roadmap.schema.json",
+          ".roadmap/project_profile.schema.json",
+          ".roadmap/issues.schema.json",
+          ".roadmap/lessons.schema.json",
+          ".roadmap/agents_swarm.yaml",
+          ".roadmap/PARCER_PROFILE.agent-docs.yaml",
+          ".roadmap/PARCER_PROFILE.agent-spec.yaml",
+          ".roadmap/PARCER_PROFILE.agent-impl.yaml",
+          ".roadmap/PARCER_PROFILE.agent-qa.yaml",
+          ".roadmap/PARCER_PROFILE.orchestrator-runtime.yaml",
+          "README.md",
+          "AGENTS.md",
+          ".claude/CLAUDE.md"
+        ],
+        "protected_paths": [
+          ".roadmap/activity.jsonl",
+          ".roadmap/artifacts",
+          ".roadmap/backups",
+          ".roadmap/issues.json",
+          ".roadmap/lessons.json",
+          ".roadmap/roadmap.json",
+          ".roadmap/snapshots"
+        ]
+      }
+    },
+    {
+      "method": "ESAAService.init",
+      "kwargs": {
+        "run_id": "RUN-HISTORICAL",
+        "master_correlation_id": "CID-HISTORICAL"
+      },
+      "result": {
+        "run_id": "RUN-HISTORICAL",
+        "events_written": 4,
+        "last_event_seq": 4,
+        "projection_hash_sha256": "411885afdc5e0e74e1eac70f8cef0094ef6842c1b5c11b34654bb1e3b0664d50",
+        "with_demo_tasks": false,
+        "tasks_seeded": [],
+        "task_source": "empty"
+      }
+    },
+    {
+      "method": "ESAAService.create_task",
+      "kwargs": {
+        "task_id": "HISTORY-001",
+        "task_kind": "impl",
+        "title": "Historical fixture task",
+        "description": "Exercise the published event workflow without modifying its log",
+        "outputs": [
+          "src/history.txt"
+        ]
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "orchestrator",
+        "action": "task.create",
+        "event_id": "EV-00000005",
+        "events_appended": 3,
+        "last_event_seq": 7,
+        "verify_status": "ok",
+        "projection_hash_sha256": "66b4b9a2003f9ab156cbb0b9a727cedb009de6fc48208a874690616259ef8796",
+        "task_id": "HISTORY-001",
+        "schema_validated": ".roadmap/roadmap.schema.json"
+      }
+    },
+    {
+      "method": "ESAAService.claim_task",
+      "kwargs": {
+        "task_id": "HISTORY-001",
+        "actor": "agent-impl"
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "agent-impl",
+        "task_id": "HISTORY-001",
+        "action": "claim",
+        "events_appended": 3,
+        "files_written": 0,
+        "last_event_seq": 10,
+        "verify_status": "ok",
+        "projection_hash_sha256": "9170722b8166f0d36de7dadee1e414747534ad0f0362ee1b8bef2a2b1b7e24dc",
+        "task": {
+          "task_id": "HISTORY-001",
+          "task_kind": "impl",
+          "title": "Historical fixture task",
+          "description": "Exercise the published event workflow without modifying its log",
+          "status": "in_progress",
+          "depends_on": [],
+          "targets": [],
+          "outputs": {
+            "files": [
+              "src/history.txt"
+            ]
+          },
+          "immutability": {
+            "done_is_immutable": true
+          },
+          "assigned_to": "agent-impl",
+          "started_at": "2026-11-12T20:45:12Z"
+        }
+      }
+    },
+    {
+      "method": "ESAAService.complete_task",
+      "kwargs": {
+        "task_id": "HISTORY-001",
+        "actor": "agent-impl",
+        "checks": [
+          "Historical workflow check",
+          "Historical projection check"
+        ]
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "agent-impl",
+        "task_id": "HISTORY-001",
+        "action": "complete",
+        "events_appended": 3,
+        "files_written": 0,
+        "last_event_seq": 13,
+        "verify_status": "ok",
+        "projection_hash_sha256": "ab7a79c2ab58cd36ccc6bbea8b2fbeb6d2d11ca5af4df634abc98c645b185b14",
+        "task": {
+          "task_id": "HISTORY-001",
+          "task_kind": "impl",
+          "title": "Historical fixture task",
+          "description": "Exercise the published event workflow without modifying its log",
+          "status": "review",
+          "depends_on": [],
+          "targets": [],
+          "outputs": {
+            "files": [
+              "src/history.txt"
+            ]
+          },
+          "immutability": {
+            "done_is_immutable": true
+          },
+          "assigned_to": "agent-impl",
+          "started_at": "2026-11-12T20:45:12Z",
+          "verification": {
+            "checks": [
+              "Historical workflow check",
+              "Historical projection check"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "ESAAService.review_task",
+      "kwargs": {
+        "task_id": "HISTORY-001",
+        "actor": "agent-qa",
+        "decision": "approve"
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "agent-qa",
+        "task_id": "HISTORY-001",
+        "action": "review",
+        "events_appended": 4,
+        "files_written": 0,
+        "last_event_seq": 17,
+        "verify_status": "ok",
+        "projection_hash_sha256": "f3fe445e893252e7558bd54330eddb2700dab7fb64a39a4e6ef2357e3580f448",
+        "task": {
+          "task_id": "HISTORY-001",
+          "task_kind": "impl",
+          "title": "Historical fixture task",
+          "description": "Exercise the published event workflow without modifying its log",
+          "status": "done",
+          "depends_on": [],
+          "targets": [],
+          "outputs": {
+            "files": [
+              "src/history.txt"
+            ]
+          },
+          "immutability": {
+            "done_is_immutable": true
+          },
+          "assigned_to": "agent-impl",
+          "started_at": "2026-11-12T20:45:12Z",
+          "verification": {
+            "checks": [
+              "Historical workflow check",
+              "Historical projection check"
+            ]
+          },
+          "completed_at": "2026-11-12T20:45:12Z"
+        }
+      }
+    },
+    {
+      "method": "ESAAService.report_issue",
+      "kwargs": {
+        "task_id": "HISTORY-001",
+        "actor": "agent-impl",
+        "issue_id": "ISS-HISTORY-001",
+        "severity": "medium",
+        "title": "Historical fixture issue",
+        "symptom": "Fixture issue for the published hotfix workflow",
+        "repro_steps": [
+          "Replay the completed historical fixture task"
+        ]
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "agent-impl",
+        "task_id": "HISTORY-001",
+        "action": "issue.report",
+        "events_appended": 3,
+        "files_written": 0,
+        "last_event_seq": 20,
+        "verify_status": "ok",
+        "projection_hash_sha256": "f3fe445e893252e7558bd54330eddb2700dab7fb64a39a4e6ef2357e3580f448",
+        "task": {
+          "task_id": "HISTORY-001",
+          "task_kind": "impl",
+          "title": "Historical fixture task",
+          "description": "Exercise the published event workflow without modifying its log",
+          "status": "done",
+          "depends_on": [],
+          "targets": [],
+          "outputs": {
+            "files": [
+              "src/history.txt"
+            ]
+          },
+          "immutability": {
+            "done_is_immutable": true
+          },
+          "assigned_to": "agent-impl",
+          "started_at": "2026-11-12T20:45:12Z",
+          "verification": {
+            "checks": [
+              "Historical workflow check",
+              "Historical projection check"
+            ]
+          },
+          "completed_at": "2026-11-12T20:45:12Z"
+        }
+      }
+    },
+    {
+      "method": "ESAAService.create_hotfix",
+      "kwargs": {
+        "issue_id": "ISS-HISTORY-001",
+        "fixes": "HISTORY-001",
+        "scope_patch": [
+          "src/history.txt"
+        ]
+      },
+      "result": {
+        "status": "accepted",
+        "actor": "orchestrator",
+        "action": "hotfix.create",
+        "event_id": "EV-00000021",
+        "events_appended": 3,
+        "last_event_seq": 23,
+        "verify_status": "ok",
+        "projection_hash_sha256": "2d59436ad8653d854e3ccaec37486eff0e4232276527e5d7cf075b71e409c881",
+        "task_id": "HF-ISS-HISTORY-001",
+        "issue_id": "ISS-HISTORY-001"
+      }
+    },
+    {
+      "method": "ESAAService.verify",
+      "kwargs": {},
+      "result": {
+        "verify_status": "ok",
+        "last_event_seq": 23,
+        "projection_hash_sha256": "2d59436ad8653d854e3ccaec37486eff0e4232276527e5d7cf075b71e409c881",
+        "project_profile": false
+      }
+    }
+  ],
+  "wheel_sha256": "0bc8c84050466d90594d01881a1bb9a0817456a707fc18d4d5fe8d5cc46e5d77",
+  "wheel_url": "https://files.pythonhosted.org/packages/2a/5a/64aa7411f32ade0761b4a5c08b38b6ea4c91173858defba8de383d332b78/esaa_core-0.5.0b21-py3-none-any.whl",
+  "wheel_filename": "esaa_core-0.5.0b21-py3-none-any.whl",
+  "metadata_url": "https://pypi.org/pypi/esaa-core/json",
+  "metadata_sha256": "f5fc6fa3f0f7811f18cf77e63810282da165348eb45dcb0a9c5168bdddf6537b",
+  "install_command": [
+    "/tmp/esaa-historical-79q69egw/0.5.0b21/venv/bin/python",
+    "-m",
+    "pip",
+    "install",
+    "--disable-pip-version-check",
+    "/tmp/esaa-historical-79q69egw/esaa_core-0.5.0b21-py3-none-any.whl"
+  ],
+  "install_stdout": "Processing /tmp/esaa-historical-79q69egw/esaa_core-0.5.0b21-py3-none-any.whl\nCollecting PyYAML>=6.0 (from esaa-core==0.5.0b21)\n  Using cached pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)\nCollecting jsonschema>=4.22.0 (from esaa-core==0.5.0b21)\n  Using cached jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)\nCollecting cryptography>=42.0.0 (from esaa-core==0.5.0b21)\n  Using cached cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.4 kB)\nCollecting cffi>=2.0.0 (from cryptography>=42.0.0->esaa-core==0.5.0b21)\n  Using cached cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)\nCollecting attrs>=22.2.0 (from jsonschema>=4.22.0->esaa-core==0.5.0b21)\n  Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)\nCollecting jsonschema-specifications>=2023.03.6 (from jsonschema>=4.22.0->esaa-core==0.5.0b21)\n  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)\nCollecting referencing>=0.28.4 (from jsonschema>=4.22.0->esaa-core==0.5.0b21)\n  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)\nCollecting rpds-py>=0.25.0 (from jsonschema>=4.22.0->esaa-core==0.5.0b21)\n  Using cached rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)\nCollecting pycparser (from cffi>=2.0.0->cryptography>=42.0.0->esaa-core==0.5.0b21)\n  Using cached pycparser-3.12-py3-none-any.whl.metadata (9.7 kB)\nCollecting typing-extensions>=4.4.0 (from referencing>=0.28.4->jsonschema>=4.22.0->esaa-core==0.5.0b21)\n  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)\nUsing cached cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\nUsing cached jsonschema-4.26.0-py3-none-any.whl (90 kB)\nUsing cached pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)\nUsing cached attrs-26.1.0-py3-none-any.whl (67 kB)\nUsing cached cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (217 kB)\nUsing cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)\nUsing cached referencing-0.37.0-py3-none-any.whl (26 kB)\nUsing cached rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (375 kB)\nUsing cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)\nUsing cached pycparser-3.12-py3-none-any.whl (62 kB)\nInstalling collected packages: typing-extensions, rpds-py, PyYAML, pycparser, attrs, referencing, cffi, jsonschema-specifications, cryptography, jsonschema, esaa-core\nSuccessfully installed PyYAML-6.0.3 attrs-26.1.0 cffi-2.1.1 cryptography-50.0.2 esaa-core-0.5.0b21 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 pycparser-3.12 referencing-0.37.0 rpds-py-2026.9.1 typing-extensions-4.16.0\n",
+  "hash_domain": "ESAA roadmap: schema_version, project, tasks, indexes"
+}

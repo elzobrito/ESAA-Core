@@ -15,11 +15,7 @@ def assert_only_rejection_events(root: Path, before: int | bytes, code: str, *, 
     else:
         start = before
     added = events[start:]
-    assert [event["action"] for event in added] == [
-        "output.rejected",
-        "verify.start",
-        "verify.ok",
-    ] * repetitions
+    assert [event["action"] for event in added] == ["output.rejected"] * repetitions
     assert all(
         event["payload"]["error_code"] == code for event in added if event["action"] == "output.rejected"
     )

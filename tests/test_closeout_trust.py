@@ -23,7 +23,7 @@ from test_trust_rollback import _recompute_chain, _write_events
 from esaa.errors import ESAAError
 from esaa.projector import materialize
 from esaa.service import ESAAService
-from esaa.store import init_hash_chain, parse_event_store
+from esaa.store_runtime import init_hash_chain, parse_event_store
 from esaa.trust_enrollment import registry_directory as os_registry_directory
 from esaa.trust_root import ENV_TRUST_ROOT, advance_checkpoint, bound_record_path, try_load_record
 

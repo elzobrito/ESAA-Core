@@ -5,8 +5,9 @@ from typing import Any, cast
 
 from .boundary_paths import validate_hotfix_scope_entries
 from .compat import normalize_legacy_verify_status
-from .constants import ESAA_VERSION, SCHEMA_VERSION
-from .errors import ESAAError
+from .constants import ESAA_VERSION, PROJECTOR_VERSION, VIEW_SCHEMA_VERSION
+from .errors import CorruptedStoreError, ESAAError
+from .reject_codes import PROJECTION_DRIFT
 from .state_machine import (
     REJECT_LOCK,
     REJECT_WORKFLOW_GATE,
@@ -85,7 +86,7 @@ def compute_projection_hash(roadmap: dict[str, Any]) -> str:
 def _empty_state(project_name: str) -> dict[str, Any]:
     return {
         "meta": {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": VIEW_SCHEMA_VERSION,
             "esaa_version": ESAA_VERSION,
             "immutable_done": True,
             "master_correlation_id": None,
@@ -104,6 +105,11 @@ def _empty_state(project_name: str) -> dict[str, Any]:
         "_issues": {},
         "_lessons": [],
         "_principals": {},
+        "_plugins": {},
+        "_roadmaps": {},
+        "_contracts": {},
+        "_hash_checked": 0,
+        "_hash_unchecked": 0,
         # AUD-O1-010: indice task_id -> task (mesmos objetos de "tasks"); so interno.
         "_task_index": {},
     }
@@ -391,7 +397,12 @@ def _apply_issue_resolve(state: dict[str, Any], event: dict[str, Any]) -> None:
     issue["timeline"]["resolved_event_seq"] = event["event_seq"]
 
 
-def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
+def _apply_event(
+    state: dict[str, Any],
+    event: dict[str, Any],
+    *,
+    verify_inline_hash: bool = True,
+) -> None:
     action = event["action"]
     payload = event["payload"]
     # Estes quatro eventos alteram somente meta, excluido do hash da projecao.
@@ -445,6 +456,58 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
             from .lesson_admin import apply_lesson_status
 
             apply_lesson_status(state["_lessons"], payload)
+    elif action in {"plugin.install", "plugin.update"}:
+        plugin_id = str(payload["id"])
+        existing = state.setdefault("_plugins", {}).get(plugin_id, {})
+        state["_plugins"][plugin_id] = {
+            "id": plugin_id,
+            "name": payload.get("name", existing.get("name", plugin_id)),
+            "version": payload["version"],
+            "source": payload["source"],
+            "content_hash": payload["content_hash"],
+            "manifest_path": payload["manifest_path"],
+        }
+    elif action == "plugin.remove":
+        plugin_id = str(payload["plugin_id"])
+        state.setdefault("_plugins", {}).pop(plugin_id, None)
+        roadmaps = state.setdefault("_roadmaps", {})
+        for key in [k for k, v in roadmaps.items() if v.get("plugin_id") == plugin_id]:
+            roadmaps.pop(key, None)
+    elif action == "roadmap.activate":
+        plugin_id = str(payload["plugin_id"])
+        execution_id = str(payload["execution_id"])
+        plugin_entry = state.setdefault("_plugins", {}).get(plugin_id, {})
+        key = f"{plugin_id}::{execution_id}"
+        state.setdefault("_roadmaps", {})[key] = {
+            "plugin_id": plugin_id,
+            "plugin_version": payload.get("plugin_version", plugin_entry.get("version", "")),
+            "execution_id": execution_id,
+            "roadmap": payload["roadmap"],
+            "input": payload.get("input"),
+            "content_hash": payload["content_hash"],
+            "status": str(payload.get("status", "active")),
+        }
+    elif action == "roadmap.pause":
+        key = f"{payload['plugin_id']}::{payload['execution_id']}"
+        if key in state.setdefault("_roadmaps", {}):
+            state["_roadmaps"][key]["status"] = "paused"
+    elif action == "roadmap.resume":
+        key = f"{payload['plugin_id']}::{payload['execution_id']}"
+        if key in state.setdefault("_roadmaps", {}):
+            state["_roadmaps"][key]["status"] = "active"
+    elif action == "roadmap.deactivate":
+        key = f"{payload['plugin_id']}::{payload['execution_id']}"
+        state.setdefault("_roadmaps", {}).pop(key, None)
+    elif action == "contract.set":
+        contract_name = str(payload["contract"])
+        state.setdefault("_contracts", {})[contract_name] = {
+            "contract": contract_name,
+            "sha256": payload["sha256"],
+            "path": payload.get("path", f".roadmap/{contract_name}"),
+            "source": payload.get("source", "manual"),
+            "event_seq": event["event_seq"],
+            "ts": event["ts"],
+        }
     elif action in {
         "output.rejected",
         "orchestrator.file.write",
@@ -453,17 +516,11 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
         "verification.run",
         "project.profile.set",
         "chain.anchor",
+        "snapshot.anchor",
         "actor.bootstrap",
         "actor.register",
         "actor.bind_alias",
         "verify.start",
-        "plugin.install",
-        "plugin.remove",
-        "plugin.update",
-        "roadmap.activate",
-        "roadmap.pause",
-        "roadmap.resume",
-        "roadmap.deactivate",
     }:
         pass
     else:
@@ -472,22 +529,100 @@ def _apply_event(state: dict[str, Any], event: dict[str, Any]) -> None:
     state["meta"]["run"]["last_event_seq"] = event["event_seq"]
     state["meta"]["updated_at"] = event["ts"]
 
+    if "projection_hash_after" in event:
+        expected_hash = event["projection_hash_after"]
+        if event.get("projector_version") != PROJECTOR_VERSION:
+            state["_hash_unchecked"] = state.get("_hash_unchecked", 0) + 1
+        elif verify_inline_hash:
+            actual_hash = _roadmap_view(state, copy=False)["meta"]["run"]["projection_hash_sha256"]
+            if actual_hash != expected_hash:
+                raise CorruptedStoreError(
+                    PROJECTION_DRIFT,
+                    f"projection_hash_after mismatch at seq {event['event_seq']}: "
+                    f"expected {expected_hash}, got {actual_hash}",
+                )
+            state["_hash_checked"] = state.get("_hash_checked", 0) + 1
+        else:
+            state["_hash_unchecked"] = state.get("_hash_unchecked", 0) + 1
 
-def replay_state(events: list[dict[str, Any]], project_name: str = "esaa-core") -> dict[str, Any]:
+
+def replay_state(
+    events: list[dict[str, Any]],
+    project_name: str = "esaa-core",
+    *,
+    verify_hashes: str = "auto",
+) -> dict[str, Any]:
     """AUD-O1-010: estado interno do replay; base para aplicar eventos de forma incremental."""
     state = _empty_state(project_name=project_name)
-    apply_events(state, events)
+    apply_events(state, events, verify_hashes=verify_hashes)
     return state
 
 
-def apply_events(state: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
+def serialize_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Serialize internal replay state for anchored v2 snapshots without duplicating tasks."""
+    return {
+        "meta": deepcopy(state["meta"]),
+        "project": deepcopy(state["project"]),
+        "tasks": deepcopy(state["tasks"]),
+        "indexes": deepcopy(state["indexes"]),
+        "_issues": deepcopy(state["_issues"]),
+        "_lessons": deepcopy(state["_lessons"]),
+        "_principals": deepcopy(state.get("_principals", {})),
+        "_plugins": deepcopy(state.get("_plugins", {})),
+        "_roadmaps": deepcopy(state.get("_roadmaps", {})),
+        "_contracts": deepcopy(state.get("_contracts", {})),
+        "_hash_checked": state.get("_hash_checked", 0),
+        "_hash_unchecked": state.get("_hash_unchecked", 0),
+    }
+
+
+def restore_state(serialized: dict[str, Any], *, copy: bool = True) -> dict[str, Any]:
+    """Restore internal replay state from a v2 snapshot payload."""
+    clone = deepcopy if copy else (lambda value: value)
+    tasks = clone(serialized["tasks"])
+    task_index: dict[str, dict[str, Any]] = {}
+    for task in tasks:
+        task_index.setdefault(task["task_id"], task)
+    return {
+        "meta": clone(serialized["meta"]),
+        "project": clone(serialized["project"]),
+        "tasks": tasks,
+        "indexes": clone(serialized["indexes"]),
+        "_issues": clone(serialized["_issues"]),
+        "_lessons": clone(serialized["_lessons"]),
+        "_principals": clone(serialized.get("_principals", {})),
+        "_plugins": clone(serialized.get("_plugins", {})),
+        "_roadmaps": clone(serialized.get("_roadmaps", {})),
+        "_contracts": clone(serialized.get("_contracts", {})),
+        "_hash_checked": int(serialized.get("_hash_checked", 0)),
+        "_hash_unchecked": int(serialized.get("_hash_unchecked", 0)),
+        "_task_index": task_index,
+    }
+
+
+def apply_events(
+    state: dict[str, Any],
+    events: list[dict[str, Any]],
+    *,
+    verify_hashes: str = "auto",
+) -> dict[str, Any]:
     """Aplica eventos adicionais sobre um estado ja reproduzido (mesmas validacoes do replay).
 
     Se um evento for rejeitado o estado fica parcialmente alterado: quem chama deve
     descarta-lo, exatamente como descartaria o resultado de um materialize que falhou.
     """
-    for event in events:
-        _apply_event(state, event)
+    mode = verify_hashes
+    if mode == "auto":
+        mode = "all" if len(events) <= 500 else "last"
+    last_hash_idx = -1
+    if mode == "last":
+        for idx in range(len(events) - 1, -1, -1):
+            if "projection_hash_after" in events[idx]:
+                last_hash_idx = idx
+                break
+    for idx, event in enumerate(events):
+        should_verify = mode == "all" or (mode == "last" and idx == last_hash_idx)
+        _apply_event(state, event, verify_inline_hash=should_verify)
     return state
 
 
@@ -501,9 +636,10 @@ def _roadmap_view(state: dict[str, Any], *, copy: bool) -> dict[str, Any]:
         "tasks": clone(tasks),
         "indexes": indexes,
     }
-    roadmap["meta"]["run"]["verify_status"] = normalize_legacy_verify_status(
-        roadmap["meta"]["run"]["verify_status"]
-    )
+    verify_status = normalize_legacy_verify_status(roadmap["meta"]["run"]["verify_status"])
+    if verify_status == "unknown" and roadmap["meta"]["run"]["last_event_seq"] > 0:
+        verify_status = "ok"
+    roadmap["meta"]["run"]["verify_status"] = verify_status
     if "_projection_hash" not in state:
         state["_projection_hash"] = compute_projection_hash(roadmap)
     roadmap["meta"]["run"]["projection_hash_sha256"] = state["_projection_hash"]
@@ -544,7 +680,7 @@ def finalize_views(
 
     issues_view = {
         "meta": {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": VIEW_SCHEMA_VERSION,
             "esaa_version": ESAA_VERSION,
             "generated_by": "esaa.project",
             "source_event_store": ".roadmap/activity.jsonl",
@@ -566,7 +702,7 @@ def finalize_views(
 
     lessons_view = {
         "meta": {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": VIEW_SCHEMA_VERSION,
             "esaa_version": ESAA_VERSION,
             "generated_by": "esaa.project",
             "source_event_store": ".roadmap/activity.jsonl",
@@ -579,3 +715,49 @@ def finalize_views(
         },
     }
     return roadmap, issues_view, lessons_view
+
+
+def project_plugins_lock(events_or_state: list[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
+    """Project canonical plugins.lock.json from events or replay state."""
+    state = replay_state(events_or_state) if isinstance(events_or_state, list) else events_or_state
+    plugins = sorted(deepcopy(list(state.get("_plugins", {}).values())), key=lambda item: item["id"])
+    return {"schema_version": "esaa-plugins-lock/v1", "plugins": plugins}
+
+
+def project_roadmaps_lock(events_or_state: list[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
+    """Project canonical roadmaps.lock.json from events or replay state."""
+    state = replay_state(events_or_state) if isinstance(events_or_state, list) else events_or_state
+    roadmaps = sorted(
+        deepcopy(list(state.get("_roadmaps", {}).values())),
+        key=lambda item: (item["plugin_id"], item["execution_id"]),
+    )
+    return {"schema_version": "esaa-roadmaps-lock/v1", "roadmaps": roadmaps}
+
+
+def project_contracts(events_or_state: list[dict[str, Any]] | dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Project the latest contract.set sha256 per contract file."""
+    state = replay_state(events_or_state) if isinstance(events_or_state, list) else events_or_state
+    return deepcopy(state.get("_contracts", {}))
+
+
+def write_lock_projections(root: Any, events: list[dict[str, Any]]) -> dict[str, str]:
+    """Atomically write plugins.lock.json and roadmaps.lock.json when plugin/roadmap events exist."""
+    from pathlib import Path
+
+    from .plugins import _write_json
+
+    has_plugin_or_roadmap = any(
+        str(ev.get("action", "")).startswith(("plugin.", "roadmap.")) for ev in events
+    )
+    if not has_plugin_or_roadmap:
+        return {}
+    state = replay_state(events)
+    root_path = Path(root)
+    plugins_path = root_path / ".roadmap" / "plugins.lock.json"
+    roadmaps_path = root_path / ".roadmap" / "roadmaps.lock.json"
+    _write_json(plugins_path, project_plugins_lock(state))
+    _write_json(roadmaps_path, project_roadmaps_lock(state))
+    return {
+        "plugins_lock": ".roadmap/plugins.lock.json",
+        "roadmaps_lock": ".roadmap/roadmaps.lock.json",
+    }

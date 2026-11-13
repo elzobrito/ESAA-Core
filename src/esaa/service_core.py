@@ -15,11 +15,12 @@ from .file_effects import recover_file_effects as recover_file_effects_from_even
 from .metrics import compute_metrics
 from .project_profile import project_profile_view
 from .projection_check import REBUILD_HINT, compare_projections
-from .projector import materialize
+from .projector import finalize_views, materialize
 from .runner_metrics import normalize_runner_metrics
 from .runtime_policy import load_policy, parse_duration
 from .seeds import BASELINE_LESSONS, load_plugin_seeds, seed_tasks
-from .store import (
+from .snapshot import load_verified_replay
+from .store_runtime import (
     append_events,
     append_transactional,
     ensure_event_store,
@@ -70,7 +71,6 @@ class ESAAServiceCore:
     def _policy(self) -> dict[str, Any]:
 
         if self._policy_cache is None:
-
             self._policy_cache = load_policy(self.root)
 
         return self._policy_cache
@@ -88,17 +88,14 @@ class ESAAServiceCore:
         roadmap_dir.mkdir(parents=True, exist_ok=True)
 
         if not force and (self.root / ".roadmap/activity.jsonl").exists():
-
             existing = (self.root / ".roadmap/activity.jsonl").read_text(encoding="utf-8").strip()
 
             if existing:
-
                 raise ESAAError(
                     "INIT_BLOCKED", "event store already contains events; use --force to reinitialize"
                 )
 
         for rel in ("docs/spec", "docs/qa", "src", "tests"):
-
             (self.root / rel).mkdir(parents=True, exist_ok=True)
 
         seed = load_plugin_seeds(self.root)
@@ -111,15 +108,12 @@ class ESAAServiceCore:
         }
 
         if seed:
-
             tasks = seed["tasks"]
 
             if seed.get("project_name"):
-
                 run_start_payload["project_name"] = seed["project_name"]
 
             if seed.get("audit_scope"):
-
                 run_start_payload["audit_scope"] = seed["audit_scope"]
 
         elif with_demo_tasks:
@@ -136,7 +130,6 @@ class ESAAServiceCore:
         seq += 1
 
         for task in tasks:
-
             events.append(make_event(seq, actor="orchestrator", action="task.create", payload=task))
 
             seq += 1
@@ -160,20 +153,12 @@ class ESAAServiceCore:
 
         seq += 1
 
-        events.append(make_event(seq, actor="orchestrator", action="verify.start", payload={"strict": True}))
-
-        seq += 1
-
         roadmap_preview, _, _ = materialize(events)
+        if events:
+            from .constants import PROJECTOR_VERSION
 
-        events.append(
-            make_event(
-                seq,
-                actor="orchestrator",
-                action="verify.ok",
-                payload={"projection_hash_sha256": roadmap_preview["meta"]["run"]["projection_hash_sha256"]},
-            )
-        )
+            events[-1]["projection_hash_after"] = roadmap_preview["meta"]["run"]["projection_hash_sha256"]
+            events[-1]["projector_version"] = PROJECTOR_VERSION
 
         path = ensure_event_store(self.root)
 
@@ -200,11 +185,15 @@ class ESAAServiceCore:
         }
 
     def project(self) -> dict[str, Any]:
-
-        events = parse_event_store(self.root)
-
-        roadmap, issues, lessons = materialize(events)
-        project_profile = project_profile_view(events)
+        replay = load_verified_replay(self.root)
+        roadmap, issues, lessons = finalize_views(replay.state)
+        if replay.used_snapshot:
+            profile_events = [e for e in replay.tail_events if e["action"] == "project.profile.set"]
+            project_profile = (
+                project_profile_view(profile_events) if profile_events else replay.project_profile
+            )
+        else:
+            project_profile = replay.project_profile
 
         save_roadmap(self.root, roadmap)
 
@@ -223,10 +212,29 @@ class ESAAServiceCore:
         }
 
     def verify(self) -> dict[str, Any]:
+        return self._verify_impl(full=False)
+
+    def verify_full(self) -> dict[str, Any]:
+        return self._verify_impl(full=True)
+
+    def _verify_impl(self, *, full: bool = False) -> dict[str, Any]:
         try:
-            events = parse_event_store(self.root)
-            projected, issues_view, lessons_view = materialize(events)
-            projected_profile = project_profile_view(events)
+            replay = load_verified_replay(self.root, full=full)
+            projected, issues_view, lessons_view = finalize_views(replay.state, copy=False)
+            if replay.used_snapshot:
+                profile_events = [e for e in replay.tail_events if e["action"] == "project.profile.set"]
+                projected_profile = (
+                    project_profile_view(profile_events) if profile_events else replay.project_profile
+                )
+                events = (
+                    parse_event_store(self.root)
+                    if replay.has_actor_events
+                    or any(e["action"].startswith("actor.") for e in replay.tail_events)
+                    else replay.effective_events
+                )
+            else:
+                events = replay.full_events or []
+                projected_profile = replay.project_profile
         except CorruptedStoreError as exc:
             return {
                 "verify_status": "corrupted",
@@ -244,7 +252,7 @@ class ESAAServiceCore:
             return caught
         # AUD-O0-060 (GOV-05): compara o conteudo das projecoes, nao so o hash declarado.
         views = {"roadmap.json": projected, "issues.json": issues_view, "lessons.json": lessons_view}
-        check = compare_projections(self.root, views, ignore_updated_at=not events)
+        check = compare_projections(self.root, views, ignore_updated_at=computed_seq == 0)
         if check["problems"].get("roadmap.json") == "missing":
             return {
                 "verify_status": "mismatch",
@@ -264,12 +272,22 @@ class ESAAServiceCore:
             and profile_matches
             and not check["divergent"]
         ):
+            annotations = verify_annotations(events, projected.get("tasks", []))
+            if replay.used_snapshot and replay.prefix_chain_status == "ok":
+                annotations["chain_status"] = "ok"
+            if replay.used_snapshot and replay.prefix_ts_regression is not None:
+                warnings = list(annotations.get("warnings", []))
+                if not any(w.get("code") == replay.prefix_ts_regression.get("code") for w in warnings):
+                    warnings.append(replay.prefix_ts_regression)
+                annotations["warnings"] = warnings
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
                 "projection_hash_sha256": computed_hash,
                 "project_profile": projected_profile is not None,
-                **verify_annotations(events, projected.get("tasks", [])),
+                "hash_checked": replay.state.get("_hash_checked", 0),
+                "hash_unchecked": replay.state.get("_hash_unchecked", 0),
+                **annotations,
             }
         return {
             "verify_status": "mismatch",
@@ -298,6 +316,7 @@ class ESAAServiceCore:
         postcommit=None,
         base_hash: str | None = None,
         result_task_id: str | None = None,
+        planned_effects: dict[str, Any] | list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         expected_first_seq = next_event_seq(base_events)
         # AUD-O1-010: quem ja reproduziu base_events informa o hash e evita outro replay.
@@ -322,6 +341,18 @@ class ESAAServiceCore:
                 from .orchestrator_commit import refresh_verification_hashes
 
                 refresh_verification_hashes(current_events, adjusted)
+            if planned_effects is not None and any(e["action"] == "complete" for e in adjusted):
+                from .file_effects import ARTIFACT_DIR, persist_artifact
+
+                plans = planned_effects if isinstance(planned_effects, list) else [planned_effects]
+                for plan in plans:
+                    if not plan:
+                        continue
+                    for art in plan.get("artifacts", []):
+                        art_path = self.root / ARTIFACT_DIR / f"{art['artifact_sha256']}.json"
+                        if not art_path.exists():
+                            persist_artifact(self.root, art)
+                            created_artifacts.append(art_path)
             from .verification_gate import validate_pending
 
             validate_pending(self.root, current_events, adjusted)
@@ -329,6 +360,15 @@ class ESAAServiceCore:
 
         attempt = 0
         while True:
+            created_artifacts: list[Path] = []
+            postcommit_entered = False
+
+            def _wrapped_postcommit() -> None:
+                nonlocal postcommit_entered
+                postcommit_entered = True
+                if postcommit is not None:
+                    postcommit()
+
             try:
                 return append_transactional(
                     self.root,
@@ -336,23 +376,36 @@ class ESAAServiceCore:
                     expected_first_seq=expected_first_seq if attempt == 0 else None,
                     expected_projection_hash=expected_hash if attempt == 0 else None,
                     lock_max_age=lock_max_age,
-                    after_append=postcommit,
+                    after_append=(
+                        _wrapped_postcommit
+                        if (postcommit is not None or planned_effects is not None)
+                        else None
+                    ),
                     result_task_id=result_task_id,
                 )
             except ESAAError as exc:
+                if not postcommit_entered:
+                    for art_path in created_artifacts:
+                        art_path.unlink(missing_ok=True)
+                if exc.code not in {"STALE_STATE_SEQ", "STALE_STATE_HASH"} or attempt >= max_retries:
+                    raise
                 if exc.code not in {"STALE_STATE_SEQ", "STALE_STATE_HASH"} or attempt >= max_retries:
                     raise
                 record_concurrency_metric("stale_conflicts")
                 record_concurrency_metric("submit_retries")
                 sleep_for = retry_backoff * (2**attempt) * random.uniform(0.5, 1.5)
                 attempt += 1
+            except BaseException:
+                if not postcommit_entered:
+                    for art_path in created_artifacts:
+                        art_path.unlink(missing_ok=True)
+                raise
                 if sleep_for > 0:
                     time.sleep(sleep_for)
 
     def _validate_roadmap_projection_schema(self, roadmap: dict[str, Any]) -> None:
         schema_path = self.root / ".roadmap" / "roadmap.schema.json"
         if not schema_path.exists():
-
             raise ESAAError("SCHEMA_MISSING", "roadmap.schema.json is required for task create")
 
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -363,7 +416,6 @@ class ESAAServiceCore:
         )
 
         if errors:
-
             error = errors[0]
 
             path = "/".join(str(part) for part in error.absolute_path) or "<root>"
@@ -406,23 +458,18 @@ class ESAAServiceCore:
         selected = events
 
         if until:
-
             if until.isdigit():
-
                 seq_limit = int(until)
 
                 selected = [ev for ev in events if int(ev["event_seq"]) <= seq_limit]
 
             else:
-
                 out: list[dict[str, Any]] = []
 
                 for event in events:
-
                     out.append(event)
 
                     if event["event_id"] == until:
-
                         break
 
                 selected = out
@@ -431,7 +478,6 @@ class ESAAServiceCore:
         project_profile = project_profile_view(selected)
 
         if write_views:
-
             save_roadmap(self.root, roadmap)
 
             save_issues(self.root, issues)

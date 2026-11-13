@@ -36,7 +36,7 @@ def test_linux_and_windows_python_matrix():
     job = ci["jobs"]["test"]
     assert job["runs-on"] == "${{ matrix.os }}"
     assert set(job["strategy"]["matrix"]["os"]) == {"ubuntu-latest", "windows-latest"}
-    assert set(job["strategy"]["matrix"]["python-version"]) == {"3.11", "3.12", "3.13"}
+    assert set(job["strategy"]["matrix"]["python-version"]) == {"3.11", "3.12", "3.13", "3.14"}
 
 
 def test_coverage_gate_and_dependency_audit():

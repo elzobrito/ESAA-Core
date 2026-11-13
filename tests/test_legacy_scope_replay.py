@@ -62,6 +62,9 @@ def _rewrite_hotfix_scope(root: Path, scope: list[str]) -> None:
             payload = event.get("payload") or {}
             if payload.get("is_hotfix") and "scope_patch" in payload:
                 payload["scope_patch"] = scope
+                event["schema_version"] = "0.4.1"
+                event.pop("projection_hash_after", None)
+                event.pop("projector_version", None)
             line = json.dumps(event, ensure_ascii=False)
         lines.append(line)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

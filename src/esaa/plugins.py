@@ -160,8 +160,103 @@ def _read_roadmaps_lock(root: Path) -> dict[str, Any]:
     return payload
 
 
-def _write_roadmaps_lock(root: Path, payload: dict[str, Any]) -> None:
-    _write_json(_roadmaps_lock_path(root), payload)
+def _has_plugin_or_roadmap_events(events: list[dict[str, Any]]) -> bool:
+    return any(str(ev.get("action", "")).startswith(("plugin.", "roadmap.")) for ev in events)
+
+
+def _store_events_if_present(root: Path) -> list[dict[str, Any]]:
+    from .constants import EVENT_STORE_PATH
+    from .store_runtime import parse_event_store
+
+    if not (root / EVENT_STORE_PATH).exists():
+        return []
+    return parse_event_store(root)
+
+
+def _effective_plugins_lock(root: Path) -> dict[str, Any]:
+    from .projector import project_plugins_lock
+
+    events = _store_events_if_present(root)
+    if _has_plugin_or_roadmap_events(events):
+        return project_plugins_lock(events)
+    return _read_plugins_lock(root)
+
+
+def _effective_roadmaps_lock(root: Path) -> dict[str, Any]:
+    from .projector import project_roadmaps_lock
+
+    events = _store_events_if_present(root)
+    if _has_plugin_or_roadmap_events(events):
+        return project_roadmaps_lock(events)
+    return _read_roadmaps_lock(root)
+
+
+def _adoption_events(
+    root: Path, current_events: list[dict[str, Any]], start_seq: int
+) -> list[dict[str, Any]]:
+    from .events import make_event
+
+    if _has_plugin_or_roadmap_events(current_events):
+        return []
+    adopted: list[dict[str, Any]] = []
+    seq = start_seq
+    for plugin in _read_plugins_lock(root)["plugins"]:
+        adopted.append(make_event(seq, "orchestrator", "plugin.install", dict(plugin)))
+        seq += 1
+    for item in _read_roadmaps_lock(root)["roadmaps"]:
+        activate_payload = {
+            "plugin_id": item["plugin_id"],
+            "plugin_version": item.get("plugin_version", ""),
+            "execution_id": item["execution_id"],
+            "roadmap": item["roadmap"],
+            "input": item.get("input"),
+            "content_hash": item["content_hash"],
+            "status": "active",
+        }
+        adopted.append(make_event(seq, "orchestrator", "roadmap.activate", activate_payload))
+        seq += 1
+        if item.get("status") == "paused":
+            adopted.append(
+                make_event(
+                    seq,
+                    "orchestrator",
+                    "roadmap.pause",
+                    {"plugin_id": item["plugin_id"], "execution_id": item["execution_id"]},
+                )
+            )
+            seq += 1
+    return adopted
+
+
+def _commit_plugin_events(
+    root: Path,
+    new_events: list[tuple[str, dict[str, Any]]],
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    from .events import make_event
+    from .orchestrator_commit import commit_orchestrator_events
+    from .projector import write_lock_projections
+    from .store_runtime import append_transactional, next_event_seq, parse_event_store
+
+    current_events = _store_events_if_present(root)
+    seq = next_event_seq(current_events)
+    candidates = _adoption_events(root, current_events, seq)
+    seq += len(candidates)
+    for action, payload in new_events:
+        candidates.append(make_event(seq, "orchestrator", action, payload))
+        seq += 1
+
+    def _postcommit() -> None:
+        write_lock_projections(root, parse_event_store(root))
+
+    return commit_orchestrator_events(
+        root,
+        candidates,
+        append_transactional,
+        dry_run=dry_run,
+        postcommit=_postcommit if not dry_run else None,
+    )
 
 
 def _validate_kebab(value: str, label: str) -> None:
@@ -529,43 +624,80 @@ def diagnose_plugin(root: Path, plugin_ref: str, repo_root: Path | None = None) 
 
 
 def list_installed_plugins(root: Path, repo_root: Path | None = None) -> list[dict[str, Any]]:
-    return list(_read_plugins_lock(root)["plugins"])
+    return list(_effective_plugins_lock(root)["plugins"])
 
 
-def install_plugin(root: Path, plugin_ref: str, repo_root: Path | None = None) -> dict[str, Any]:
+def install_plugin(
+    root: Path, plugin_ref: str, repo_root: Path | None = None, *, dry_run: bool = False
+) -> dict[str, Any]:
     source, path, info = _find_plugin_ref(root, plugin_ref, repo_root)
     plugin_id = info["id"]
-    lock = _read_plugins_lock(root)
-    plugins = [plugin for plugin in lock["plugins"] if plugin["id"] != plugin_id]
+    lock = _effective_plugins_lock(root)
+    already_installed = any(plugin["id"] == plugin_id for plugin in lock["plugins"])
+    manifest_path = f"plugins/{plugin_id}/plugin.json" if source == "bundled" else str(path / "plugin.json")
     installed = {
         "id": info["id"],
         "name": info["name"],
         "version": info["version"],
         "source": source,
         "content_hash": info["content_hash"],
-        "manifest_path": str(path / "plugin.json"),
+        "manifest_path": manifest_path,
     }
-    plugins.append(installed)
-    lock["plugins"] = sorted(plugins, key=lambda plugin: plugin["id"])
-    _write_plugins_lock(root, lock)
-    return {"status": "installed", "plugin": installed}
+    action = "plugin.update" if already_installed else "plugin.install"
+    commit = _commit_plugin_events(root, [(action, installed)], dry_run=dry_run)
+    return {
+        "status": "dry_run" if dry_run else "installed",
+        "action": action,
+        "plugin": installed,
+        "dry_run": dry_run,
+        "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
+    }
 
 
-def remove_plugin(root: Path, plugin_id: str, repo_root: Path | None = None) -> dict[str, Any]:
+def update_plugin(
+    root: Path, plugin_ref: str, repo_root: Path | None = None, *, dry_run: bool = False
+) -> dict[str, Any]:
+    source, path, info = _find_plugin_ref(root, plugin_ref, repo_root)
+    plugin_id = info["id"]
+    _installed_plugin(root, plugin_id)
+    manifest_path = f"plugins/{plugin_id}/plugin.json" if source == "bundled" else str(path / "plugin.json")
+    updated = {
+        "id": info["id"],
+        "name": info["name"],
+        "version": info["version"],
+        "source": source,
+        "content_hash": info["content_hash"],
+        "manifest_path": manifest_path,
+    }
+    commit = _commit_plugin_events(root, [("plugin.update", updated)], dry_run=dry_run)
+    return {
+        "status": "dry_run" if dry_run else "updated",
+        "action": "plugin.update",
+        "plugin": updated,
+        "dry_run": dry_run,
+        "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
+    }
+
+
+def remove_plugin(
+    root: Path, plugin_id: str, repo_root: Path | None = None, *, dry_run: bool = False
+) -> dict[str, Any]:
     _validate_kebab(plugin_id, "plugin_id")
-    lock = _read_plugins_lock(root)
+    lock = _effective_plugins_lock(root)
     before = len(lock["plugins"])
-    lock["plugins"] = [plugin for plugin in lock["plugins"] if plugin["id"] != plugin_id]
-    _write_plugins_lock(root, lock)
-
-    roadmaps = _read_roadmaps_lock(root)
-    roadmaps["roadmaps"] = [item for item in roadmaps["roadmaps"] if item["plugin_id"] != plugin_id]
-    _write_roadmaps_lock(root, roadmaps)
-    return {"status": "removed", "removed": before - len(lock["plugins"]), "plugin_id": plugin_id}
+    removed = 1 if any(plugin["id"] == plugin_id for plugin in lock["plugins"]) else 0
+    commit = _commit_plugin_events(root, [("plugin.remove", {"plugin_id": plugin_id})], dry_run=dry_run)
+    return {
+        "status": "dry_run" if dry_run else "removed",
+        "removed": removed if before else 0,
+        "plugin_id": plugin_id,
+        "dry_run": dry_run,
+        "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
+    }
 
 
 def _installed_plugin(root: Path, plugin_id: str) -> dict[str, Any]:
-    for plugin in _read_plugins_lock(root)["plugins"]:
+    for plugin in _effective_plugins_lock(root)["plugins"]:
         if plugin["id"] == plugin_id:
             return plugin
     raise ESAAError("PLUGIN_NOT_INSTALLED", f"plugin is not installed: {plugin_id}")
@@ -573,6 +705,8 @@ def _installed_plugin(root: Path, plugin_id: str) -> dict[str, Any]:
 
 def _plugin_dir_from_lock(plugin: dict[str, Any], repo_root: Path | None = None) -> Path:
     manifest_path = Path(plugin["manifest_path"])
+    if plugin.get("source") == "bundled" and not manifest_path.is_absolute():
+        return _bundled_plugins_dir(repo_root) / plugin["id"]
     if manifest_path.exists():
         return manifest_path.parent
     if plugin.get("source") == "bundled":
@@ -603,6 +737,7 @@ def activate_roadmap(
     execution_id: str = "default",
     input_path: str | None = None,
     repo_root: Path | None = None,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     _validate_kebab(execution_id, "execution_id")
     plugin = _installed_plugin(root, plugin_id)
@@ -613,26 +748,32 @@ def activate_roadmap(
     input_rel = input_path
     example_rel = manifest["entrypoints"].get("input_example")
     input_file: Path | None = None
+    input_source_for_hash: Path | None = None
     if input_rel is None and example_rel:
         input_name = f"{plugin_id}.{execution_id}.local.json"
         input_dest = _plugin_inputs_dir(root) / input_name
-        input_dest.parent.mkdir(parents=True, exist_ok=True)
-        if not input_dest.exists():
-            shutil.copy2(plugin_dir / example_rel, input_dest)
-        input_file = input_dest
+        if not dry_run:
+            input_dest.parent.mkdir(parents=True, exist_ok=True)
+            if not input_dest.exists():
+                shutil.copy2(plugin_dir / example_rel, input_dest)
+            input_file = input_dest
+            input_source_for_hash = input_dest
+        else:
+            input_file = input_dest if input_dest.exists() else (plugin_dir / example_rel)
+            input_source_for_hash = input_file
         input_rel = str(input_dest.relative_to(root)).replace("\\", "/")
     elif input_rel is not None:
         input_file, input_rel = _resolve_workspace_file(root, input_rel, "roadmap input")
+        input_source_for_hash = input_file
 
     if input_file is not None:
         _validate_input_file(plugin_dir, manifest, input_file)
 
-    lock = _read_roadmaps_lock(root)
-    roadmaps = [
-        item
-        for item in lock["roadmaps"]
-        if not (item["plugin_id"] == plugin_id and item["execution_id"] == execution_id)
-    ]
+    input_hash = (
+        "sha256:" + hashlib.sha256(input_source_for_hash.read_bytes()).hexdigest()
+        if input_source_for_hash is not None
+        else None
+    )
     entry = {
         "plugin_id": plugin_id,
         "plugin_version": plugin["version"],
@@ -642,44 +783,78 @@ def activate_roadmap(
         "content_hash": info["content_hash"],
         "status": "active",
     }
-    roadmaps.append(entry)
-    lock["roadmaps"] = sorted(roadmaps, key=lambda item: (item["plugin_id"], item["execution_id"]))
-    _write_roadmaps_lock(root, lock)
-    return {"status": "active", **entry}
+    event_payload = {**entry, "input_hash": input_hash}
+    commit = _commit_plugin_events(root, [("roadmap.activate", event_payload)], dry_run=dry_run)
+    return {
+        "status": "dry_run" if dry_run else "active",
+        **entry,
+        "dry_run": dry_run,
+        "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
+    }
 
 
-def set_roadmap_status(root: Path, plugin_id: str, execution_id: str, status: str) -> dict[str, Any]:
+def set_roadmap_status(
+    root: Path,
+    plugin_id: str,
+    execution_id: str,
+    status: str,
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
     if status not in {"active", "paused", "deactivated"}:
         raise ESAAError("ROADMAP_STATUS_INVALID", f"invalid roadmap status: {status}")
-    lock = _read_roadmaps_lock(root)
+    lock = _effective_roadmaps_lock(root)
     for item in lock["roadmaps"]:
         if item["plugin_id"] == plugin_id and item["execution_id"] == execution_id:
-            item["status"] = status
-            _write_roadmaps_lock(root, lock)
-            return {"status": status, **item}
+            action = {
+                "paused": "roadmap.pause",
+                "active": "roadmap.resume",
+                "deactivated": "roadmap.deactivate",
+            }[status]
+            commit = _commit_plugin_events(
+                root,
+                [(action, {"plugin_id": plugin_id, "execution_id": execution_id})],
+                dry_run=dry_run,
+            )
+            updated = dict(item)
+            updated["status"] = status
+            return {
+                **updated,
+                "status": "dry_run" if dry_run else status,
+                "target_status": status,
+                "dry_run": dry_run,
+                "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
+            }
     raise ESAAError("ROADMAP_NOT_FOUND", f"roadmap execution not found: {plugin_id}/{execution_id}")
 
 
-def deactivate_roadmap(root: Path, plugin_id: str, execution_id: str = "default") -> dict[str, Any]:
-    lock = _read_roadmaps_lock(root)
-    before = len(lock["roadmaps"])
-    lock["roadmaps"] = [
-        item
+def deactivate_roadmap(
+    root: Path, plugin_id: str, execution_id: str = "default", *, dry_run: bool = False
+) -> dict[str, Any]:
+    lock = _effective_roadmaps_lock(root)
+    removed = sum(
+        1
         for item in lock["roadmaps"]
-        if not (item["plugin_id"] == plugin_id and item["execution_id"] == execution_id)
-    ]
-    _write_roadmaps_lock(root, lock)
+        if item["plugin_id"] == plugin_id and item["execution_id"] == execution_id
+    )
+    commit = _commit_plugin_events(
+        root,
+        [("roadmap.deactivate", {"plugin_id": plugin_id, "execution_id": execution_id})],
+        dry_run=dry_run,
+    )
     return {
-        "status": "deactivated",
-        "removed": before - len(lock["roadmaps"]),
+        "status": "dry_run" if dry_run else "deactivated",
+        "removed": removed,
         "plugin_id": plugin_id,
         "execution_id": execution_id,
+        "dry_run": dry_run,
+        "events_appended": commit.get("would_append_events", commit.get("events_appended", 0)),
     }
 
 
 def list_roadmaps(root: Path, *, detail: bool = False, repo_root: Path | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    for item in _read_roadmaps_lock(root)["roadmaps"]:
+    for item in _effective_roadmaps_lock(root)["roadmaps"]:
         row = dict(item)
         if detail and item.get("status") == "active":
             seed = _tasks_for_roadmap_entry(root, item, repo_root)
@@ -724,7 +899,7 @@ def _tasks_for_roadmap_entry(
 
 
 def load_active_roadmap_tasks(root: Path, repo_root: Path | None = None) -> dict[str, Any] | None:
-    lock = _read_roadmaps_lock(root)
+    lock = _effective_roadmaps_lock(root)
     active = [item for item in lock["roadmaps"] if item.get("status") == "active"]
     if not active:
         return None
@@ -746,4 +921,93 @@ def load_active_roadmap_tasks(root: Path, repo_root: Path | None = None) -> dict
         "project_name": ", ".join(project_names) if project_names else None,
         "audit_scope": "installed plugin roadmaps",
         "tasks": tasks,
+    }
+
+
+def _summarize_plugin_roadmap(
+    root: Path,
+    path: Path,
+    projected_status: dict[str, str],
+    detail: bool,
+    grand_totals: dict[str, int],
+) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+    tasks = data.get("tasks") or []
+    if not tasks:
+        return None
+
+    by_planned_status: dict[str, int] = {}
+    by_live_status: dict[str, int] = {}
+    in_projection = 0
+    items: list[dict[str, Any]] = []
+
+    for t in tasks:
+        tid = t.get("task_id", "?")
+        planned = t.get("status", "todo")
+        live = projected_status.get(tid)
+        by_planned_status[planned] = by_planned_status.get(planned, 0) + 1
+        effective = live if live is not None else planned
+        by_live_status[effective] = by_live_status.get(effective, 0) + 1
+        grand_totals[effective] = grand_totals.get(effective, 0) + 1
+        if live is not None:
+            in_projection += 1
+        if detail:
+            items.append(
+                {
+                    "task_id": tid,
+                    "title": t.get("title", ""),
+                    "kind": t.get("task_kind"),
+                    "planned_status": planned,
+                    "live_status": live,
+                }
+            )
+
+    return {
+        "plugin_file": str(path.relative_to(root)).replace("\\", "/"),
+        "tasks_declared": len(tasks),
+        "in_projection": in_projection,
+        "by_live_status": by_live_status,
+        "by_planned_status": by_planned_status,
+        **({"tasks": items} if detail else {}),
+    }
+
+
+def plugin_status(root: Path, detail: bool = False, plugin_filter: str | None = None) -> dict[str, Any]:
+    """Cross-reference planned tasks (per-plugin) with projected state."""
+    roadmap_dir = root / ".roadmap"
+    if not roadmap_dir.is_dir():
+        raise ESAAError("ROADMAP_DIR_MISSING", f".roadmap not found under {root}")
+
+    projection_path = roadmap_dir / "roadmap.json"
+    projected_status: dict[str, str] = {}
+    if projection_path.is_file():
+        try:
+            proj = json.loads(projection_path.read_text(encoding="utf-8"))
+            for t in proj.get("tasks", []):
+                tid = t.get("task_id")
+                if tid:
+                    projected_status[tid] = t.get("status", "?")
+        except (ValueError, OSError) as exc:
+            raise ESAAError("PROJECTION_UNREADABLE", str(exc)) from exc
+
+    plugins: list[dict[str, Any]] = []
+    grand_totals: dict[str, int] = {}
+
+    for path in sorted(roadmap_dir.glob("roadmap*.json")):
+        if path.name == "roadmap.schema.json" or path.name.endswith(".template.json"):
+            continue
+        if plugin_filter and path.name != plugin_filter:
+            continue
+        summary = _summarize_plugin_roadmap(root, path, projected_status, detail, grand_totals)
+        if summary is not None:
+            plugins.append(summary)
+
+    return {
+        "root": str(root),
+        "projection_present": projection_path.is_file(),
+        "plugins": plugins,
+        "grand_totals_by_live_status": grand_totals,
     }

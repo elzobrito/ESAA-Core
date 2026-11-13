@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Build Tools",
 ]
 
@@ -57,7 +58,7 @@ version = {attr = "esaa.constants.PACKAGE_VERSION"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-esaa = ["templates/*", "workspace/*"]
+esaa = ["templates/*", "workspace/*", "py.typed"]
 
 # Lint and formatting cover all source and test files.
 [tool.black]
@@ -77,6 +78,9 @@ ignore = ["E501"]  # comprimento de linha e responsabilidade do black
 python_version = "3.11"
 ignore_missing_imports = true
 check_untyped_defs = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.coverage.run]
 relative_files = true

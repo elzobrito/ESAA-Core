@@ -34,7 +34,7 @@ from esaa.projector import (
     state_tasks,
 )
 from esaa.service import ESAAService
-from esaa.store import append_events, next_event_seq, parse_event_store
+from esaa.store_runtime import append_events, next_event_seq, parse_event_store
 
 
 def _lesson_report(issue_id: str, rule: str) -> dict[str, Any]:
@@ -138,8 +138,6 @@ def test_rich_history_covers_the_relevant_actions(contract_bundle: Path, repo_ro
         "orchestrator.file.write",
         "orchestrator.view.mutate",
         "output.rejected",
-        "verify.start",
-        "verify.ok",
     } <= actions
 
 

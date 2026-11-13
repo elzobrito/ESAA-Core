@@ -30,17 +30,28 @@ def _artifact(root: Path, relative: str, run_id: str) -> Path:
     return path
 
 
-def save_logs(root: Path, run_id: str, results: list[dict[str, Any]]) -> None:
+def plan_logs(root: Path, run_id: str, results: list[dict[str, Any]]) -> list[tuple[Path, bytes]]:
+    planned: list[tuple[Path, bytes]] = []
     for result in results:
         logs = {}
         for stream in ("stdout", "stderr"):
             rel = f".roadmap/artifacts/verification/{run_id}/{result['id']}.{stream}.log"
             path = _artifact(root, rel, run_id)
-            path.parent.mkdir(parents=True, exist_ok=True)
             data = result.pop(stream).encode("utf-8")
-            path.write_bytes(data)
+            planned.append((path, data))
             logs[stream] = {"path": rel, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
         result["logs"] = logs
+    return planned
+
+
+def commit_logs(planned: list[tuple[Path, bytes]]) -> None:
+    for path, data in planned:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+def save_logs(root: Path, run_id: str, results: list[dict[str, Any]]) -> None:
+    commit_logs(plan_logs(root, run_id, results))
 
 
 def find_result(root: Path, events: list[dict[str, Any]], run_id: str) -> dict[str, Any]:

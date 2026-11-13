@@ -13,7 +13,7 @@ from .project_profile import (
     validate_project_profile,
 )
 from .projector import materialize
-from .store import load_project_profile, next_event_seq, parse_event_store
+from .store_runtime import load_project_profile, next_event_seq, parse_event_store
 
 
 class ProjectProfileMixin:

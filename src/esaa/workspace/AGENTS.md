@@ -1,68 +1,56 @@
 # AGENTS.md — ESAA
 
-O ESAA não usa MCP. Use `python -m esaa`, com `--root` apontando para este
-workspace. O pacote Python é `esaa-core`; o módulo é `esaa`.
+O ESAA não usa MCP. Use `python -m esaa --root CAMINHO`; pacote `esaa-core`,
+módulo `esaa`. O Orchestrator é o único escritor do event store e dos efeitos
+finais. Nunca edite `.roadmap/activity.jsonl` nem suas projeções (`roadmap.json`,
+`issues.json`, `lessons.json`, `project_profile.json`).
 
-## Autoridade e contexto
+Use `eligible` e `state TASK-ID` para consultar; antes de trabalhar, obtenha
+`dispatch-context TASK-ID`. Ele traz boundaries, schema, lessons, comando concreto
+(`next_command` e `next_command_argv`) e `example_envelope`. Adapte os checks às
+verificações reais. `example_stdin`, quando presente, é `[]`: substitua pelo array
+com os artefatos preparados dentro dos outputs e boundaries, pois o exemplo vazio
+não entrega arquivos. Leia as referências necessárias à tarefa, sem varrer todo o
+repositório por causa de padrões de leitura autorizada.
 
-O Orchestrator é o único escritor do event store e dos efeitos finais.
-[AGENT_CONTRACT](.roadmap/AGENT_CONTRACT.yaml),
-[ORCHESTRATOR_CONTRACT](.roadmap/ORCHESTRATOR_CONTRACT.yaml),
-[schema do agente](.roadmap/agent_result.schema.json) e
-[RUNTIME_POLICY](.roadmap/RUNTIME_POLICY.yaml) definem as regras aplicáveis.
-Não edite diretamente `.roadmap/activity.jsonl` nem suas projeções
-(`roadmap.json`, `issues.json`, `lessons.json`, `project_profile.json`).
+Os contratos são autoridade; sua leitura integral e os perfis PARCER só são
+necessários para diagnosticar uma submissão rejeitada:
 
-Para trabalhar numa tarefa, obtenha `python -m esaa dispatch-context TASK-ID`.
-Use `eligible` para descobrir tarefas disponíveis e `state TASK-ID` para estado.
-Leia somente as referências necessárias à tarefa; padrões de leitura autorizada
-não são uma exigência de varrer o repositório. O contexto contém referências a
-artefatos; recupere seu conteúdo quando necessário dentro dos limites autorizados.
-Os perfis PARCER em `.roadmap/PARCER_PROFILE.<papel>.yaml` são orientação por papel:
-carregue somente o perfil correspondente quando precisar dessa especialização.
-
-## Trabalho e conclusão
+- `SCHEMA_*`, `MISSING_VERIFICATION`, `BOUNDARY_*`: [AGENT_CONTRACT](.roadmap/AGENT_CONTRACT.yaml)
+  e [schema do agente](.roadmap/agent_result.schema.json).
+- `MISSING_CLAIM`, `MISSING_COMPLETE`, `ACTION_COLLAPSE`, `PRIOR_STATUS_MISMATCH`,
+  `LOCK_VIOLATION`, `IMMUTABLE_DONE_VIOLATION`: [ORCHESTRATOR_CONTRACT](.roadmap/ORCHESTRATOR_CONTRACT.yaml).
+- `REVIEW_*`, `RUNNER_*`, `OPERATOR_REQUIRED`, `ATTEMPT_*`: [RUNTIME_POLICY](.roadmap/RUNTIME_POLICY.yaml)
+  e [agents_swarm](.roadmap/agents_swarm.yaml). Para rejeições de especialização,
+  leia apenas `.roadmap/PARCER_PROFILE.<papel>.yaml` do papel correspondente.
 
 Consultas e diagnósticos são somente leitura: não emita transições nem
-`file_updates`. Relate o resultado e as limitações relevantes.
+`file_updates`. Na execução, siga `todo → claim → in_progress → complete → review
+→ done`. `claim` e `complete` são submissões separadas, com uma `activity_event`
+e `prior_status` coerente por envelope. JSON puro é obrigatório no envelope
+submetido ao Orchestrator, não na conversa. O actor que reivindicou completa;
+`file_updates` só acompanha `complete`. A revisão segue papel e política ativos;
+`complete` não é aprovação nem publicação. `done` é terminal: problemas exigem
+`issue.report` e hotfix, sem reabrir a tarefa original.
 
-Na execução governada, `claim` e `complete` são submissões separadas. Cada envelope
-contém uma `activity_event` e `prior_status` coerente. JSON puro é obrigatório no
-envelope submetido ao Orchestrator, não nas mensagens de conversa.
-O actor que reivindicou completa; `file_updates` só acompanha `complete`.
-A revisão segue o papel autorizado e a política ativa. `done` é terminal:
-problemas exigem `issue.report` e o fluxo de hotfix, sem reabrir a tarefa original.
+Investigue contexto recuperável e resolva escolhas locais reversíveis sem pedir
+aprovação a cada passo. Prepare, inspecione e corrija candidatos em ambiente
+permitido até cumprir os critérios de aceite; reúna verificações reais e os
+mínimos de checks antes de `complete`. Efeitos finais passam por `file_updates`.
+Obtenha decisão antes de alterar requisitos, permissões ou efeitos externos ainda
+não autorizados. Requisito material indefinido, dependência obrigatória ausente ou
+boundary impeditivo exigem `issue.report` com evidências, sem inventar autorização.
+Lessons em `reject`, `require_field` ou `require_step` são obrigatórias; considere
+`warn` sem transformá-lo por si só em bloqueio ou texto fixo de aceite.
 
-Investigue contexto recuperável e resolva escolhas locais reversíveis dentro do
-escopo autorizado sem pedir aprovação a cada passo. Prepare e valide candidatos
-em ambiente permitido; os efeitos finais continuam via `file_updates`.
-Quando a tarefa incluir execução, inspeção e correção, prossiga até satisfazer os
-critérios de aceitação e reúna verificações reais antes de `complete`.
-Respeite os mínimos de checks do contrato; `complete` não é aprovação nem publicação.
+Identifique o runner real em cada escrita: `python -m esaa --runner codex submit
+--actor agent-impl result.json`. Troque `codex` pelo runner que executa; nunca o
+inclua no JSON: o Orchestrator o carimba. Após escrita, execute `verify`.
 
-Obtenha a decisão necessária antes de alterar requisitos, permissões ou efeitos
-externos ainda não autorizados. Se um requisito material continuar indefinido,
-uma dependência obrigatória faltar ou um boundary impedir a entrega, reporte
-`issue.report` com evidências; não ultrapasse o limite nem invente autorização.
-Lessons aplicáveis em `reject`, `require_field` ou `require_step` são obrigatórias.
-Considere `warn` sem convertê-lo por si só em bloqueio ou impor texto fixo de aceite.
-
-## Proveniência e integridade
-
-Identifique o runner real em cada comando que escreve eventos:
-`python -m esaa --runner codex submit --actor agent-impl result.json`.
-Use o identificador do seu runner, não copie `codex` se executar por outro runner.
-O Orchestrator carimba `runner`; não o inclua no JSON do agente. Registro e modo
-strict são definidos em [agents_swarm](.roadmap/agents_swarm.yaml) e RUNTIME_POLICY.
-Após escrita governada, execute `python -m esaa verify`.
-
-No runtime que oferece locks com metadados, releitura sob lock e verificação da
-escrita, deixe a CLI tratar a contenção; a existência transitória do lock não
-exige intervenção manual. Isso não autoriza tarefas de outro responsável nem
-edições concorrentes nos mesmos arquivos. Em runtimes sem essas garantias,
-mantenha um runner por workspace e interrompa a escrita se houver lock.
-Nunca remova locks manualmente. Interrompa a operação afetada e relate evidências
-em `STORE_LOCK_TIMEOUT`, `JSONL_INVALID`, `EVENT_SEQ_*`, `APPEND_VERIFY_FAILED`
-ou falha de integridade; não contorne o mecanismo.
-
-Para sintaxe específica, use `python -m esaa <comando> --help` e o contrato local.
+Quando o runtime oferece metadados de lock, releitura sob lock e verificação da
+escrita, deixe a CLI tratar contenção. Lock transitório não exige intervenção nem
+autoriza tarefas alheias ou edições concorrentes dos mesmos arquivos. Sem essas
+garantias, mantenha um runner por workspace e interrompa a escrita se houver lock.
+Nunca remova locks manualmente. Pare a operação afetada e relate evidências em
+`STORE_LOCK_TIMEOUT`, `JSONL_INVALID`, `EVENT_SEQ_*`, `APPEND_VERIFY_FAILED` ou
+falha de integridade. Para sintaxe, use `python -m esaa COMANDO --help`.

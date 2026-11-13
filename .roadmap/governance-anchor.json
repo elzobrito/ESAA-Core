@@ -1,0 +1,6 @@
+{
+  "schema_version": "esaa.identity.anchor.v1",
+  "alg": "ed25519",
+  "public_key_hex": "f5cce1adee2a4d5119d5ba86ceef20b8a442a6ac00d2c54e1243ed871b7c56ee",
+  "fingerprint_sha256": "69da574c3fac28f657993c8365292b03f37dbf9490a27b89341c5ff71580083e"
+}

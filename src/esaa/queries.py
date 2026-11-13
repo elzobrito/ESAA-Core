@@ -10,7 +10,7 @@ from typing import Any
 from .errors import ESAAError
 from .projector import materialize
 from .seeds import tasks_with_planned_plugins
-from .store import parse_event_store
+from .store_runtime import parse_event_store
 from .utils import sha256_hex
 
 

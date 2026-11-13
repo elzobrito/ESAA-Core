@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from esaa.cli import _plugin_status
 from esaa.errors import ESAAError
+from esaa.plugins import plugin_status as _plugin_status
 
 
 def _write(path: Path, payload: dict) -> None:

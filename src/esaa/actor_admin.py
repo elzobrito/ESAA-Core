@@ -17,7 +17,7 @@ from .identity import (
     project_registry,
     verify_privileged_authorization,
 )
-from .store import next_event_seq, parse_event_store
+from .store_runtime import next_event_seq, parse_event_store
 from .trust_root import import_trust_pin, require_pin_for_activation
 
 if TYPE_CHECKING:

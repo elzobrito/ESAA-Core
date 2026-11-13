@@ -638,4 +638,27 @@ activity list [--task-id ID] [--action ACTION]... [--exclude-action ACTION]...
 
 Estas interfaces aditivas preservam tarefas declarativas. Ative o catálogo explicitamente antes de atribuir checks executáveis; complete exige execução aprovada e vinculada ao candidato atual. Alterações de grants/escopo exigem todo. Consultas não inicializam nem reescrevem o estado.
 
+## Log estruturado por comando (`ESAA_LOG`)
+
+Quando a variável de ambiente `ESAA_LOG` aponta para um caminho de arquivo, cada invocação da CLI acrescenta exatamente uma linha JSON ao terminar (escrita atômica por `O_APPEND`, fora do lock do event store; falhas de escrita são ignoradas para não alterar `stdout`, `stderr` ou `exit_code`). Sem `ESAA_LOG` definida (ou vazia), nenhum arquivo é criado.
+
+Campos registrados em cada linha:
+
+- `ts`: timestamp UTC ISO 8601
+- `esaa_version`: versão do runtime ESAA
+- `pid`: identificador do processo
+- `command`: caminho do subcomando executado (ex.: `task create`, `verify`)
+- `runner`: identificador de `--runner`, quando informado (`null` caso contrário)
+- `root`: caminho resolvido do workspace (`--root`)
+- `duration_ms`: duração total da invocação em milissegundos
+- `lock_wait_ms`: tempo acumulado aguardando o lock do event store
+- `lock_retries`: quantidade de retentativas na aquisição do lock
+- `lock_takeovers`: quantidade de takeovers de lock obsoleto
+- `events_appended`: quantidade de eventos anexados nesta invocação
+- `exit_code`: código de saída da CLI (`0`, `1` ou `2`)
+- `error_code`: código de erro em falhas (`null` em sucesso)
+- `dry_run`: booleano indicando se `--dry-run` foi usado
+
+O log é estritamente operacional: não registra argumentos livres, `notes`, `checks`, conteúdo de `file_updates` nem variáveis de ambiente.
+
 [Fluxo completo e semântica](esaa-grok-antigravity.md).

@@ -20,7 +20,7 @@ from esaa.provenance import (
 )
 from esaa.runtime_policy import known_runners, validate_runner_id
 from esaa.service import make_event
-from esaa.store import load_agent_contract, load_agent_result_schema, parse_event_store
+from esaa.store_runtime import load_agent_contract, load_agent_result_schema, parse_event_store
 from esaa.validator import validate_agent_output
 
 

@@ -11,7 +11,13 @@ import yaml
 from esaa.cli import main
 from esaa.errors import CorruptedStoreError
 from esaa.service import ESAAService, make_event
-from esaa.store import append_events, init_hash_chain, next_event_seq, parse_event_store, verify_hash_chain
+from esaa.store_runtime import (
+    append_events,
+    init_hash_chain,
+    next_event_seq,
+    parse_event_store,
+    verify_hash_chain,
+)
 
 
 def _run_cli(root: Path, *args: str) -> dict:

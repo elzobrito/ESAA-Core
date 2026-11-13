@@ -12,17 +12,18 @@ from .errors import ESAAError
 from .events import build_hotfix_event, build_issue_resolve_event, make_event
 from .external_effects import resolve_external_file_updates
 from .file_effects import (
+    commit_file_plan,
     commit_staged,
     compute_file_metadata,
-    discard_staged,
-    stage_and_compute,
+    plan_file_updates,
 )
 from .limit_revalidation import _revalidate_limits_under_lock as _revalidate_limits_under_lock
-from .projector import apply_events, materialize, projection_summary, replay_state, state_tasks
+from .projector import apply_events, materialize, projection_summary, state_tasks
 from .provenance import resolve_runner
 from .runtime_policy import is_blocked_by_max_attempts
 from .seeds import all_tasks_done
-from .store import (
+from .snapshot import load_verified_replay
+from .store_runtime import (
     load_agent_contract,
     load_agent_result_schema,
     next_event_seq,
@@ -104,7 +105,9 @@ class SubmissionMixin:
             postcommit: Any = None,
             base_hash: str | None = None,
             result_task_id: str | None = None,
+            planned_effects: dict[str, Any] | list[dict[str, Any]] | None = None,
         ) -> dict[str, Any]: ...
+
     def _submit_command(
         self,
         output: dict[str, Any],
@@ -126,11 +129,12 @@ class SubmissionMixin:
         *,
         include_task: bool = False,
     ) -> dict[str, Any]:
-        events = parse_event_store(self.root)
+        replay = load_verified_replay(self.root)
+        events = replay.effective_events
         contract = load_agent_contract(self.root)
         schema = load_agent_result_schema(self.root)
-        # AUD-O1-010: um replay do prefixo; os candidatos sao aplicados sobre este estado.
-        state = replay_state(events)
+        # AUD-O1-010: reutiliza estado verificado (snapshot + tail) sem replay completo.
+        state = replay.state
         base_hash = projection_summary(state)["projection_hash_sha256"]
         known_tasks = state_tasks(state)
         activity_event = agent_output.get("activity_event", {})
@@ -158,13 +162,15 @@ class SubmissionMixin:
         current_seq = next_event_seq(events)
         new_events: list[dict[str, Any]] = []
         files_written = 0
-        staged_file_effects: list[dict[str, Any]] = []
+        planned_effects: dict[str, Any] | None = None
         effects_for_result: list[dict[str, Any]] = []
         try:
             validated_event, file_updates = validate_agent_output(agent_output, schema, contract, task)
             if validated_event["action"] == "claim":
                 assert_claim_admissible(known_tasks, task)
-            validate_evidence(self.root, events, actor, agent_output)
+            if validated_event["action"] == "complete" and task.get("executable_checks"):
+                ev_events = parse_event_store(self.root) if replay.used_snapshot else events
+                validate_evidence(self.root, ev_events, actor, agent_output)
             file_updates = _normalize_file_updates(self.root, file_updates)
             validate_file_update_resource_limits(file_updates, policy, task)
             file_updates = resolve_external_file_updates(self.root, task, file_updates)
@@ -192,7 +198,7 @@ class SubmissionMixin:
                 if dry_run:
                     effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
                 else:
-                    staged_file_effects, effects = stage_and_compute(
+                    planned_effects, effects = plan_file_updates(
                         self.root, file_updates, task_id=task["task_id"]
                     )
                 write_event = make_event(
@@ -218,22 +224,25 @@ class SubmissionMixin:
                     apply_events(state, [resolve_event])
             new_events.extend(candidate_events)
         except Exception as exc:
-            discard_staged(staged_file_effects)
             record_submission_rejection(
                 self.root, exc, activity_event, actor, events, dry_run=dry_run, authorization=authorization
             )
             raise
         all_events = events + new_events
-        verify_start = make_event(
-            next_event_seq(all_events), actor="orchestrator", action="verify.start", payload={"strict": True}
-        )
-        all_events.append(verify_start)
-        new_events.append(verify_start)
+        from .constants import PROJECTOR_VERSION
         from .identity_history import validate_identity_history
 
         if dry_run:  # Real writes authenticate the final history under the store lock.
-            validate_identity_history(self.root, all_events)
-        apply_events(state, [verify_start])
+            id_base = (
+                parse_event_store(self.root)
+                if replay.used_snapshot
+                and (
+                    replay.has_actor_events
+                    or any(e["action"].startswith("actor.") for e in replay.tail_events)
+                )
+                else events
+            )
+            validate_identity_history(self.root, id_base + new_events)
         if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
             run_end = make_event(
                 next_event_seq(all_events),
@@ -243,16 +252,11 @@ class SubmissionMixin:
             )
             all_events.append(run_end)
             new_events.append(run_end)
-            apply_events(state, [run_end])
-        verify_ok = make_event(
-            next_event_seq(all_events),
-            actor="orchestrator",
-            action="verify.ok",
-            payload={"projection_hash_sha256": projection_summary(state)["projection_hash_sha256"]},
-        )
-        all_events.append(verify_ok)
-        new_events.append(verify_ok)
-        final_run = projection_summary(apply_events(state, [verify_ok]))
+            apply_events(state, [run_end], verify_hashes="none")
+        final_run = projection_summary(state)
+        if new_events:
+            new_events[-1]["projection_hash_after"] = final_run["projection_hash_sha256"]
+            new_events[-1]["projector_version"] = PROJECTOR_VERSION
         if not dry_run:
             try:
                 committed = self._append_events_transactionally(
@@ -261,10 +265,10 @@ class SubmissionMixin:
                     base_hash=base_hash,
                     result_task_id=task_id if include_task else None,
                     precommit=lambda current: revalidate_submission(self.root, current, task, file_updates),
-                    postcommit=lambda: commit_staged(self.root, staged_file_effects),
+                    postcommit=lambda: commit_file_plan(self.root, planned_effects, commit_fn=commit_staged),
+                    planned_effects=planned_effects,
                 )
             except Exception as exc:
-                discard_staged(staged_file_effects)
                 record_submission_rejection(
                     self.root,
                     exc,
@@ -398,53 +402,46 @@ class SubmissionMixin:
         validate_identity_history(self.root, events + new_events + candidate_events)
         _ = materialize(events + new_events + candidate_events)
         files_written = 0
-        local_staged: list[dict[str, Any]] = []
+        local_plan: dict[str, Any] | None = None
         accepted_write_set: list[str] = []
-        try:
-            if file_updates:
-                current_write_set = normalize_write_set(item["path"] for item in file_updates)
-                if wave_write_set is not None and conflict_between_sets(wave_write_set, current_write_set):
-                    conflict = explain_conflict(wave_write_set, current_write_set)
-                    raise ESAAError(
-                        "WRITE_CONFLICT", json.dumps(conflict, ensure_ascii=False, sort_keys=True)
-                    )
-                if dry_run:
-                    effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
-                else:
-                    local_staged, effects = stage_and_compute(
-                        self.root, file_updates, task_id=task["task_id"]
-                    )
-                write_event = make_event(
-                    next_event_seq(events + new_events + candidate_events),
-                    actor="orchestrator",
-                    action="orchestrator.file.write",
-                    payload=_file_write_payload(task["task_id"], effects),
-                )
-                candidate_events.append(write_event)
+        if file_updates:
+
+            current_write_set = normalize_write_set(item["path"] for item in file_updates)
+            if wave_write_set is not None and conflict_between_sets(wave_write_set, current_write_set):
+                conflict = explain_conflict(wave_write_set, current_write_set)
+                raise ESAAError("WRITE_CONFLICT", json.dumps(conflict, ensure_ascii=False, sort_keys=True))
+            if dry_run:
+                effects = _dry_run_file_effects(self.root, file_updates, task_id=task["task_id"])
+            else:
+                local_plan, effects = plan_file_updates(self.root, file_updates, task_id=task["task_id"])
+            write_event = make_event(
+                next_event_seq(events + new_events + candidate_events),
+                actor="orchestrator",
+                action="orchestrator.file.write",
+                payload=_file_write_payload(task["task_id"], effects),
+            )
+            candidate_events.append(write_event)
+            _ = materialize(events + new_events + candidate_events)
+            files_written += len(file_updates)
+            accepted_write_set = current_write_set
+        if activity_event["action"] == "issue.report":
+            # M-03: validacao interna em build_hotfix_event (raise_on_invalid=True).
+            hotfix_event = build_hotfix_event(events + new_events + candidate_events, activity_event)
+            if hotfix_event:
+                candidate_events.append(hotfix_event)
                 _ = materialize(events + new_events + candidate_events)
-                files_written += len(file_updates)
-                accepted_write_set = current_write_set
-            if activity_event["action"] == "issue.report":
-                # M-03: validacao interna em build_hotfix_event (raise_on_invalid=True).
-                hotfix_event = build_hotfix_event(events + new_events + candidate_events, activity_event)
-                if hotfix_event:
-                    candidate_events.append(hotfix_event)
-                    _ = materialize(events + new_events + candidate_events)
-            if activity_event["action"] == "review":
-                resolve_event = build_issue_resolve_event(
-                    events + new_events + candidate_events, task, activity_event
-                )
-                if resolve_event:
-                    candidate_events.append(resolve_event)
-                    _ = materialize(events + new_events + candidate_events)
-            if staged_file_effects is not None:
-                staged_file_effects.extend(local_staged)
-            if wave_write_set is not None:
-                wave_write_set.extend(accepted_write_set)
-            new_events.extend(candidate_events)
-            if limit_checks is not None and file_updates:
-                limit_checks.append((task, file_updates))
-            return files_written
-        except Exception:
-            discard_staged(local_staged)
-            raise
+        if activity_event["action"] == "review":
+            resolve_event = build_issue_resolve_event(
+                events + new_events + candidate_events, task, activity_event
+            )
+            if resolve_event:
+                candidate_events.append(resolve_event)
+                _ = materialize(events + new_events + candidate_events)
+        if staged_file_effects is not None and local_plan is not None:
+            staged_file_effects.append(local_plan)
+        if wave_write_set is not None:
+            wave_write_set.extend(accepted_write_set)
+        new_events.extend(candidate_events)
+        if limit_checks is not None and file_updates:
+            limit_checks.append((task, file_updates))
+        return files_written

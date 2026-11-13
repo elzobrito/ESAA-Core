@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from esaa.errors import CorruptedStoreError
-from esaa.store import parse_event_store
+from esaa.store_runtime import parse_event_store
 
 
 def _write_lines(path: Path, lines: list[dict]) -> None:

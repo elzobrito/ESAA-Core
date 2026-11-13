@@ -8,11 +8,12 @@ import socket
 import sys
 import time
 from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from .compat import normalize_legacy_event
 from .constants import (
     AGENT_CONTRACT_PATH,
     AGENT_RESULT_SCHEMA_PATH,
@@ -25,10 +26,33 @@ from .constants import (
 )
 from .durable_io import atomic_write_bytes, sync_directory
 from .errors import CorruptedStoreError, ESAAError
-from .project_profile import project_profile_view
-from .provenance import resolve_runner, validate_runner_block
 from .reject_codes import EVENT_STORE_MISSING
 from .utils import ensure_parent
+
+
+@dataclass(frozen=True)
+class StoreHooks:
+    """Optional domain callbacks injected into pure I/O store operations."""
+
+    normalize_event: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    validate_runner: Callable[[Any], None] | None = None
+    validate_representation: Callable[[dict[str, Any]], None] | None = None
+    validate_identity_history: Callable[[Path, list[dict[str, Any]]], None] | None = None
+    validate_append_event: Callable[[dict[str, Any]], None] | None = None
+    prepare_activation: Callable[[Path, list[dict[str, Any]], list[dict[str, Any]]], None] | None = None
+    advance_checkpoint: Callable[[Path, list[dict[str, Any]], str], Any] | None = None
+    event_factory: Callable[..., dict[str, Any]] | None = None
+    resolve_runner: Callable[[], dict[str, Any]] | None = None
+    load_tx_state: Callable[[Path, StoreHooks | None], dict[str, Any]] | None = None
+    reload_tx_state: Callable[[Path, StoreHooks | None], dict[str, Any]] | None = None
+    project_tx_views: (
+        Callable[
+            [dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]],
+            tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None],
+        ]
+        | None
+    ) = None
+
 
 _CONCURRENCY_METRICS: Counter[str] = Counter()
 
@@ -43,6 +67,8 @@ def snapshot_concurrency_metrics() -> dict[str, int]:
         "stale_conflicts": int(_CONCURRENCY_METRICS.get("stale_conflicts", 0)),
         "lock_takeovers": int(_CONCURRENCY_METRICS.get("lock_takeovers", 0)),
         "lock_wait_ms": int(_CONCURRENCY_METRICS.get("lock_wait_ms", 0)),
+        "lock_retries": int(_CONCURRENCY_METRICS.get("lock_retries", 0)),
+        "events_appended": int(_CONCURRENCY_METRICS.get("events_appended", 0)),
         "append_verify_failed": int(_CONCURRENCY_METRICS.get("append_verify_failed", 0)),
     }
 
@@ -161,7 +187,10 @@ def _validate_hash_chain(lines: list[str], events: list[dict[str, Any]]) -> None
 
 
 def _prepare_events_for_append(
-    current_events: list[dict[str, Any]], new_events: list[dict[str, Any]]
+    current_events: list[dict[str, Any]],
+    new_events: list[dict[str, Any]],
+    *,
+    hooks: StoreHooks | None = None,
 ) -> list[dict[str, Any]]:
     prepared = [dict(event) for event in new_events]
     chain_events = current_events + prepared
@@ -182,12 +211,15 @@ def _prepare_events_for_append(
             event["prev_event_hash"] = prev_hash
             event["event_hash"] = compute_event_hash(event)
             prev_hash = event["event_hash"]
+    if hooks is not None and hooks.validate_append_event is not None:
+        for event in prepared:
+            hooks.validate_append_event(event)
     return prepared
 
 
-def verify_hash_chain(root: Path) -> dict[str, Any]:
+def verify_hash_chain(root: Path, *, hooks: StoreHooks | None = None) -> dict[str, Any]:
     try:
-        events = parse_event_store(root)
+        events = parse_event_store(root, hooks=hooks)
     except CorruptedStoreError as exc:
         return {"chain_status": "broken", "error_code": exc.code, "error_message": exc.message}
     anchor = _find_anchor(events)
@@ -201,10 +233,11 @@ def verify_hash_chain(root: Path) -> dict[str, Any]:
     }
 
 
-def init_hash_chain(root: Path, force: bool = False) -> dict[str, Any]:
+def init_hash_chain(root: Path, force: bool = False, *, hooks: StoreHooks | None = None) -> dict[str, Any]:
     """Anchor and project one consistent prefix under the append transaction lock."""
-    from .events import make_event
-
+    if hooks is None or hooks.event_factory is None:
+        raise ESAAError("INVALID_ARGUMENT", "init_hash_chain requires StoreHooks.event_factory")
+    make_event_fn = hooks.event_factory
     result: dict[str, Any] = {}
 
     def build_anchor(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -214,11 +247,11 @@ def init_hash_chain(root: Path, force: bool = False) -> dict[str, Any]:
         lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         through_seq = events[-1]["event_seq"] if events else 0
         payload = {"anchored_through_seq": through_seq, "anchor_sha256": _anchor_hash(lines, through_seq)}
-        event = make_event(next_event_seq(events), "orchestrator", "chain.anchor", payload)
+        event = make_event_fn(next_event_seq(events), "orchestrator", "chain.anchor", payload)
         result.update(status="anchored", event_id=event["event_id"], **payload)
         return [event]
 
-    append_transactional(root, build_anchor)
+    append_transactional(root, build_anchor, hooks=hooks)
     return result
 
 
@@ -232,14 +265,84 @@ _VALIDATED_STORE_DIGESTS: dict[str, bytes] = {}
 JSONL_REPAIR_HINT = "inspect with `esaa store repair --dry-run`; only a malformed final line can be repaired"
 
 
-def _normalize_validated_event(raw: dict[str, Any]) -> dict[str, Any]:
-    event = normalize_legacy_event(raw)
+def _normalize_validated_event(raw: dict[str, Any], hooks: StoreHooks | None = None) -> dict[str, Any]:
+    event = (
+        hooks.normalize_event(raw) if hooks is not None and hooks.normalize_event is not None else dict(raw)
+    )
     if "event_id" not in event:
         event["event_id"] = f"LEGACY-EV-{event['event_seq']:08d}"
     return event
 
 
-def parse_event_store(root: Path) -> list[dict[str, Any]]:
+def _decode_jsonl_lines(lines: list[str]) -> list[dict[str, Any]] | None:
+    try:
+        decoded = json.loads("[" + ",".join(lines) + "]")
+        return decoded if len(decoded) == len(lines) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _validate_and_normalize_event_line(
+    idx: int,
+    line: str,
+    raw_events: list[dict[str, Any]] | None,
+    *,
+    last_seq: int,
+    seen_ids: set[str],
+    hooks: StoreHooks | None,
+    line_label: str,
+) -> dict[str, Any]:
+    try:
+        raw = raw_events[idx - 1] if raw_events is not None else json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise CorruptedStoreError(
+            "JSONL_INVALID", f"invalid JSON {line_label} {idx}: {exc}; {JSONL_REPAIR_HINT}"
+        ) from exc
+
+    if hooks is not None and hooks.validate_representation is not None:
+        try:
+            hooks.validate_representation(raw)
+        except CorruptedStoreError as exc:
+            if exc.code == "JSONL_INVALID":
+                raise CorruptedStoreError(exc.code, f"{exc.message}; {JSONL_REPAIR_HINT}") from exc
+            raise
+
+    event = (
+        hooks.normalize_event(raw) if hooks is not None and hooks.normalize_event is not None else dict(raw)
+    )
+    if not isinstance(event.get("event_seq"), int):
+        raise CorruptedStoreError("EVENT_SEQ_INVALID", f"event_seq missing/invalid {line_label} {idx}")
+    if event["event_seq"] != last_seq + 1:
+        raise CorruptedStoreError(
+            "EVENT_SEQ_NON_MONOTONIC",
+            f"expected event_seq={last_seq + 1}, got {event['event_seq']}",
+        )
+    if "event_id" not in event:
+        event["event_id"] = f"LEGACY-EV-{event['event_seq']:08d}"
+    if event["event_id"] in seen_ids:
+        raise CorruptedStoreError("EVENT_ID_DUPLICATE", f"duplicate event_id {event['event_id']}")
+    seen_ids.add(event["event_id"])
+
+    required = ("schema_version", "event_id", "event_seq", "ts", "actor", "action", "payload")
+    missing = [k for k in required if k not in event]
+    if missing:
+        raise CorruptedStoreError("EVENT_MISSING_FIELDS", f"missing fields: {', '.join(missing)}")
+    if event["action"] not in CANONICAL_ACTIONS:
+        raise CorruptedStoreError("UNKNOWN_ACTION", f"unknown action in event store: {event['action']}")
+    if (
+        "runner" in event
+        and event["runner"] is not None
+        and hooks is not None
+        and hooks.validate_runner is not None
+    ):
+        try:
+            hooks.validate_runner(event["runner"])
+        except ESAAError as exc:
+            raise CorruptedStoreError("RUNNER_INVALID", f"{line_label} {idx}: {exc}") from exc
+    return event
+
+
+def parse_event_store(root: Path, *, hooks: StoreHooks | None = None) -> list[dict[str, Any]]:
     path = root / EVENT_STORE_PATH
     try:
         text = path.read_text(encoding="utf-8")
@@ -251,10 +354,16 @@ def parse_event_store(root: Path) -> list[dict[str, Any]]:
         ) from exc
     except UnicodeDecodeError as exc:
         raise CorruptedStoreError("JSONL_INVALID", f"invalid UTF-8: {exc}; {JSONL_REPAIR_HINT}") from exc
-    return parse_event_store_text(root, text, cache_key=str(path))
+    return parse_event_store_text(root, text, cache_key=str(path), hooks=hooks)
 
 
-def parse_event_store_text(root: Path, text: str, *, cache_key: str | None = None) -> list[dict[str, Any]]:
+def parse_event_store_text(
+    root: Path,
+    text: str,
+    *,
+    cache_key: str | None = None,
+    hooks: StoreHooks | None = None,
+) -> list[dict[str, Any]]:
     """Validate a supplied prefix without creating, truncating or projecting files.
 
     Repair uses the real root so identity and external trust cannot be bypassed
@@ -262,76 +371,150 @@ def parse_event_store_text(root: Path, text: str, *, cache_key: str | None = Non
     """
     lines = [ln for ln in text.splitlines() if ln.strip()]
     digest = hashlib.sha256(text.encode("utf-8")).digest()
-    from .identity_history import validate_identity_history, validate_identity_representation
 
     if cache_key is not None and _VALIDATED_STORE_DIGESTS.get(cache_key) == digest:
-        known = [_normalize_validated_event(raw) for raw in json.loads("[" + ",".join(lines) + "]")]
-        validate_identity_history(root, known)
+        known = [_normalize_validated_event(raw, hooks) for raw in json.loads("[" + ",".join(lines) + "]")]
+        if hooks is not None and hooks.validate_identity_history is not None:
+            hooks.validate_identity_history(root, known)
         return known
 
     events: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     last_seq = 0
-    # Decode in C in one pass. Invalid JSON or multiple values on one line fall
-    # back to the line parser, retaining its precise corruption diagnostics.
-    try:
-        decoded = json.loads("[" + ",".join(lines) + "]")
-        raw_events = decoded if len(decoded) == len(lines) else None
-    except json.JSONDecodeError:
-        raw_events = None
+    raw_events = _decode_jsonl_lines(lines)
 
     for idx, line in enumerate(lines, start=1):
-        try:
-            raw = raw_events[idx - 1] if raw_events is not None else json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise CorruptedStoreError(
-                "JSONL_INVALID", f"invalid JSON at line {idx}: {exc}; {JSONL_REPAIR_HINT}"
-            ) from exc
-
-        try:
-            validate_identity_representation(raw)
-        except CorruptedStoreError as exc:
-            if exc.code == "JSONL_INVALID":
-                raise CorruptedStoreError(exc.code, f"{exc.message}; {JSONL_REPAIR_HINT}") from exc
-            raise
-        event = normalize_legacy_event(raw)
-
-        if not isinstance(event.get("event_seq"), int):
-            raise CorruptedStoreError("EVENT_SEQ_INVALID", f"event_seq missing/invalid at line {idx}")
-        if event["event_seq"] != last_seq + 1:
-            raise CorruptedStoreError(
-                "EVENT_SEQ_NON_MONOTONIC",
-                f"expected event_seq={last_seq + 1}, got {event['event_seq']}",
-            )
+        event = _validate_and_normalize_event_line(
+            idx,
+            line,
+            raw_events,
+            last_seq=last_seq,
+            seen_ids=seen_ids,
+            hooks=hooks,
+            line_label="at line",
+        )
         last_seq = event["event_seq"]
-
-        if "event_id" not in event:
-            event["event_id"] = f"LEGACY-EV-{event['event_seq']:08d}"
-        if event["event_id"] in seen_ids:
-            raise CorruptedStoreError("EVENT_ID_DUPLICATE", f"duplicate event_id {event['event_id']}")
-        seen_ids.add(event["event_id"])
-
-        required = ("schema_version", "event_id", "event_seq", "ts", "actor", "action", "payload")
-        missing = [k for k in required if k not in event]
-        if missing:
-            raise CorruptedStoreError("EVENT_MISSING_FIELDS", f"missing fields: {', '.join(missing)}")
-
-        if event["action"] not in CANONICAL_ACTIONS:
-            raise CorruptedStoreError("UNKNOWN_ACTION", f"unknown action in event store: {event['action']}")
-
-        # G08/PROV-01: bloco runner e opcional (legado nao tem), mas se presente deve ser valido
-        if "runner" in event and event["runner"] is not None:
-            try:
-                validate_runner_block(event["runner"])
-            except ESAAError as exc:
-                raise CorruptedStoreError("RUNNER_INVALID", f"line {idx}: {exc}") from exc
-
         events.append(event)
 
     _validate_hash_chain(lines, events)
-    validate_identity_history(root, events)
+    if hooks is not None and hooks.validate_identity_history is not None:
+        hooks.validate_identity_history(root, events)
     if cache_key is not None:
         _VALIDATED_STORE_DIGESTS[cache_key] = digest
+    return events
+
+
+def scan_event_offsets(root: Path, before: int) -> tuple[int, int]:
+    """Return (last_covered_event_offset_bytes, tail_offset_bytes) for a given before_event_seq."""
+    path = root / EVENT_STORE_PATH
+    if not path.exists():
+        raise ESAAError(
+            EVENT_STORE_MISSING,
+            "event store missing; run esaa init (esaa bootstrap first if needed); no files were created",
+            penalizes_counter=False,
+        )
+    last_covered_offset = 0
+    tail_offset = 0
+    with path.open("rb") as handle:
+        while True:
+            offset = handle.tell()
+            raw_line = handle.readline()
+            if not raw_line:
+                break
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            raw_obj = json.loads(stripped.decode("utf-8"))
+            seq = int(raw_obj["event_seq"])
+            if seq <= before:
+                last_covered_offset = offset
+                tail_offset = handle.tell()
+            else:
+                tail_offset = offset
+                break
+    return last_covered_offset, tail_offset
+
+
+def read_event_at_offset(
+    root: Path, offset_bytes: int, *, hooks: StoreHooks | None = None
+) -> tuple[dict[str, Any], int]:
+    """Read and normalize one JSONL event starting at offset_bytes, returning (event, next_offset)."""
+    path = root / EVENT_STORE_PATH
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        size = handle.tell()
+        if offset_bytes < 0 or offset_bytes >= size:
+            raise CorruptedStoreError("JSONL_INVALID", f"offset {offset_bytes} out of range (size={size})")
+        handle.seek(offset_bytes)
+        raw_line = handle.readline()
+        next_offset = handle.tell()
+    stripped = raw_line.strip()
+    if not stripped:
+        raise CorruptedStoreError("JSONL_INVALID", f"empty line at offset {offset_bytes}")
+    try:
+        raw = json.loads(stripped.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CorruptedStoreError("JSONL_INVALID", f"invalid JSON at offset {offset_bytes}: {exc}") from exc
+    event = (
+        hooks.normalize_event(raw) if hooks is not None and hooks.normalize_event is not None else dict(raw)
+    )
+    return event, next_offset
+
+
+def parse_event_store_tail(
+    root: Path,
+    offset_bytes: int,
+    *,
+    expected_first_seq: int,
+    expected_prev_hash: str | None = None,
+    hooks: StoreHooks | None = None,
+) -> list[dict[str, Any]]:
+    """Parse and validate only the tail of activity.jsonl starting at offset_bytes."""
+    path = root / EVENT_STORE_PATH
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        size = handle.tell()
+        if offset_bytes < 0 or offset_bytes > size:
+            raise CorruptedStoreError(
+                "JSONL_INVALID", f"tail offset {offset_bytes} out of range (size={size})"
+            )
+        handle.seek(offset_bytes)
+        raw_bytes = handle.read()
+    try:
+        text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CorruptedStoreError(
+            "JSONL_INVALID", f"invalid UTF-8 in tail: {exc}; {JSONL_REPAIR_HINT}"
+        ) from exc
+
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return []
+
+    events: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    last_seq = expected_first_seq - 1
+    prev_hash = expected_prev_hash
+    raw_events = _decode_jsonl_lines(lines)
+
+    for idx, line in enumerate(lines, start=1):
+        event = _validate_and_normalize_event_line(
+            idx,
+            line,
+            raw_events,
+            last_seq=last_seq,
+            seen_ids=seen_ids,
+            hooks=hooks,
+            line_label="in tail line",
+        )
+        last_seq = event["event_seq"]
+        if "event_hash" in event:
+            if prev_hash is not None and event.get("prev_event_hash") != prev_hash:
+                raise CorruptedStoreError(
+                    "CHAIN_BROKEN", f"tail prev_hash mismatch at seq {event['event_seq']}"
+                )
+            prev_hash = event["event_hash"]
+        events.append(event)
     return events
 
 
@@ -440,17 +623,20 @@ def _acquire_store_lock(
     timeout: float = 10.0,
     retry_interval: float = 0.05,
     lock_max_age: float = 120.0,
+    *,
+    runner_id: str | None = None,
 ) -> Path:
     lock_path = _lock_path(path)
     deadline = time.monotonic() + timeout
     started = time.monotonic()
+    resolved_runner_id = runner_id if runner_id is not None else os.environ.get("ESAA_RUNNER_ID")
     while True:
         try:
             fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             metadata = {
                 "pid": os.getpid(),
                 "hostname": socket.gethostname(),
-                "runner_id": resolve_runner().get("runner_id"),
+                "runner_id": resolved_runner_id,
                 "acquired_at": _lock_timestamp(),
             }
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -458,6 +644,7 @@ def _acquire_store_lock(
             record_concurrency_metric("lock_wait_ms", int((time.monotonic() - started) * 1000))
             return lock_path
         except FileExistsError as exc:
+            record_concurrency_metric("lock_retries")
             should_takeover, reason, existing = _should_takeover_lock(lock_path, lock_max_age)
             if should_takeover and reason is not None:
                 _takeover_lock(lock_path, reason, existing)
@@ -495,6 +682,7 @@ def _verify_appended_lines(path: Path, expected_lines: list[str]) -> None:
     if actual_lines[-len(expected_lines) :] != expected_lines:
         record_concurrency_metric("append_verify_failed")
         raise ESAAError("APPEND_VERIFY_FAILED", "read-after-write verification did not match appended events")
+    record_concurrency_metric("events_appended", len(expected_lines))
 
 
 def append_events(
@@ -503,22 +691,32 @@ def append_events(
     lock_timeout: float = 10.0,
     retry_interval: float = 0.05,
     lock_max_age: float = 120.0,
+    *,
+    hooks: StoreHooks | None = None,
 ) -> None:
     if not events:
         return
     path = ensure_event_store(root)
+    runner_id = (
+        hooks.resolve_runner().get("runner_id")
+        if hooks is not None and hooks.resolve_runner is not None
+        else None
+    )
     lock_path = _acquire_store_lock(
-        path, timeout=lock_timeout, retry_interval=retry_interval, lock_max_age=lock_max_age
+        path,
+        timeout=lock_timeout,
+        retry_interval=retry_interval,
+        lock_max_age=lock_max_age,
+        runner_id=runner_id,
     )
     try:
-        current_events = parse_event_store(root)
-        prepared = _prepare_events_for_append(current_events, events)
-        from .identity_history import validate_identity_history
-
-        validate_identity_history(root, current_events + prepared)
-        from .trust_root import prepare_activation
-
-        prepare_activation(root, current_events, current_events + prepared)
+        current_events = parse_event_store(root, hooks=hooks)
+        prepared = _prepare_events_for_append(current_events, events, hooks=hooks)
+        final_events = current_events + prepared
+        if hooks is not None and hooks.validate_identity_history is not None:
+            hooks.validate_identity_history(root, final_events)
+        if hooks is not None and hooks.prepare_activation is not None:
+            hooks.prepare_activation(root, current_events, final_events)
         serialized_lines = [
             json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in prepared
         ]
@@ -561,6 +759,94 @@ def require_task(roadmap: dict[str, Any], task_id: str) -> dict[str, Any]:
     raise ESAAError("TASK_NOT_FOUND", f"task_id not found: {task_id}")
 
 
+def _write_serialized_lines(path: Path, serialized_lines: list[str]) -> None:
+    existing = path.read_bytes()
+    needs_sep = bool(existing) and not existing.endswith(b"\n")
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        if needs_sep:
+            handle.write("\n")
+        for line in serialized_lines:
+            handle.write(line + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    _verify_appended_lines(path, serialized_lines)
+
+
+def _load_tx_state_for_append(root: Path, hooks: StoreHooks | None) -> dict[str, Any]:
+    if hooks is not None and hooks.load_tx_state is not None:
+        return hooks.load_tx_state(root, hooks)
+    events = parse_event_store(root, hooks=hooks)
+    return {
+        "events": events,
+        "using_snapshot": False,
+        "current_run": {
+            "last_event_seq": events[-1]["event_seq"] if events else 0,
+            "projection_hash_sha256": "",
+        },
+    }
+
+
+def _check_tx_preconditions(
+    events: list[dict[str, Any]],
+    current_run: dict[str, Any],
+    expected_first_seq: int | None,
+    expected_projection_hash: str | None,
+) -> None:
+    if expected_first_seq is not None:
+        actual_next = next_event_seq(events)
+        if actual_next != expected_first_seq:
+            raise ESAAError(
+                "STALE_STATE_SEQ",
+                f"expected_first_seq={expected_first_seq} actual={actual_next}",
+            )
+    if expected_projection_hash is not None:
+        cur_hash = current_run["projection_hash_sha256"]
+        if cur_hash != expected_projection_hash:
+            raise ESAAError(
+                "STALE_STATE_HASH",
+                f"expected_hash={expected_projection_hash[:12]}... actual={cur_hash[:12]}...",
+            )
+
+
+def _persist_tx_result(
+    root: Path,
+    projected_views: tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None] | None,
+    final_events: list[dict[str, Any]],
+    new_events: list[dict[str, Any]],
+    after_append: Any,
+    result_task_id: str | None,
+    hooks: StoreHooks | None,
+) -> dict[str, Any]:
+    if projected_views is None:
+        if after_append is not None:
+            after_append()
+        return {
+            "last_event_seq": final_events[-1]["event_seq"] if final_events else 0,
+            "projection_hash_sha256": "",
+            "events_appended": len(new_events),
+        }
+    final_roadmap, final_issues, final_lessons, final_project_profile = projected_views
+    save_roadmap(root, final_roadmap)
+    save_issues(root, final_issues)
+    save_lessons(root, final_lessons)
+    save_project_profile(root, final_project_profile)
+    if after_append is not None:
+        after_append()
+    proj_hash = final_roadmap["meta"]["run"]["projection_hash_sha256"]
+    if hooks is not None and hooks.advance_checkpoint is not None:
+        hooks.advance_checkpoint(root, final_events, proj_hash)
+    result: dict[str, Any] = {
+        "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
+        "projection_hash_sha256": proj_hash,
+        "events_appended": len(new_events),
+    }
+    if result_task_id is not None:
+        from copy import deepcopy
+
+        result["task"] = deepcopy(next(t for t in final_roadmap["tasks"] if t["task_id"] == result_task_id))
+    return result
+
+
 def append_transactional(
     root: Path,
     build_events_fn,
@@ -570,49 +856,28 @@ def append_transactional(
     lock_max_age: float = 120.0,
     after_append=None,
     result_task_id: str | None = None,
+    *,
+    hooks: StoreHooks | None = None,
 ):
     """FIX-1806 - Serializable append: parse + validate + decide seq + append + project
     sob o mesmo lock. Elimina TOCTOU entre leitura e write.
-
-    build_events_fn(current_events: list[dict]) -> list[dict]
-        Recebe os eventos atuais (sob o lock) e devolve a lista de novos eventos
-        a appendar. Deve atribuir event_seq corretos baseados em current_events.
-
-    Raises:
-        ESAAError(STALE_STATE_SEQ): expected_first_seq != next_event_seq atual
-        ESAAError(STALE_STATE_HASH): expected_projection_hash != hash atual
-        ESAAError(STORE_LOCK_TIMEOUT): lock nao adquirido em timeout
-    Returns:
-        dict com last_event_seq, projection_hash_sha256, events_appended.
     """
-    # lazy import: evita ciclo. AUD-O1-010: um unico replay sob o lock; os novos
-    # eventos sao aplicados sobre o estado ja reproduzido.
-    from .projector import apply_events, finalize_views, projection_summary, replay_state
-
     path = ensure_event_store(root)
-    lock_path = _acquire_store_lock(path, timeout=timeout, retry_interval=0.05, lock_max_age=lock_max_age)
+    runner_id = (
+        hooks.resolve_runner().get("runner_id")
+        if hooks is not None and hooks.resolve_runner is not None
+        else None
+    )
+    lock_path = _acquire_store_lock(
+        path, timeout=timeout, retry_interval=0.05, lock_max_age=lock_max_age, runner_id=runner_id
+    )
     try:
-        events = parse_event_store(root)
-        state = replay_state(events)
-        current_run = projection_summary(state)
+        tx_state = _load_tx_state_for_append(root, hooks)
+        events: list[dict[str, Any]] = tx_state["events"]
+        current_run: dict[str, Any] = tx_state["current_run"]
+        _check_tx_preconditions(events, current_run, expected_first_seq, expected_projection_hash)
 
-        if expected_first_seq is not None:
-            actual_next = next_event_seq(events)
-            if actual_next != expected_first_seq:
-                raise ESAAError(
-                    "STALE_STATE_SEQ",
-                    f"expected_first_seq={expected_first_seq} actual={actual_next}",
-                )
-
-        if expected_projection_hash is not None:
-            cur_hash = current_run["projection_hash_sha256"]
-            if cur_hash != expected_projection_hash:
-                raise ESAAError(
-                    "STALE_STATE_HASH",
-                    f"expected_hash={expected_projection_hash[:12]}... actual={cur_hash[:12]}...",
-                )
-
-        new_events = _prepare_events_for_append(events, build_events_fn(events))
+        new_events = _prepare_events_for_append(events, build_events_fn(events), hooks=hooks)
         if not new_events:
             return {
                 "last_event_seq": current_run["last_event_seq"],
@@ -620,58 +885,32 @@ def append_transactional(
                 "events_appended": 0,
             }
 
-        # Validacao via materialize antes de persistir
+        if (
+            tx_state.get("using_snapshot")
+            and hooks is not None
+            and hooks.reload_tx_state is not None
+            and any(e["action"].startswith(("actor.", "verification.")) for e in new_events)
+        ):
+            tx_state = hooks.reload_tx_state(root, hooks)
+            events = tx_state["events"]
+
         final_events = events + new_events
-        from .identity_history import validate_identity_history
-
-        validate_identity_history(root, final_events)
-        final_roadmap, final_issues, final_lessons = finalize_views(
-            apply_events(state, new_events), copy=False
+        if hooks is not None and hooks.validate_identity_history is not None:
+            hooks.validate_identity_history(root, final_events)
+        projected_views = (
+            hooks.project_tx_views(tx_state, final_events, new_events)
+            if hooks is not None and hooks.project_tx_views is not None
+            else None
         )
-        final_project_profile = project_profile_view(final_events)
-        from .trust_root import prepare_activation
+        if hooks is not None and hooks.prepare_activation is not None:
+            hooks.prepare_activation(root, events, final_events)
 
-        prepare_activation(root, events, final_events)
-
-        # Append (reentrante sob lock atual; usa a logica de newline-guard)
         serialized_lines = [
             json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in new_events
         ]
-        existing = path.read_bytes()
-        needs_sep = bool(existing) and not existing.endswith(b"\n")
-        with path.open("a", encoding="utf-8", newline="\n") as handle:
-            if needs_sep:
-                handle.write("\n")
-            for line in serialized_lines:
-                handle.write(line + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        _verify_appended_lines(path, serialized_lines)
-
-        save_roadmap(root, final_roadmap)
-        save_issues(root, final_issues)
-        save_lessons(root, final_lessons)
-        save_project_profile(root, final_project_profile)
-        if after_append is not None:
-            after_append()
-        from .trust_root import advance_checkpoint
-
-        advance_checkpoint(
-            root,
-            final_events,
-            final_roadmap["meta"]["run"]["projection_hash_sha256"],
+        _write_serialized_lines(path, serialized_lines)
+        return _persist_tx_result(
+            root, projected_views, final_events, new_events, after_append, result_task_id, hooks
         )
-        result: dict[str, Any] = {
-            "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
-            "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
-            "events_appended": len(new_events),
-        }
-        if result_task_id is not None:
-            from copy import deepcopy
-
-            result["task"] = deepcopy(
-                next(t for t in final_roadmap["tasks"] if t["task_id"] == result_task_id)
-            )
-        return result
     finally:
         _release_store_lock(lock_path)

@@ -72,7 +72,7 @@ def _only_rejection_added(root: Path, before: list[dict[str, Any]], code: str) -
     events = parse_event_store(root)
     assert events[: len(before)] == before
     added = events[len(before) :]
-    assert [e["action"] for e in added] == ["output.rejected", "verify.start", "verify.ok"]
+    assert [e["action"] for e in added] == ["output.rejected"]
     assert added[0]["payload"]["error_code"] == code
     assert added[0]["payload"]["source_actor"] == "agent-impl"
 
@@ -112,10 +112,10 @@ def test_sixteen_distinct_cli_creates_all_commit(contract_bundle: Path) -> None:
             output["projection_hash_sha256"]
             == materialize(prefix)[0]["meta"]["run"]["projection_hash_sha256"]
         )
-        assert prefix[-1]["action"] == "verify.ok"
+        assert prefix[-1]["action"] == "task.create"
         assert (
-            prefix[-1]["payload"]["projection_hash_sha256"]
-            == materialize(prefix[:-1])[0]["meta"]["run"]["projection_hash_sha256"]
+            prefix[-1]["projection_hash_after"]
+            == materialize(prefix)[0]["meta"]["run"]["projection_hash_sha256"]
         )
     assert len(materialize(events)[0]["tasks"]) == 16
     assert service.verify()["verify_status"] == "ok"
@@ -275,10 +275,9 @@ def test_submit_retry_returns_metadata_and_task_from_real_commit(
     assert result["last_event_seq"] == events[-1]["event_seq"]
     assert result["projection_hash_sha256"] == materialize(events)[0]["meta"]["run"]["projection_hash_sha256"]
     assert result["task"] == service.task_state("T-A")["task"]
-    assert events[-1]["action"] == "verify.ok"
+    assert events[-1]["action"] == "complete"
     assert (
-        events[-1]["payload"]["projection_hash_sha256"]
-        == materialize(events[:-1])[0]["meta"]["run"]["projection_hash_sha256"]
+        events[-1]["projection_hash_after"] == materialize(events)[0]["meta"]["run"]["projection_hash_sha256"]
     )
     assert service.verify()["verify_status"] == "ok"
 

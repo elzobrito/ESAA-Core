@@ -11,6 +11,7 @@ import pytest
 
 import esaa.durable_io as durable
 import esaa.store as store
+import esaa.store_runtime as store_runtime
 from esaa.cli import main
 from esaa.errors import CorruptedStoreError, ESAAError
 from esaa.events import make_event
@@ -102,7 +103,7 @@ def test_valid_json_tail_is_never_discarded_as_a_torn_write(contract_bundle: Pat
 def test_corruption_in_prefix_blocks_repair_without_writes(contract_bundle: Path, kind: str) -> None:
     _initialized(contract_bundle)
     if kind == "chain":
-        store.init_hash_chain(contract_bundle)
+        store_runtime.init_hash_chain(contract_bundle)
     lines = _log(contract_bundle).read_text().splitlines()
     event = json.loads(lines[1])
     if kind == "sequence":
@@ -125,7 +126,7 @@ def test_corruption_in_prefix_blocks_repair_without_writes(contract_bundle: Path
 
 def test_good_chain_survives_tail_repair(contract_bundle: Path) -> None:
     _initialized(contract_bundle)
-    store.init_hash_chain(contract_bundle)
+    store_runtime.init_hash_chain(contract_bundle)
     ESAAService(contract_bundle).claim_task("T-A", actor="agent-impl")
     before = _log(contract_bundle).read_bytes()
     _log(contract_bundle).write_bytes(before + b'{"truncated":')

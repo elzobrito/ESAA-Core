@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from .errors import ESAAError
 from .events import make_event
-from .file_effects import commit_staged, discard_staged, stage_and_compute
+from .file_effects import commit_file_plan, commit_staged, plan_file_updates
 from .store import next_event_seq
 from .utils import sha256_hex
 from .verification_config import (
@@ -60,38 +60,34 @@ class VerificationMixin:
             },
         )
         event["schema_version"] = PROTOCOL_VERSION
-        staged: list[dict[str, Any]] = []
-        try:
-            candidates = [event]
-            if updates and not dry_run:
-                staged, effects = stage_and_compute(self.root, updates)
-                candidates.append(
-                    make_event(
-                        next_event_seq(events) + 1,
-                        "orchestrator",
-                        "orchestrator.file.write",
-                        {
-                            "task_id": "verification.configure",
-                            "files": [u["path"] for u in updates],
-                            "effects": effects,
-                        },
-                    )
+        planned_effects: dict[str, Any] | None = None
+        candidates = [event]
+        if updates and not dry_run:
+            planned_effects, effects = plan_file_updates(self.root, updates)
+            candidates.append(
+                make_event(
+                    next_event_seq(events) + 1,
+                    "orchestrator",
+                    "orchestrator.file.write",
+                    {
+                        "task_id": "verification.configure",
+                        "files": [u["path"] for u in updates],
+                        "effects": effects,
+                    },
                 )
-            result = self._commit_orchestrator_events(
-                candidates,
-                dry_run=dry_run,
-                precommit=guard,
-                postcommit=lambda: commit_staged(self.root, staged),
             )
-            return {
-                **result,
-                "config_sha256": sha256_hex(normalized),
-                "schema_updates": [u["path"] for u in updates],
-                "protocol_version": PROTOCOL_VERSION,
-            }
-        except BaseException:
-            discard_staged(staged)
-            raise
+        result = self._commit_orchestrator_events(
+            candidates,
+            dry_run=dry_run,
+            precommit=guard,
+            postcommit=lambda: commit_file_plan(self.root, planned_effects, commit_fn=commit_staged),
+        )
+        return {
+            **result,
+            "config_sha256": sha256_hex(normalized),
+            "schema_updates": [u["path"] for u in updates],
+            "protocol_version": PROTOCOL_VERSION,
+        }
 
     def verification_show(self) -> dict[str, Any]:
         return current_config(read_events(self.root))
@@ -103,7 +99,7 @@ class VerificationMixin:
 
         from .verification_candidate import matches, prepare_candidate
         from .verification_executor import execute_check
-        from .verification_results import result_digest, save_logs
+        from .verification_results import commit_logs, plan_logs, result_digest
 
         events = read_events(self.root)
         if (
@@ -146,7 +142,7 @@ class VerificationMixin:
             ),
             "results": results,
         }
-        save_logs(self.root, run_id, results)
+        planned_logs = plan_logs(self.root, run_id, results)
 
         def guard(current):
             try:
@@ -160,7 +156,9 @@ class VerificationMixin:
         guard(events)
         event = make_event(next_event_seq(events), "orchestrator", "verification.run", payload)
         event["schema_version"] = PROTOCOL_VERSION
-        self._commit_orchestrator_events([event], precommit=guard)
+        self._commit_orchestrator_events(
+            [event], precommit=guard, postcommit=lambda: commit_logs(planned_logs)
+        )
         return payload
 
     def verification_result(self, run_id: str) -> dict[str, Any]:

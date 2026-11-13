@@ -5,12 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .constants import PROJECTOR_VERSION
 from .errors import ESAAError
 from .events import make_event
 from .identity_history import validate_identity_history
 from .projector import apply_events, projection_summary, replay_state, state_tasks
 from .seeds import all_tasks_done
-from .store import next_event_seq, parse_event_store
+from .store_runtime import next_event_seq, parse_event_store
 
 
 def prepare_orchestrator_events(
@@ -36,20 +37,11 @@ def prepare_orchestrator_events(
         pending.append(event)
     if all_tasks_done(state_tasks(state)) and projection_summary(state)["status"] != "success":
         event = make_event(first_seq + len(pending), "orchestrator", "run.end", {"status": "success"})
-        apply_events(state, [event])
+        apply_events(state, [event], verify_hashes="none")
         pending.append(event)
-    event = make_event(first_seq + len(pending), "orchestrator", "verify.start", {"strict": True})
-    apply_events(state, [event])
-    pending.append(event)
-    event = make_event(
-        first_seq + len(pending),
-        "orchestrator",
-        "verify.ok",
-        {
-            "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"],
-        },
-    )
-    pending.append(event)
+    if pending:
+        pending[-1]["projection_hash_after"] = projection_summary(state)["projection_hash_sha256"]
+        pending[-1]["projector_version"] = PROJECTOR_VERSION
     return pending
 
 
@@ -108,12 +100,12 @@ def refresh_verification_hashes(
     events: list[dict[str, Any]],
     pending: list[dict[str, Any]],
 ) -> None:
-    """Rebind verification records when a stale submission is retried on a new prefix."""
-    state = replay_state(events)
+    """Rebind batch-end projection_hash_after when a stale submission is retried on a new prefix."""
+    state = replay_state(events, verify_hashes="none")
     for event in pending:
-        if event["action"] == "verify.ok":
-            event["payload"] = {
-                **event["payload"],
-                "projection_hash_sha256": projection_summary(state)["projection_hash_sha256"],
-            }
-        apply_events(state, [event])
+        event.pop("projection_hash_after", None)
+        event.pop("projector_version", None)
+        apply_events(state, [event], verify_hashes="none")
+    if pending:
+        pending[-1]["projection_hash_after"] = projection_summary(state)["projection_hash_sha256"]
+        pending[-1]["projector_version"] = PROJECTOR_VERSION

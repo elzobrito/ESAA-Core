@@ -15,7 +15,7 @@ from .events import make_event
 from .projector import materialize
 from .reject_codes import LESSON_NOT_FOUND, LESSON_NOT_PROPOSED
 from .runtime_policy import require_operator_runner
-from .store import next_event_seq, parse_event_store
+from .store_runtime import next_event_seq, parse_event_store
 
 if TYPE_CHECKING:
     from pathlib import Path

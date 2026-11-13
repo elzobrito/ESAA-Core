@@ -1,0 +1,9 @@
+{
+  "tag": "v0.5.0b19",
+  "projection_hash_sha256": "7041d8edd5cfd3a4d50cf1b1414f4db85bef5b206ff39d1739a31c4d9a9bd2a5",
+  "last_event_seq": 16,
+  "verify_status": "ok",
+  "task_count": 3,
+  "issue_count": 0,
+  "lesson_count": 3
+}

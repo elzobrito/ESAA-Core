@@ -8,7 +8,7 @@ from .errors import ESAAError
 from .events import make_event
 from .projector import materialize
 from .runtime_policy import require_operator_runner
-from .store import next_event_seq, parse_event_store, require_task
+from .store_runtime import next_event_seq, parse_event_store, require_task
 
 
 def release_task(service: Any, task_id: str, *, reason: str, dry_run: bool = False) -> dict[str, Any]:

@@ -12,7 +12,7 @@ from .limit_revalidation import _revalidate_limits_under_lock
 from .orchestrator_commit import prepare_orchestrator_events
 from .projector import replay_state, state_tasks
 from .runtime_policy import is_blocked_by_max_attempts, load_policy
-from .store import append_transactional
+from .store_runtime import append_transactional
 
 _NON_DELIVERY_PREFIXES = (
     "AUTH_",

@@ -11,9 +11,13 @@ tokens e reduzindo area de erro estrutural.
 from __future__ import annotations
 
 import fnmatch
+import shlex
 from collections.abc import Iterable
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from .project_profile import project_profile_summary
 from .state_machine import allowed_actions_for, expected_action_for
@@ -74,7 +78,7 @@ def slice_schema(schema: dict[str, Any], allowed: Iterable[str]) -> dict[str, An
     # 4) file_updates so faz sentido com complete
     if "complete" not in allowed_set:
         sliced["properties"].pop("file_updates", None)
-        sliced["allOf"] = []
+        sliced.pop("allOf", None)
 
     return sliced
 
@@ -206,6 +210,9 @@ def build_minimal_context(
     lessons: list[dict[str, Any]] | None = None,
     issues: list[dict[str, Any]] | None = None,
     project_profile: dict[str, Any] | None = None,
+    *,
+    root: Path | None = None,
+    runner: str | None = None,
 ) -> dict[str, Any]:
     """Contexto despachado ao agente — fatiado pela maquina de estado.
 
@@ -287,4 +294,84 @@ def build_minimal_context(
         "task_id": task["task_id"],
     }
 
+    if root is not None:
+        ctx.update(_next_action(task, contract, root, runner))
+
     return ctx
+
+
+def _dispatch_actor(root: Path, task_kind: str) -> str:
+    """Resolve o ator padrao do swarm; o fallback e o padrao distribuido."""
+    swarm_path = root / ".roadmap" / "agents_swarm.yaml"
+    swarm = yaml.safe_load(swarm_path.read_text(encoding="utf-8")) if swarm_path.is_file() else {}
+    resolution = (swarm or {}).get("resolution", {}).get("by_task_kind", {})
+    return str(resolution.get(task_kind, {}).get("agent") or f"agent-{task_kind}")
+
+
+def _next_action(
+    task: dict[str, Any], contract: dict[str, Any], root: Path, runner: str | None
+) -> dict[str, Any]:
+    """Exemplo concreto; stdin vazio nao inventa nem sobrescreve artefatos."""
+    status = task["status"]
+    task_id = task["task_id"]
+    action = expected_action_for(status)
+    event: dict[str, Any] = {"action": action, "task_id": task_id, "prior_status": status}
+    hints: dict[str, Any] = {"next_command": None, "next_command_argv": None}
+    if status == "done":
+        event.update(
+            action="issue.report",
+            issue_id=f"ISS-{task_id}-EXAMPLE",
+            severity="low",
+            title="Exemplo de problema observado",
+            evidence={"symptom": "Exemplo de sintoma", "repro_steps": ["Exemplo de reproducao"]},
+        )
+    else:
+        actor = (
+            task.get("assigned_to")
+            if status == "in_progress"
+            else _dispatch_actor(root, "qa" if status == "review" else task["task_kind"])
+        )
+        if not actor:
+            # Nao autorizar outro ator a concluir uma tarefa sem responsavel.
+            hints["next_command_reason"] = "Tarefa in_progress sem assigned_to; reporte issue.report."
+            hints["example_envelope"] = {
+                "activity_event": {
+                    "action": "issue.report",
+                    "task_id": task_id,
+                    "prior_status": status,
+                    "issue_id": f"ISS-{task_id}-ASSIGNEE",
+                    "severity": "medium",
+                    "title": "Tarefa sem responsavel",
+                    "evidence": {"symptom": "assigned_to ausente", "repro_steps": [f"state {task_id}"]},
+                }
+            }
+            return hints
+        argv = ["python", "-m", "esaa", "--root", str(root)]
+        if runner:
+            argv.extend(["--runner", runner])
+        argv.extend([action, task_id, "--actor", actor])
+        if status == "in_progress":
+            gate = contract.get("integrity_rules", {}).get("verification_gate", {})
+            kind = "hotfix" if task.get("is_hotfix") else task["task_kind"]
+            minimum = max(2 if kind == "hotfix" else 1, int(gate.get(f"{kind}_min_checks", 1)))
+            checks = [f"Exemplo de verificacao {i + 1}" for i in range(minimum)]
+            for check in checks:
+                argv.extend(["--check", check])
+            event.update(notes=f"Deterministic complete for {task_id}", verification={"checks": checks})
+            for key in ("issue_id", "fixes"):
+                if task.get(key):
+                    event[key] = task[key]
+            if task.get("outputs", {}).get("files"):
+                argv.extend(["--file-updates", "-"])
+                hints["example_stdin"] = "[]"
+        elif status == "review":
+            argv.extend(["--decision", "approve"])
+            event.update(decision="approve", tasks=[task_id])
+            if task.get("required_review_mode"):
+                argv.extend(["--review-mode", task["required_review_mode"]])
+                event["review_mode"] = task["required_review_mode"]
+        hints.update(next_command=shlex.join(argv), next_command_argv=argv)
+    hints["example_envelope"] = {"activity_event": event}
+    if "example_stdin" in hints:
+        hints["example_envelope"]["file_updates"] = []
+    return hints

@@ -24,7 +24,7 @@ from esaa.cli import main
 from esaa.errors import CorruptedStoreError, ESAAError
 from esaa.identity import public_key_fingerprint
 from esaa.service import ESAAService
-from esaa.store import compute_event_hash, init_hash_chain, parse_event_store
+from esaa.store_runtime import compute_event_hash, init_hash_chain, parse_event_store
 from esaa.trust_root import (
     ENV_TRUST_ROOT,
     bound_record_path,

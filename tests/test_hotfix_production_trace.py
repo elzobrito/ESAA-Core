@@ -20,8 +20,6 @@ def test_hotfix_trace_scenario_emits_full_ordered_flow(contract_bundle: Path) ->
         "orchestrator.file.write",
         "review",
         "issue.resolve",
-        "verify.start",
-        "verify.ok",
     ]
     assert result["issues"][0]["status"] == "resolved"
 

@@ -23,10 +23,13 @@ python -m esaa bootstrap --profile public
 python -m esaa --runner codex init
 python -m esaa verify
 python -m esaa eligible
+python -m esaa status
 ```
 
 Use o runner real no lugar de `codex`. Um workspace novo começa sem tarefas;
-`eligible` vazio é normal. `verify_status: ok` confirma consistência com replay.
+`eligible` vazio é normal. `verify_status: ok` confirma consistência com replay e
+`status` exibe o resumo somente leitura do workspace. Exit codes da CLI: `0` sucesso,
+`1` erro de domínio/entrada, `2` divergência ou corrupção em `verify` / falha em `verification run`.
 Consulte `python -m esaa task create --help` para criar uma tarefa.
 
 `bootstrap` instala contratos e guias portáteis. Não altera histórico ou projeções.

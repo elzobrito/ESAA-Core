@@ -357,7 +357,7 @@ def test_public_version_surface(capsys) -> None:
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert f"esaa {PACKAGE_VERSION}" in out
-    assert "protocol 0.4.1" in out
+    assert "storage protocol 0.4.2" in out
 
 
 def test_governance_bundle_versions_are_aligned(repo_root: Path) -> None:

@@ -23,6 +23,22 @@ def repo_root() -> Path:
 
 
 @pytest.fixture
+def live_identity_pin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repo_root: Path) -> Path:
+    """Bind a disposable owner pin so tests can parse the identity-active live store."""
+    from esaa.identity import load_anchor
+    from esaa.trust_root import import_trust_pin, make_pin
+
+    if not (repo_root / ".roadmap" / "governance-anchor.json").is_file():
+        pytest.skip("live store has no governance-anchor.json")
+    trust = tmp_path / "live-trust-root"
+    trust.mkdir()
+    monkeypatch.setenv(ENV_TRUST_ROOT, str(trust))
+    anchor = load_anchor(repo_root)
+    import_trust_pin(repo_root, make_pin(public_key_hex=anchor["public_key_hex"]))
+    return repo_root
+
+
+@pytest.fixture
 def contract_bundle(tmp_path: Path, repo_root: Path) -> Path:
     source = repo_root / ".roadmap"
     target = tmp_path / ".roadmap"

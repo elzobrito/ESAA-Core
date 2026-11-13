@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 2108,
-    "updated_at": "2026-11-12T18:09:39Z"
+    "last_event_seq": 2489,
+    "updated_at": "2026-11-13T15:28:54Z"
   },
   "issues": [
     {
@@ -33,6 +33,327 @@
       "timeline": {
         "created_event_seq": 1927,
         "resolved_event_seq": 1937
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-040-SCOPE-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Snapshot incremental exige integração em consumidores fora dos outputs",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A entrega040 exige verify/project/eligible/status acelerados, mas os outputs não incluem src/esaa/service_core.py (project/verify,profile/trust), src/esaa/execution.py (eligible/rejeições/cooldown) e src/esaa/status.py (completes e cadeia históricos). São integrações diretas necessárias para preservar semântica sem listas mágicas/contexto global. Nenhum claim ou mudança de código040 realizado.",
+        "repro_steps": [
+          "Confrontar entrega5 do dispatch-context AUD-O2-040 com service_core.project/verify, execution.build_eligibility e status.build_status. Pré-flight readonly identificou três arquivos necessários."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-040",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2187,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-050-HISTORICAL-RUNNER-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Fixtures b1 a b5 nao registram runner embora usem schema_version corrente",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Os 125 eventos autenticos de 0.5.0b1 a b5 usam schema_version 0.4.1 e omitem runner. ADR0008 item3 exige preservar representacao corrente e nao inventar fatos; item5 exige validar fixtures depois do upcast. O schema novo exige oito campos incluindo runner. Os outros 476 eventos validam e todos 601 preservam hashes dos produtores. Necessaria decisao explicita sobre excecao historica restrita; nenhum runner foi fabricado nem fixture alterada.",
+        "repro_steps": [
+          "Executar validate_event_for_append(upcast_event(event)) sobre as 25 fixtures; inventario completo em /tmp/esaa-onda2/050-historical-schema-inventory.json. Somente b1-b5 falham por runner ausente."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2211,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-050-SCOPE-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Validação antes de efeitos e upcasting seguro exigem cinco arquivos adicionais",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Outputs050 omitem service_core.py,submission.py,file_effects.py,activity_admin.py,projector.py. init(force) e activity clear truncam o store antes de append; submission.stage_and_compute persiste artifacts antes do store; upcasting precisa ocorrer no projetor sem mudar eventos brutos já usados por validação de cadeia/identidade/trust. A entrega exige ausência de escrita/efeitos para evento inválido. Nenhum claim/código050 realizado. Fixtures das25betas publicadas exigem mais que o default32 updates; teto administrativo atual500 permite ajuste por tarefa sem mudar a política.",
+        "repro_steps": [
+          "Inspecionar service_core.init linhas177-185, submission.submit linhas190-210, file_effects.stage_and_compute, activity_admin.apply_activity_clear e projector._apply_event; comparar entregas3-5 e ADR008."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2190,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-050-TEST-SCOPE-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Tres helpers de teste precisam produzir eventos correntes validos",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "O novo schema recusa corretamente fixtures sinteticas de tests/test_event_hash_chain.py (runner.metrics sem campos obrigatorios do normalizador), tests/test_serializable_store_lock.py (runner ausente) e tests/test_store_repair.py (verify.start sem strict). Corrigir somente os helpers exige tres outputs adicionais; nenhum foi alterado.",
+        "repro_steps": [
+          "No candidato privado 050, executar pytest nos tres arquivos e observar EVENT_SCHEMA_INVALID nos cinco casos; conferir normalize_runner_metrics e o envelope de oito campos da tarefa."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2208,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-050-VERIFICATION-SCOPE-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Sexto caminho de persistência exige dois arquivos de verificação",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Inventário exaustivo de callers encontrou verification_service.py:67 stage_and_compute e:149 save_logs; verification_results.py:33 persiste stdout/stderr antes de append. Esses dois arquivos não constam da ampliação anterior. Para aplicar validação antes de artifacts também nesse caminho, separar plano de logs em memória de persistência pósvalidação. Cinco caminhos autorizados continuam em implementação; nenhum arquivo extra foi alterado.",
+        "repro_steps": [
+          "Consultar callers de stage_and_compute/save_logs em src/esaa e comparar verification_service.py com verification_results.save_logs; inventário confirmou trust_root.prepare_activation somente após gate no store, sem outros writers anteriores."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2205,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-090-EDITORIAL-20261112",
+      "status": "open",
+      "severity": "low",
+      "title": "Referência editorial literal remanescente no guia de backup",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A revisão docs por Grok aprovou a entrega e apontou resíduo não bloqueante em docs/operations/artifact-backup.md:172: expressão literal de gerador {code(...recover_file_effects...)} em vez de referência formatada. A função referida existe e o procedimento foi executado; não há erro de recuperação. Tarefa090 permanece done; nenhum arquivo foi corrigido diretamente.",
+        "repro_steps": [
+          "Executar rg -n -F \"{code(\" docs/operations/artifact-backup.md e conferir a nota residual na review de runner grok, evento2171."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-090",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2193,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-110-PRECONDITIONS-20261112",
+      "status": "open",
+      "severity": "medium",
+      "title": "Ativação de identidade aguarda pré-condições e execução do proprietário",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Preflight antes de claim: ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026, ISSUE-ESAA-CORE-ACTOR-BOOTSTRAP-AUTHORITY-001 e ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001 permanecem open no store atual. A descrição da AUD-O2-110 proíbe claim nessas condições e reserva bootstrap/chaves/trust pin reais ao proprietário no terminal dele. Nenhum claim ou ativação de identidade foi feito.",
+        "repro_steps": [
+          "Consultar os três status em issues.json ou issue list e comparar com as pré-condições de dispatch-context AUD-O2-110; snapshot /tmp/esaa-onda2/AUD-O2-110-preconditions.json."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-110",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2168,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
+      "status": "open",
+      "severity": "low",
+      "title": "Guias CLI ainda sem recorte operacional de --authorization por runner",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "docs/guides/esaa-upgrade-0.5.0b22.md e docs/qa/actor-registration/preactivation/authority-and-bootstrap.md descrevem trust-import/bootstrap/register em alto nivel. docs/guides/esaa-cli-reference.md nao instrui grok, claude-code, codex nem human-terminal a gerar nonce, assinar canonical_json_bytes e passar --authorization apos actor bootstrap no store real. A lacuna so trava o fluxo depois da ativacao viva (AUD-O2-110). Evidencia: docs/qa/identity-activation.md secao 6.",
+        "repro_steps": [
+          "grep -n authorization docs/guides/esaa-cli-reference.md; comparar com a ordem de comandos em docs/qa/identity-activation.md §1.4 e §6.",
+          "Nao editar guias nesta evidência; a AUD-O2-110 preenche a secao 5 e pode absorver o recorte dos guias ou um sucessor docs."
+        ]
+      },
+      "resolution": null,
+      "links": {
+        "reported_by_task_id": "AUD-O2-110",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2478,
+        "resolved_event_seq": null
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-120-SNAPSHOT-HASH-20261112",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "create_task apos create_snapshot falha com projection_hash_after mismatch",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "create_task apos create_snapshot(before=100) em log de 200 eventos lanca CorruptedStoreError: projection_hash_after mismatch",
+        "repro_steps": [
+          "bootstrap + init + create_task(T-BENCH) + 195 runner.metrics + project + create_snapshot(before=100) + create_task(T-NEW)"
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUD-O2-120-SNAPSHOT-HASH-20261112",
+        "review_task_id": "HF-ISS-AUD-O2-120-SNAPSHOT-HASH-20261112",
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_snapshot_replay.py tests/test_snapshot_append_regression.py",
+          "ruff check src/esaa/store.py src/esaa/store_runtime.py tests/test_snapshot_append_regression.py && mypy src/esaa/store.py src/esaa/store_runtime.py"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-120",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-AUD-O2-120-SNAPSHOT-HASH-20261112"
+      },
+      "timeline": {
+        "created_event_seq": 2277,
+        "resolved_event_seq": 2466
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-APPEND-EFFECTS-20261113",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Efeitos de arquivo e logs persistem antes da admissao do lote",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "verification_service.py:67 stage_and_compute e :149 save_logs persistem antes do append. Os cinco caminhos originais usam stage_file_updates/write_artifact sem deferimento. Gate atual nao assegura ausencia de efeitos quando um evento posterior do lote e recusado.",
+        "repro_steps": [
+          "verification_service.py:67 stage_and_compute e :149 save_logs persistem antes do append. Os cinco caminhos originais usam stage_file_updates/write_artifact sem deferimento. Gate atual nao assegura ausencia de efeitos quando um evento posterior do lote e recusado."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUD-O2-APPEND-EFFECTS-20261113",
+        "review_task_id": "HF-ISS-AUD-O2-APPEND-EFFECTS-20261113",
+        "checks": [
+          "ruff check src tests",
+          "mypy src/esaa"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-AUD-O2-APPEND-EFFECTS-20261113"
+      },
+      "timeline": {
+        "created_event_seq": 2286,
+        "resolved_event_seq": 2468
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-CLAIM-PERFORMANCE-20261113",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Claim excede criterio de tres segundos em 50000 eventos",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "docs/qa/AUD-O2-closeout.md registra claim4.1921s em50000eventos contra criterio3s AUD-O2-070/120. Leituras e replays repetidos fora/sob lock devem ser medidos e removidos sem perder validacoes.",
+        "repro_steps": [
+          "docs/qa/AUD-O2-closeout.md registra claim4.1921s em50000eventos contra criterio3s AUD-O2-070/120. Leituras e replays repetidos fora/sob lock devem ser medidos e removidos sem perder validacoes."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUD-O2-CLAIM-PERFORMANCE-20261113",
+        "review_task_id": "HF-ISS-AUD-O2-CLAIM-PERFORMANCE-20261113",
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_claim_performance.py tests/test_snapshot_append_regression.py",
+          "ruff check src tests && mypy src/esaa"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-070",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-AUD-O2-CLAIM-PERFORMANCE-20261113"
+      },
+      "timeline": {
+        "created_event_seq": 2294,
+        "resolved_event_seq": 2472
+      }
+    },
+    {
+      "issue_id": "ISS-AUD-O2-HISTORICAL-FIXTURES-20261113",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Apenas sete releases historicas e comparacao de hash tautologica",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "tests/test_event_upcast.py EXPECTED_VERSIONS lista somente b19-b25; comparacao final materialize(events)==materialize(events) nao usa golden do produtor. Existem 25 fixtures autenticas verificadas preparadas em /tmp/esaa-onda2/050-fixtures-candidate.",
+        "repro_steps": [
+          "tests/test_event_upcast.py EXPECTED_VERSIONS lista somente b19-b25; comparacao final materialize(events)==materialize(events) nao usa golden do produtor. Existem 25 fixtures autenticas verificadas preparadas em /tmp/esaa-onda2/050-fixtures-candidate."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUD-O2-HISTORICAL-FIXTURES-20261113",
+        "review_task_id": "HF-ISS-AUD-O2-HISTORICAL-FIXTURES-20261113",
+        "checks": [
+          "PYTHONPATH=src:. pytest -q tests/test_event_upcast.py",
+          "ruff check tests/test_event_upcast.py"
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-050",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-AUD-O2-HISTORICAL-FIXTURES-20261113"
+      },
+      "timeline": {
+        "created_event_seq": 2290,
+        "resolved_event_seq": 2470
       }
     },
     {
@@ -822,6 +1143,14 @@
   "indexes": {
     "open_by_baseline": {
       "unknown": [
+        "ISS-AUD-O2-040-SCOPE-20261112",
+        "ISS-AUD-O2-050-HISTORICAL-RUNNER-20261112",
+        "ISS-AUD-O2-050-SCOPE-20261112",
+        "ISS-AUD-O2-050-TEST-SCOPE-20261112",
+        "ISS-AUD-O2-050-VERIFICATION-SCOPE-20261112",
+        "ISS-AUD-O2-090-EDITORIAL-20261112",
+        "ISS-AUD-O2-110-PRECONDITIONS-20261112",
+        "ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
         "ISS-CORE-BINARY-RESOURCE-CONTRACT-20261102",
         "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
         "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",

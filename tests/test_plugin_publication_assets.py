@@ -36,7 +36,7 @@ def test_python_package_data_contains_templates_and_workspace_guides(repo_root: 
     pyproject = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
     package_data = pyproject["tool"]["setuptools"]["package-data"]["esaa"]
 
-    assert package_data == ["templates/*", "workspace/*"]
+    assert {"templates/*", "workspace/*"} <= set(package_data)
 
 
 def test_bundled_plugin_lookup_falls_back_to_installed_package_data(tmp_path: Path, monkeypatch) -> None:

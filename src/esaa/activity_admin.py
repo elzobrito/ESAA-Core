@@ -9,7 +9,7 @@ from .errors import CorruptedStoreError, ESAAError
 from .events import make_event
 from .projector import materialize
 from .seeds import BASELINE_LESSONS
-from .store import (
+from .store_runtime import (
     append_events,
     ensure_event_store,
     parse_event_store,
@@ -62,8 +62,6 @@ def plan_activity_clear(root: Path, *, force: bool, dry_run: bool, backup_dir: s
 def apply_activity_clear(root: Path, plan: dict[str, Any]) -> None:
     backup_path = plan.pop("_backup_path")
     raw = plan.pop("_raw")
-    ensure_parent(backup_path)
-    backup_path.write_bytes(raw)
 
     seed_events = [
         make_event(
@@ -82,18 +80,20 @@ def apply_activity_clear(root: Path, plan: dict[str, Any]) -> None:
                 },
             },
         ),
-        make_event(2, actor="orchestrator", action="verify.start", payload={"strict": True}),
     ]
     preview_roadmap, _, _ = materialize(seed_events)
-    seed_events.append(
-        make_event(
-            3,
-            actor="orchestrator",
-            action="verify.ok",
-            payload={"projection_hash_sha256": preview_roadmap["meta"]["run"]["projection_hash_sha256"]},
-        )
-    )
+    from .constants import PROJECTOR_VERSION
 
+    seed_events[-1]["projection_hash_after"] = preview_roadmap["meta"]["run"]["projection_hash_sha256"]
+    seed_events[-1]["projector_version"] = PROJECTOR_VERSION
+
+    from .event_schema import validate_event_for_append
+
+    for ev in seed_events:
+        validate_event_for_append(ev)
+
+    ensure_parent(backup_path)
+    backup_path.write_bytes(raw)
     ensure_event_store(root).write_text("", encoding="utf-8")
     append_events(root, seed_events)
     roadmap, issues, lessons = materialize(seed_events)

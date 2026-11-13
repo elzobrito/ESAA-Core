@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 from .activity_admin import apply_activity_clear, plan_activity_clear
+from .dispatch import build_minimal_context
 from .errors import ESAAError
 from .events import build_hotfix_event, make_event
 from .notifications import (
@@ -12,17 +14,18 @@ from .notifications import (
 )
 from .project_profile import project_profile_view
 from .projector import materialize, projection_summary, replay_state, state_tasks
+from .provenance import ENV_RUNNER_ID
 from .runner_inputs import load_runtime_capabilities
 from .runtime_policy import require_operator_runner
 from .seeds import (
-    build_dispatch_context,
     find_planned_plugin_task,
     tasks_with_planned_plugins,
 )
 from .state_machine import allowed_actions_for, expected_action_for
-from .store import (
+from .store_runtime import (
     load_agent_contract,
     load_agent_result_schema,
+    load_roadmap,
     next_event_seq,
     parse_event_store,
     require_task,
@@ -176,7 +179,7 @@ class TaskAdminMixin:
         task = require_task(roadmap, task_id)
         contract = load_agent_contract(self.root)
         schema = load_agent_result_schema(self.root)
-        context = build_dispatch_context(
+        context = build_minimal_context(
             roadmap,
             task,
             contract,
@@ -184,6 +187,8 @@ class TaskAdminMixin:
             lessons=lessons.get("lessons", []),
             issues=issues.get("issues", []),
             project_profile=project_profile,
+            root=self.root,
+            runner=(os.environ.get(ENV_RUNNER_ID) or "").strip() or None,
         )
         context["last_event_seq"] = roadmap["meta"]["run"]["last_event_seq"]
         context["source"] = sources.get(task_id, "event_store")
@@ -430,7 +435,15 @@ class TaskAdminMixin:
         return self._commit_orchestrator_events([event], dry_run=dry_run)
 
     def _admit_planned_task_if_needed(self, task_id: str) -> dict[str, Any] | None:
-        # AUD-O1-010: sem tarefa planejada com este id nao ha o que admitir; evita ler o log.
+        # AUD-O1-010: se a tarefa ja esta materializada no roadmap, nao e tarefa planejada pendente.
+        roadmap_path = self.root / ".roadmap" / "roadmap.json"
+        if roadmap_path.is_file():
+            try:
+                roadmap = load_roadmap(self.root)
+                if roadmap and any(t.get("task_id") == task_id for t in roadmap.get("tasks", [])):
+                    return None
+            except Exception:
+                pass
         planned = find_planned_plugin_task(self.root, task_id)
         if planned is None:
             return None

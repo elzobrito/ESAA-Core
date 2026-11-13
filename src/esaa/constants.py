@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-SCHEMA_VERSION = "0.4.1"
+SCHEMA_VERSION = "0.4.2"
+VIEW_SCHEMA_VERSION = "0.4.1"
 ESAA_VERSION = "0.4.x"
-PACKAGE_VERSION = "0.5.0b29"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
+PACKAGE_VERSION = "0.5.0b30"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
+PROJECTOR_VERSION = "1"
 
 ROADMAP_DIR = ".roadmap"
 EVENT_STORE_PATH = ".roadmap/activity.jsonl"
@@ -36,6 +38,7 @@ CANONICAL_ACTIONS = {
     "runner.metrics",
     "project.profile.set",
     "chain.anchor",
+    "snapshot.anchor",
     "actor.bootstrap",
     "actor.register",
     "actor.bind_alias",
@@ -45,6 +48,14 @@ CANONICAL_ACTIONS = {
     "verify.start",
     "verify.ok",
     "verify.fail",
+    "plugin.install",
+    "plugin.remove",
+    "plugin.update",
+    "roadmap.activate",
+    "roadmap.pause",
+    "roadmap.resume",
+    "roadmap.deactivate",
+    "contract.set",
 }
 
 RUN_STATUS = {"initialized", "running", "success", "failed", "halted"}

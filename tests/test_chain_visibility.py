@@ -15,7 +15,7 @@ import pytest
 
 from esaa import cli
 from esaa.service import ESAAService
-from esaa.store import init_hash_chain
+from esaa.store_runtime import init_hash_chain
 from esaa.verify_annotations import TS_REGRESSION_CODE, chain_status, ts_regression_warning
 
 

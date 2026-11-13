@@ -1,3 +1,24 @@
+## 0.5.0b30
+
+Beta release of audit Wave 2 (`docs/audit/ESAA-CORE-AUDIT-2026-11-10.md`, QA closeout in `docs/qa/AUD-O2-closeout.md`).
+
+- **New features:**
+  - Read-only `esaa status` command summarizing tasks, active claims, and store health without mutating workspace files.
+  - `dispatch-context` now includes `next_command`, `next_command_argv`, and `example_stdin` / `example_envelope`.
+  - `esaa chain verify` alias equivalent to `esaa verify --chain`; full `--help` coverage across CLI subcommands, with demo commands/flags tagged `[demo]`.
+  - Operational JSONL logging via `ESAA_LOG` (`src/esaa/oplog.py`), recording one line per CLI invocation outside the store lock (including `lock_wait_ms`, `lock_retries`, `lock_takeovers`, `events_appended`, `exit_code`, and `error_code`) without logging free-text content or environment secrets.
+  - Incremental snapshot replay (`create_snapshot`, `load_verified_replay`) reducing 50,000-event `verify` from ~22 s to ~1.0 s and 200,000-event `verify` (snapshot at 190,000) to ~0.19 s.
+  - Layering cleanup: `store.py` separated into pure I/O with injected `StoreHooks`, wired in `store_runtime.py`; CLI dispatch refactored into `cli_handlers.py`.
+  - Packaging: `esaa/py.typed` distributed in wheels and Python 3.14 added to CI matrix and package classifiers.
+- **Log format & governance changes:**
+  - `SCHEMA_VERSION` bumped to `"0.4.2"` (`VIEW_SCHEMA_VERSION` remains `"0.4.1"`). Automatic `verify.start` / `verify.ok` pairs are no longer emitted on write paths; each command emits 1 event carrying inline `projection_hash_after` and `projector_version`, verified during replay (`PROJECTION_DRIFT` on mismatch for current projector version).
+  - Write paths validate per-action payload shapes via `src/esaa/templates/event.schema.json`, while replay remains permissive with an upcaster chain (`0.4.0 -> 0.4.1 -> 0.4.2`) for historical logs.
+  - Plugin, roadmap lock, and active contract tracking are event-sourced (`plugin.*`, `roadmap.*`, `contract.set`); `esaa project` reconstructs `plugins.lock.json` and `roadmaps.lock.json` deterministically.
+- **Compatibility & upgrade notes (see `docs/operations/log-format-migration.md`):**
+  - **Backward compatible:** existing workspaces with `0.4.0` / `0.4.1` logs continue replaying and pass `esaa verify` without manual migration.
+  - **Forward incompatibility:** older `esaa-core` releases (`<= 0.5.0b29`) fail closed with a schema-version error when reading a `0.4.2` log. All machines and runners writing to the same `.roadmap/activity.jsonl` must upgrade together.
+  - **Post-upgrade check:** run `esaa verify --full` after upgrading.
+
 ## 0.5.0b29
 
 - Retry deleting an owned event-store lock on Windows sharing and lock violations (`WinError` 32 and 33) for up to 1s after a confirmed append, without repeating the append.

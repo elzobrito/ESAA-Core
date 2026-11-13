@@ -314,7 +314,7 @@ def test_cli_task_create_rejects_values_that_break_roadmap_schema(contract_bundl
     )
 
     assert error["error_code"] == "SCHEMA_INVALID"
-    assert parse_event_store(contract_bundle)[-1]["action"] == "verify.ok"
+    assert parse_event_store(contract_bundle)[-1]["action"] == "orchestrator.view.mutate"
 
 
 def test_cli_activity_clear_requires_force_and_reprojects_empty_state(contract_bundle: Path) -> None:
@@ -330,13 +330,11 @@ def test_cli_activity_clear_requires_force_and_reprojects_empty_state(contract_b
 
     assert cleared["status"] == "cleared"
     assert cleared["events_removed"] == len(before)
-    assert cleared["last_event_seq"] == 3
+    assert cleared["last_event_seq"] == 1
     assert cleared["verify_status"] == "ok"
     events_after_clear = parse_event_store(contract_bundle)
     assert [event["action"] for event in events_after_clear] == [
         "orchestrator.view.mutate",
-        "verify.start",
-        "verify.ok",
     ]
     assert (contract_bundle / ".roadmap" / "activity.jsonl").read_text(encoding="utf-8").strip()
 

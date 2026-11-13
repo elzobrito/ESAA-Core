@@ -76,7 +76,7 @@ def test_external_runner_metrics_preserve_unknown_values_and_errors(contract_bun
         }
     )
 
-    event = parse_event_store(contract_bundle)[-3]
+    event = parse_event_store(contract_bundle)[-1]
     assert event["action"] == "runner.metrics"
     assert event["payload"]["model"] is None
     assert event["payload"]["latency_ms"] is None

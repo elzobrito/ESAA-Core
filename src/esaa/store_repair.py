@@ -15,7 +15,7 @@ from .project_profile import project_profile_view
 from .projection_check import compare_projections
 from .projector import materialize
 from .runtime_policy import require_operator_runner
-from .store import (
+from .store_runtime import (
     JSONL_REPAIR_HINT,
     _acquire_store_lock,
     _release_store_lock,
