@@ -527,12 +527,17 @@ def _lock_path(path: Path) -> Path:
 _TRANSIENT_WINDOWS_LOCK_WINERRORS = frozenset({5, 32, 33, 303})
 
 
+def _running_on_windows() -> bool:
+    return os.name == "nt"
+
+
 def _is_transient_windows_lock_error(exc: BaseException) -> bool:
     if getattr(exc, "winerror", None) in _TRANSIENT_WINDOWS_LOCK_WINERRORS:
         return True
     # CRT os.open on Windows often surfaces pending-delete as EACCES
-    # (errno 13) with winerror unset or 0.
-    return os.name == "nt" and getattr(exc, "errno", None) == 13
+    # (errno 13) with winerror unset or 0. Do not inspect os.name here: tests
+    # patch this helper so pathlib keeps the host Path flavour.
+    return _running_on_windows() and getattr(exc, "errno", None) == 13
 
 
 def _lock_timestamp() -> str:

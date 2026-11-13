@@ -1,3 +1,10 @@
+## 0.5.0b34
+
+- Tests patch `_running_on_windows()` instead of `os.name`, so Python 3.11 pathlib does not try to build `WindowsPath` on Linux (CI after `v0.5.0b33`).
+- Skip the POSIX-only lock test that expects errno 13 without `winerror` to fail immediately; on Windows that path is retried.
+- `ESAA_LOG` appends take the same exclusive lock as the event store, so eight parallel CLI processes keep one JSON line each on Windows.
+- Git tag `v0.5.0b33` (`eb8643e`) remains public and is not rewritten. That version was not uploaded to PyPI: CI failed on the `os.name` monkeypatch, the POSIX-only lock test on Windows, and unlocked `ESAA_LOG` appends.
+
 ## 0.5.0b33
 
 - Store lock acquire and release retry Windows `PermissionError` with `errno=13` when `winerror` is unset or 0, matching CRT `os.open` pending-delete (CI #58, `test_eight_concurrent_claims_one_winner_one_event` on Windows 3.11).

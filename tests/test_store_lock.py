@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -144,6 +145,7 @@ def test_persistent_windows_access_denied_on_acquire_times_out(
     assert parse_event_store(tmp_path) == []
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="errno 13 without winerror is retried on Windows")
 def test_acquire_permission_error_without_winerror_is_not_retried(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -187,7 +189,7 @@ def test_transient_errno_13_without_winerror_on_windows_acquire_does_not_repeat_
                 raise _windows_permission_denied(None)
         return original_open(path, flags, *args, **kwargs)
 
-    monkeypatch.setattr(store.os, "name", "nt")
+    monkeypatch.setattr(store, "_running_on_windows", lambda: True)
     monkeypatch.setattr(store.os, "open", open_lock)
     monkeypatch.setattr(store.time, "sleep", sleeps.append)
     append_events(tmp_path, [make_event(1, "orchestrator", "run.start", {"run_id": "RUN-L"})])
@@ -212,7 +214,7 @@ def test_transient_errno_13_without_winerror_on_windows_release_does_not_repeat_
                 raise _windows_permission_denied(None)
         return original(path, *args, **kwargs)
 
-    monkeypatch.setattr(store.os, "name", "nt")
+    monkeypatch.setattr(store, "_running_on_windows", lambda: True)
     monkeypatch.setattr(Path, "unlink", unlink)
     monkeypatch.setattr(store.time, "sleep", sleeps.append)
     append_events(tmp_path, [make_event(1, "orchestrator", "run.start", {"run_id": "RUN-L"})])

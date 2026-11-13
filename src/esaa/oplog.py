@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .constants import ESAA_VERSION
-from .store import snapshot_concurrency_metrics
+from .store import _acquire_store_lock, _release_store_lock, snapshot_concurrency_metrics
 from .utils import utc_now_iso
 
 ENV_ESAA_LOG = "ESAA_LOG"
@@ -55,11 +55,16 @@ def emit_oplog_entry(
         }
         payload = (json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
-        fd = os.open(str(log_path), flags, 0o666)
+        # Serialize appends: Windows O_APPEND is not atomic across processes.
+        lock_path = _acquire_store_lock(log_path, timeout=5.0, retry_interval=0.01, lock_max_age=15.0)
         try:
-            os.write(fd, payload)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+            fd = os.open(str(log_path), flags, 0o666)
+            try:
+                os.write(fd, payload)
+            finally:
+                os.close(fd)
         finally:
-            os.close(fd)
+            _release_store_lock(lock_path)
     except Exception:
         return
