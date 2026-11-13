@@ -3,7 +3,7 @@ from __future__ import annotations
 SCHEMA_VERSION = "0.4.2"
 VIEW_SCHEMA_VERSION = "0.4.1"
 ESAA_VERSION = "0.4.x"
-PACKAGE_VERSION = "0.5.0b31"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
+PACKAGE_VERSION = "0.5.0b32"  # QUA-02: fonte unica de versao; pyproject usa [tool.setuptools.dynamic]
 PROJECTOR_VERSION = "1"
 
 ROADMAP_DIR = ".roadmap"

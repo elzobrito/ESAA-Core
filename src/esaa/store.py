@@ -522,6 +522,15 @@ def _lock_path(path: Path) -> Path:
     return path.with_name(path.name + ".lock")
 
 
+# Windows reports ERROR_ACCESS_DENIED (5) while a lock name is pending delete,
+# in addition to sharing (32) and lock (33) violations.
+_TRANSIENT_WINDOWS_LOCK_WINERRORS = frozenset({5, 32, 33})
+
+
+def _is_transient_windows_lock_error(exc: BaseException) -> bool:
+    return getattr(exc, "winerror", None) in _TRANSIENT_WINDOWS_LOCK_WINERRORS
+
+
 def _lock_timestamp() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -653,11 +662,22 @@ def _acquire_store_lock(
                 record_concurrency_metric("lock_wait_ms", int((time.monotonic() - started) * 1000))
                 raise ESAAError("STORE_LOCK_TIMEOUT", f"timed out waiting for {lock_path}") from exc
             time.sleep(retry_interval)
+        except PermissionError as exc:
+            # Creating a lock while another process is deleting it yields
+            # ERROR_ACCESS_DENIED instead of EEXIST on Windows.
+            if not _is_transient_windows_lock_error(exc):
+                raise
+            record_concurrency_metric("lock_retries")
+            if time.monotonic() >= deadline:
+                record_concurrency_metric("lock_wait_ms", int((time.monotonic() - started) * 1000))
+                raise ESAAError("STORE_LOCK_TIMEOUT", f"timed out waiting for {lock_path}") from exc
+            time.sleep(retry_interval)
 
 
 def _release_store_lock(lock_path: Path, *, timeout: float = 1.0, retry_interval: float = 0.01) -> None:
-    # Windows metadata readers can briefly prevent deletion of our owned lock.
-    # Retry only that sharing violation, never the already-committed append.
+    # Windows metadata readers and pending deletes can briefly prevent deletion
+    # of our owned lock. Retry only those sharing/access violations, never the
+    # already-committed append.
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -666,7 +686,7 @@ def _release_store_lock(lock_path: Path, *, timeout: float = 1.0, retry_interval
         except FileNotFoundError:
             return
         except OSError as exc:
-            if getattr(exc, "winerror", None) not in {32, 33} or time.monotonic() >= deadline:
+            if not _is_transient_windows_lock_error(exc) or time.monotonic() >= deadline:
                 raise
             time.sleep(retry_interval)
 

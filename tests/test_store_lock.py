@@ -32,7 +32,7 @@ def test_append_events_releases_lock_after_success(tmp_path: Path) -> None:
     assert parse_event_store(tmp_path)[0]["action"] == "run.start"
 
 
-@pytest.mark.parametrize("winerror", [32, 33])
+@pytest.mark.parametrize("winerror", [5, 32, 33])
 def test_transient_windows_sharing_on_release_does_not_repeat_append(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror: int
 ) -> None:
@@ -82,3 +82,90 @@ def test_release_does_not_hide_permissions_or_unbounded_sharing(
             _release_store_lock(lock, timeout=0)
         assert exc.value is error
     assert len(calls) == 1 and lock.exists()
+
+
+def _windows_permission_denied(winerror: int | None) -> PermissionError:
+    error = PermissionError("[Errno 13] Permission denied")
+    error.errno = 13
+    if winerror is not None:
+        error.winerror = winerror
+    return error
+
+
+@pytest.mark.parametrize("winerror", [5, 32, 33])
+def test_transient_windows_access_denied_on_acquire_does_not_repeat_append(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror: int
+) -> None:
+    import esaa.store as store
+
+    original_open = store.os.open
+    attempts = []
+    sleeps = []
+
+    def open_lock(path, flags, *args, **kwargs):
+        if Path(path).name == "activity.jsonl.lock" and flags & store.os.O_EXCL:
+            attempts.append(path)
+            if len(attempts) < 3:
+                raise _windows_permission_denied(winerror)
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(store.os, "open", open_lock)
+    monkeypatch.setattr(store.time, "sleep", sleeps.append)
+    append_events(tmp_path, [make_event(1, "orchestrator", "run.start", {"run_id": "RUN-L"})])
+    assert len(attempts) == 3 and len(sleeps) == 2
+    assert [e["event_seq"] for e in parse_event_store(tmp_path)] == [1]
+    assert not (tmp_path / ".roadmap/activity.jsonl.lock").exists()
+
+
+def test_persistent_windows_access_denied_on_acquire_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import esaa.store as store
+
+    original_open = store.os.open
+    attempts = []
+
+    def open_lock(path, flags, *args, **kwargs):
+        if Path(path).name == "activity.jsonl.lock":
+            attempts.append(path)
+            raise _windows_permission_denied(5)
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(store.os, "open", open_lock)
+    with pytest.raises(ESAAError) as exc:
+        append_events(
+            tmp_path,
+            [make_event(1, "orchestrator", "run.start", {"run_id": "RUN-L"})],
+            lock_timeout=0,
+            retry_interval=0.01,
+        )
+    assert exc.value.code == "STORE_LOCK_TIMEOUT"
+    assert attempts
+    assert parse_event_store(tmp_path) == []
+
+
+def test_acquire_permission_error_without_winerror_is_not_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import esaa.store as store
+
+    original_open = store.os.open
+    attempts = []
+    error = _windows_permission_denied(None)
+
+    def open_lock(path, flags, *args, **kwargs):
+        if Path(path).name == "activity.jsonl.lock":
+            attempts.append(path)
+            raise error
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(store.os, "open", open_lock)
+    with pytest.raises(PermissionError) as exc:
+        append_events(
+            tmp_path,
+            [make_event(1, "orchestrator", "run.start", {"run_id": "RUN-L"})],
+            lock_timeout=1.0,
+            retry_interval=0.01,
+        )
+    assert exc.value is error
+    assert len(attempts) == 1

@@ -1,3 +1,9 @@
+## 0.5.0b32
+
+- Concurrent store lock acquire retries Windows `ERROR_ACCESS_DENIED` (WinError 5) the same way as sharing and lock violations, covering the pending-delete race when sixteen CLI `task create` processes replace `activity.jsonl.lock`.
+- Lock release also retries WinError 5 for up to 1s after a confirmed append.
+- Git tags `v0.5.0b30` (`e1e916d`) and `v0.5.0b31` (`8f04f40`) remain public and are not rewritten. Those versions were not uploaded to PyPI: Windows CI failed on snapshot CRLF (b30) and on lock `PermissionError` during concurrent creates (b31, Windows 3.11).
+
 ## 0.5.0b31
 
 - Snapshot fallback tests rewrite `activity.jsonl` with explicit LF, matching store appends, so Windows CI keeps snapshot byte offsets valid.
