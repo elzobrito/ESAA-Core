@@ -1,3 +1,9 @@
+## 0.5.0b33
+
+- Store lock acquire and release retry Windows `PermissionError` with `errno=13` when `winerror` is unset or 0, matching CRT `os.open` pending-delete (CI #58, `test_eight_concurrent_claims_one_winner_one_event` on Windows 3.11).
+- Also retry WinError 303 (`ERROR_DELETE_PENDING`).
+- Git tags `v0.5.0b30` (`e1e916d`), `v0.5.0b31` (`8f04f40`) and `v0.5.0b32` (`0b1d510`) remain public and are not rewritten. `0.5.0b32` stays on PyPI; the evidence commit CI #58 (`0bec59f`) was a Windows flake of this race.
+
 ## 0.5.0b32
 
 - Concurrent store lock acquire retries Windows `ERROR_ACCESS_DENIED` (WinError 5) the same way as sharing and lock violations, covering the pending-delete race when sixteen CLI `task create` processes replace `activity.jsonl.lock`.

@@ -522,13 +522,17 @@ def _lock_path(path: Path) -> Path:
     return path.with_name(path.name + ".lock")
 
 
-# Windows reports ERROR_ACCESS_DENIED (5) while a lock name is pending delete,
-# in addition to sharing (32) and lock (33) violations.
-_TRANSIENT_WINDOWS_LOCK_WINERRORS = frozenset({5, 32, 33})
+# Windows reports ERROR_ACCESS_DENIED (5) and ERROR_DELETE_PENDING (303) while
+# a lock name is pending delete, in addition to sharing (32) and lock (33).
+_TRANSIENT_WINDOWS_LOCK_WINERRORS = frozenset({5, 32, 33, 303})
 
 
 def _is_transient_windows_lock_error(exc: BaseException) -> bool:
-    return getattr(exc, "winerror", None) in _TRANSIENT_WINDOWS_LOCK_WINERRORS
+    if getattr(exc, "winerror", None) in _TRANSIENT_WINDOWS_LOCK_WINERRORS:
+        return True
+    # CRT os.open on Windows often surfaces pending-delete as EACCES
+    # (errno 13) with winerror unset or 0.
+    return os.name == "nt" and getattr(exc, "errno", None) == 13
 
 
 def _lock_timestamp() -> str:
@@ -664,7 +668,8 @@ def _acquire_store_lock(
             time.sleep(retry_interval)
         except PermissionError as exc:
             # Creating a lock while another process is deleting it yields
-            # ERROR_ACCESS_DENIED instead of EEXIST on Windows.
+            # ERROR_ACCESS_DENIED, ERROR_DELETE_PENDING, or CRT errno 13
+            # instead of EEXIST on Windows.
             if not _is_transient_windows_lock_error(exc):
                 raise
             record_concurrency_metric("lock_retries")
