@@ -1,5 +1,9 @@
 # ESAA — Event Sourcing for Autonomous Agents
 
+<p align="center">
+  <img src="docs/assets/esaa-logo.png" alt="ESAA state machine logo" width="960">
+</p>
+
 ESAA é um protocolo de governança para engenharia de software com agentes.
 O agente propõe intenções; o Orchestrator valida e aplica efeitos; o histórico
 append-only permite reconstruir o estado e auditar cada transição.

@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2529,
-      "projection_hash_sha256": "750cf6686872911775aac5dd6fddd7ddc6979792df3ce0dbf89fc3ec8d33ec85",
+      "last_event_seq": 2534,
+      "projection_hash_sha256": "85d57e09fa8c518bdae4f89b5a857b71ad0069bfa191404a00d11f83eaf0922b",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-18T16:55:05Z"
+    "updated_at": "2026-11-18T17:10:31Z"
   },
   "project": {
     "name": "esaa-core",
@@ -5831,16 +5831,43 @@
         ]
       },
       "completed_at": "2026-11-18T16:54:54Z"
+    },
+    {
+      "task_id": "DOC-ESAA-README-COVER-20261118",
+      "task_kind": "spec",
+      "title": "Restaurar a capa original do ESAA no README",
+      "description": "Restaurar, abaixo do título do readme.md, a exibição da capa existente em docs/assets/esaa-logo.png, recuperando o bloco de apresentação do histórico. Preservar o texto atual e o PNG. Validar o caminho relativo e o texto alternativo.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "docs/assets/esaa-logo.png"
+      ],
+      "outputs": {
+        "files": [
+          "readme.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-11-18T17:10:27Z",
+      "verification": {
+        "checks": [
+          "Bloco original conferido no Git. O caminho relativo resolve para o PNG rastreado, com texto alternativo. O restante do README foi preservado byte a byte."
+        ]
+      },
+      "completed_at": "2026-11-18T17:10:31Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 170
+      "done": 171
     },
     "by_kind": {
       "impl": 114,
       "qa": 28,
-      "spec": 28
+      "spec": 29
     }
   }
 }
