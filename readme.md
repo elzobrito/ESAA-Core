@@ -4,17 +4,36 @@
   <img src="docs/assets/esaa-logo.png" alt="ESAA state machine logo" width="960">
 </p>
 
-ESAA é um protocolo de governança para engenharia de software com agentes.
-O agente propõe intenções; o Orchestrator valida e aplica efeitos; o histórico
-append-only permite reconstruir o estado e auditar cada transição.
+O ESAA governa o trabalho de agentes de código. Defina o que cada tarefa pode
+alterar, revise a entrega e reconstrua o estado do projeto a partir do histórico.
 
-```text
-Agent proposes -> Orchestrator validates -> Event store records -> Projection updates
+[Experimentar](#experimente-um-hotfix) · [Documentação](#documentação-sob-demanda) · [Artigo](https://arxiv.org/abs/2602.23193) · [PyPI](https://pypi.org/project/esaa-core/)
+
+## Experimente um hotfix
+
+A demonstração usa um workspace temporário. Ela registra uma issue, cria uma
+tarefa de correção, aplica o arquivo pelo Orchestrator e passa pela revisão.
+
+```bash
+python -m pip install esaa-core==0.5.0b34
+python -m esaa scenario hotfix
 ```
 
-Este repositório contém o runtime Python `esaa-core`, contratos, templates e testes.
-O ESAA não usa MCP. `.roadmap/activity.jsonl` é a fonte da verdade; as projeções
-não são editadas manualmente.
+Trecho da saída:
+
+```json
+{
+  "hotfix_task_id": "HF-ISS-HOTFIX-TRACE",
+  "events_found": [
+    "issue.report", "hotfix.create", "claim", "complete",
+    "orchestrator.file.write", "review", "issue.resolve"
+  ],
+  "verify_status": "ok"
+}
+```
+
+O Orchestrator aplica os efeitos aceitos e registra as transições. O histórico em
+`.roadmap/activity.jsonl` permite reconstruir as projeções do projeto.
 
 ## Quickstart
 
