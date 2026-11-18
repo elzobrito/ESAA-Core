@@ -638,9 +638,15 @@ activity list [--task-id ID] [--action ACTION]... [--exclude-action ACTION]...
 
 Estas interfaces aditivas preservam tarefas declarativas. Ative o catálogo explicitamente antes de atribuir checks executáveis; complete exige execução aprovada e vinculada ao candidato atual. Alterações de grants/escopo exigem todo. Consultas não inicializam nem reescrevem o estado.
 
+## Identidade ativa e autorização assinada
+
+Com identidade ativa, `claim`, `complete` e `review` exigem `--authorization ARQUIVO` (ou `ESAA_AUTHORIZATION`). Use o trust root público cadastrado e o runner real. Veja [como preparar e fornecer a autorização](esaa-runners-codex-claude-code.md#autorização-assinada-com-identidade-ativa).
+
 ## Log estruturado por comando (`ESAA_LOG`)
 
-Quando a variável de ambiente `ESAA_LOG` aponta para um caminho de arquivo, cada invocação da CLI acrescenta exatamente uma linha JSON ao terminar (escrita atômica por `O_APPEND`, fora do lock do event store; falhas de escrita são ignoradas para não alterar `stdout`, `stderr` ou `exit_code`). Sem `ESAA_LOG` definida (ou vazia), nenhum arquivo é criado.
+Quando `ESAA_LOG` aponta para um arquivo, a CLI tenta acrescentar uma linha JSON em UTF-8 ao terminar cada invocação. Desde a b34, as gravações concorrentes no mesmo arquivo são serializadas por um lock dedicado ao caminho do log, usando o mecanismo de lock do event store. Falhas de log são silenciosas e preservam `stdout`, `stderr` e o código de saída. Sem `ESAA_LOG` definida (ou vazia), nenhum arquivo é criado.
+
+O hotfix de escritas parciais, ainda não publicado, mantém o lock até completar a linha. Se ocorrer erro de gravação, tenta restaurar o tamanho anterior do arquivo.
 
 Campos registrados em cada linha:
 

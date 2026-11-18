@@ -4,8 +4,8 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 2495,
-    "updated_at": "2026-11-13T17:54:45Z"
+    "last_event_seq": 2529,
+    "updated_at": "2026-11-18T16:55:05Z"
   },
   "issues": [
     {
@@ -205,7 +205,7 @@
     },
     {
       "issue_id": "ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "title": "Guias CLI ainda sem recorte operacional de --authorization por runner",
       "baseline_id": null,
@@ -217,15 +217,23 @@
           "Nao editar guias nesta evidência; a AUD-O2-110 preenche a secao 5 e pode absorver o recorte dos guias ou um sucessor docs."
         ]
       },
-      "resolution": null,
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
+        "review_task_id": "HF-ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
+        "checks": [
+          "Sintaxe de claim, submit e review confirmada na ajuda, e escopo dos payloads conferido em identity.py.",
+          "Blocos de comando idênticos em PT e EN; referências CLI apontam para seções existentes nos guias correspondentes."
+        ]
+      },
       "links": {
         "reported_by_task_id": "AUD-O2-110",
         "fixes_task_id": null,
-        "hotfix_task_id": null
+        "hotfix_task_id": "HF-ISS-AUD-O2-110-RUNNER-GUIDES-20261113"
       },
       "timeline": {
         "created_event_seq": 2478,
-        "resolved_event_seq": null
+        "resolved_event_seq": 2528
       }
     },
     {
@@ -543,6 +551,99 @@
       }
     },
     {
+      "issue_id": "ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+      "status": "resolved",
+      "severity": "low",
+      "title": "Relatórios da Onda 2 mostram a ativação de identidade como pendente",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Atualizar o resumo da Onda 2 e o fechamento da evidência de identidade com o estado done. Preservar os marcos históricos do ensaio e do waiver do proprietário. Registrar bootstrap, claim, complete, revisão e verificações conforme eventos aceitos. Distinguir ativação de identidade, política de runners, estado da cadeia e issues históricas. Usar apenas evidências públicas, sem chaves, tokens ou autorizações assinadas reais.",
+        "repro_steps": [
+          "Comparar docs/qa/AUD-O2-closeout.md e docs/qa/identity-activation.md com esaa state AUD-O2-110 e os eventos do ciclo.",
+          "No aceite, conferir referências, sequências e status de cada critério com o event store. Marcar como pendente ou não comprovado qualquer probe sem evidência específica."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+        "review_task_id": "HF-ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+        "checks": [
+          "Roadmap confirmado: AUD-O2-110 done e eventos 2479 e 2484–2487 conferidos no log.",
+          "Relatório distingue o ensaio da evidência real e vincula o fechamento ao documento de identidade."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-110",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118"
+      },
+      "timeline": {
+        "created_event_seq": 2507,
+        "resolved_event_seq": 2523
+      }
+    },
+    {
+      "issue_id": "ISS-DOC-ESAA-OPLOG-20261118",
+      "status": "resolved",
+      "severity": "low",
+      "title": "Documentação do ESAA_LOG diverge da b34 e do hotfix local",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "No CHANGELOG.md, esclarecer que a b34 usa o mecanismo de lock do store com lock dedicado ao caminho do log. Registrar em seção de mudanças ainda não publicadas o hotfix de escritas parciais: completar o buffer sob lock, tratar interrupção e falta de progresso e tentar restaurar o fim anterior após erro de I/O. Atualizar a referência CLI em português e inglês para explicar o lock dedicado e o caráter de melhor esforço, preservando a saída e o código de retorno. Distinguir a b34 publicada do patch local, sem bump de versão.",
+        "repro_steps": [
+          "Comparar CHANGELOG.md e os guias CLI com git show v0.5.0b34:src/esaa/oplog.py e com a implementação local e os casos de regressão em tests/test_oplog.py.",
+          "No aceite, conferir a paridade PT/EN, os links e a distinção entre a versão publicada e o hotfix HF-ISS-ESAA-OPLOG-SHORT-WRITE-20261113."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-DOC-ESAA-OPLOG-20261118",
+        "review_task_id": "HF-ISS-DOC-ESAA-OPLOG-20261118",
+        "checks": [
+          "Comparação com a tag v0.5.0b34 e o código local confirma o lock dedicado e o comportamento do hotfix.",
+          "Paridade dos campos ESAA_LOG entre a referência PT e EN conferida.",
+          "A primeira seção de versão do changelog segue compatível com o teste de versão do pacote."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-100",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-DOC-ESAA-OPLOG-20261118"
+      },
+      "timeline": {
+        "created_event_seq": 2505,
+        "resolved_event_seq": 2521
+      }
+    },
+    {
+      "issue_id": "ISS-DOC-ESAA-SIGNED-TRANSITIONS-20261118",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Hotfixes de documentação aguardam autorizações assinadas",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "A identidade ativa exige assinatura do principal registrado para claim e complete e de principal QA distinto para review. Nenhum assinador delegado ou autorização para estas tarefas foi localizado. Afeta HF-ISS-DOC-ESAA-OPLOG-20261118, HF-ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118 e HF-ISS-AUD-O2-110-RUNNER-GUIDES-20261113. Candidatos e envelopes foram preparados e validados em cópia, com referência local /tmp/esaa-docs-2510.BbkxXL.",
+        "repro_steps": [
+          "Executar claim da tarefa de log em dry-run sem autorização: ACTOR_AUTH_FAILED, claim requires a signed authorization when the identity contract is active."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_command"
+      },
+      "links": {
+        "reported_by_task_id": "HF-ISS-DOC-ESAA-OPLOG-20261118",
+        "fixes_task_id": null,
+        "hotfix_task_id": null
+      },
+      "timeline": {
+        "created_event_seq": 2511,
+        "resolved_event_seq": 2529
+      }
+    },
+    {
       "issue_id": "ISS-DOCS-USAGE-GUIDE-IMPROVE",
       "status": "resolved",
       "severity": "medium",
@@ -751,6 +852,41 @@
       "timeline": {
         "created_event_seq": 1126,
         "resolved_event_seq": 1144
+      }
+    },
+    {
+      "issue_id": "ISS-ESAA-OPLOG-SHORT-WRITE-20261113",
+      "status": "resolved",
+      "severity": "low",
+      "title": "ESAA_LOG ignora escritas parciais de os.write",
+      "baseline_id": null,
+      "affected": {},
+      "evidence": {
+        "symptom": "Em b34 emit_oplog_entry chama os.write uma vez e ignora retorno; retorno parcial deixa JSON truncado sem newline. Repro isolado confirmou126bytes eJSONinvalido semexcecao.",
+        "repro_steps": [
+          "Em workspace temporario, simular os.write que escreve metade do buffer e retorna esse tamanho; emitir umregistro e tentar json.loads: JSONDecodeError. Nenhum arquivo real alterado pelo probe."
+        ]
+      },
+      "resolution": {
+        "status": "resolved_by_hotfix",
+        "hotfix_task_id": "HF-ISS-ESAA-OPLOG-SHORT-WRITE-20261113",
+        "review_task_id": "HF-ISS-ESAA-OPLOG-SHORT-WRITE-20261113",
+        "checks": [
+          "unit: seven regression cases cover partial UTF8 writes (1/7-byte chunks), zero/error before and after progress, interrupted write; original implementation failed five cases; patched focused oplog/store-lock suite30passed.",
+          "regression: full pytest1076passed5skipped; coverage88.69% >=88.07 (full-tests.log,coverage.json).",
+          "compatibility: focused30tests passed separately in Python3.11/3.12/3.13/3.14, including eight-process concurrency and silent logging failures.",
+          "quality: ruff check src tests, black --check src tests, mypy src/esaa allpass; onlyoplog.py/test_oplog.py differ; version/protocol/schema/policy unchanged.",
+          "integrity: original workingtree clean at a304baa, real fullverifyokseq2495 beforeissue; signedclaimcodex acceptedseq2499 andverify--fullok. BaseSHAguarded edits preserve concurrent sourcechanges."
+        ]
+      },
+      "links": {
+        "reported_by_task_id": "AUD-O2-100",
+        "fixes_task_id": null,
+        "hotfix_task_id": "HF-ISS-ESAA-OPLOG-SHORT-WRITE-20261113"
+      },
+      "timeline": {
+        "created_event_seq": 2496,
+        "resolved_event_seq": 2504
       }
     },
     {
@@ -1150,7 +1286,6 @@
         "ISS-AUD-O2-050-VERIFICATION-SCOPE-20261112",
         "ISS-AUD-O2-090-EDITORIAL-20261112",
         "ISS-AUD-O2-110-PRECONDITIONS-20261112",
-        "ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
         "ISS-CORE-BINARY-RESOURCE-CONTRACT-20261102",
         "ISS-ESAA-CLOSE-INDEPENDENT-REVIEW-20261026",
         "ISSUE-ESAA-ACTOR-SECURITY-SCAN-STORAGE-001",

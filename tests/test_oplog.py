@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import subprocess
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from esaa import oplog
 from esaa.cli import main
 
 EXPECTED_FIELDS = {
@@ -206,3 +208,115 @@ def test_oplog_eight_parallel_processes_produce_valid_lines(tmp_path: Path) -> N
     parsed = [json.loads(line) for line in lines]
     assert all(set(item.keys()) == EXPECTED_FIELDS for item in parsed)
     assert all(item["command"] == "verify" and item["exit_code"] == 0 for item in parsed)
+
+
+def _emit_test_entry(root: Path) -> None:
+    oplog.emit_oplog_entry(
+        command="verify",
+        runner="executor-á🧪",
+        root=root,
+        duration_ms=1,
+        exit_code=0,
+        error_code=None,
+        dry_run=False,
+    )
+
+
+def _is_log_descriptor(fd: int, path: Path) -> bool:
+    return path.exists() and os.path.samestat(os.fstat(fd), path.stat())
+
+
+@pytest.mark.parametrize("chunk_size", [1, 7])
+def test_oplog_completes_partial_utf8_writes_under_one_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk_size: int
+) -> None:
+    log_file = tmp_path / "operational.jsonl"
+    monkeypatch.setenv("ESAA_LOG", str(log_file))
+    _emit_test_entry(tmp_path)
+    prefix = log_file.read_bytes()
+    original = os.write
+    calls = []
+
+    def partial(fd, data):
+        if not _is_log_descriptor(fd, log_file):
+            return original(fd, data)
+        assert log_file.with_name(log_file.name + ".lock").exists()
+        written = original(fd, data[:chunk_size])
+        calls.append(written)
+        return written
+
+    monkeypatch.setattr(oplog.os, "write", partial)
+    _emit_test_entry(tmp_path)
+    raw = log_file.read_bytes()
+    assert raw.startswith(prefix)
+    assert raw.endswith(b"\n")
+    records = [json.loads(line) for line in raw.splitlines()]
+    assert len(records) == 2
+    assert records[-1]["runner"] == "executor-á🧪"
+    assert set(records[-1]) == EXPECTED_FIELDS
+    assert len(calls) > 1
+    assert not log_file.with_name(log_file.name + ".lock").exists()
+
+
+@pytest.mark.parametrize("after_partial", [False, True])
+@pytest.mark.parametrize("failure", ["zero", "error"])
+def test_oplog_failed_write_preserves_prefix_and_following_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    after_partial: bool,
+    failure: str,
+) -> None:
+    log_file = tmp_path / "operational.jsonl"
+    monkeypatch.setenv("ESAA_LOG", str(log_file))
+    _emit_test_entry(tmp_path)
+    prefix = log_file.read_bytes()
+    original = os.write
+    calls = 0
+
+    def fail(fd, data):
+        nonlocal calls
+        if not _is_log_descriptor(fd, log_file):
+            return original(fd, data)
+        calls += 1
+        assert calls <= 2, "zero progress must not cause an unbounded retry"
+        if after_partial and calls == 1:
+            return original(fd, data[:7])
+        if failure == "zero":
+            return 0
+        raise OSError(errno.ENOSPC, "simulated full disk")
+
+    monkeypatch.setattr(oplog.os, "write", fail)
+    _emit_test_entry(tmp_path)
+    assert calls == (2 if after_partial else 1)
+    assert log_file.read_bytes() == prefix
+    assert not log_file.with_name(log_file.name + ".lock").exists()
+    monkeypatch.setattr(oplog.os, "write", original)
+    _emit_test_entry(tmp_path)
+    records = [json.loads(line) for line in log_file.read_bytes().splitlines()]
+    assert len(records) == 2
+    captured = capsys.readouterr()
+    assert captured.out == captured.err == ""
+
+
+def test_oplog_retries_interrupted_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "operational.jsonl"
+    monkeypatch.setenv("ESAA_LOG", str(log_file))
+    original = os.write
+    calls = 0
+
+    def interrupted_once(fd, data):
+        nonlocal calls
+        if not _is_log_descriptor(fd, log_file):
+            return original(fd, data)
+        calls += 1
+        if calls == 1:
+            raise InterruptedError()
+        return original(fd, data[:7])
+
+    monkeypatch.setattr(oplog.os, "write", interrupted_once)
+    _emit_test_entry(tmp_path)
+    raw = log_file.read_bytes()
+    assert raw.endswith(b"\n")
+    assert json.loads(raw)["runner"] == "executor-á🧪"
+    assert calls > 2

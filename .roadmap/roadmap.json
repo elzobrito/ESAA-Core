@@ -7,11 +7,11 @@
     "run": {
       "run_id": null,
       "status": "success",
-      "last_event_seq": 2495,
-      "projection_hash_sha256": "655effd3fff11f9834d5ce5380e3ff0910b38a702139e5bbf607b518e29d5bab",
+      "last_event_seq": 2529,
+      "projection_hash_sha256": "750cf6686872911775aac5dd6fddd7ddc6979792df3ce0dbf89fc3ec8d33ec85",
       "verify_status": "ok"
     },
-    "updated_at": "2026-11-13T17:54:45Z"
+    "updated_at": "2026-11-18T16:55:05Z"
   },
   "project": {
     "name": "esaa-core",
@@ -5640,14 +5640,205 @@
         ]
       },
       "completed_at": "2026-11-13T17:54:45Z"
+    },
+    {
+      "task_id": "HF-ISS-ESAA-OPLOG-SHORT-WRITE-20261113",
+      "task_kind": "impl",
+      "title": "Hotfix: completar escritas parciais do ESAA_LOG",
+      "description": "Corrigir os.write parcial no log operacional sem modificar stdout/stderr/exitcode, formato de registro, lock dedicado e versao publicada. Escrever o buffer UTF8 inteiro mantendo o lock por toda a operacao; retornozero deve parar semloopinfinito; falha apos progresso nao deve deixar registro truncado quando rollback do arquivo regular for possivel. Cobrir prefixo preexistente, Unicode dividido, erros silenciosos e concorrencia existente. Outputs estritos: src/esaa/oplog.py e tests/test_oplog.py. Validar regressao reproduzivel antes/depois, pytest completo com cobertura>=88.07,ruff,black,mypy e verify--full. Minimo2checks no complete. Revisao independente antes de done. Identidade viva ativa: claim/complete/review somente com autorizacoes assinadas pelo operador; nao ler nem executar helper que leia chaves privadas sem ato do proprietario. Candidatos privados e file_updates pelo Orchestrator; sempublicacao/bump/tag/push. Pedidoexplicito usuario em2026-11-13: faca o hotfix.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-ESAA-OPLOG-SHORT-WRITE-20261113"
+      ],
+      "outputs": {
+        "files": [
+          "src/esaa/oplog.py",
+          "tests/test_oplog.py"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-ESAA-OPLOG-SHORT-WRITE-20261113",
+      "fixes": "AUD-O2-100",
+      "scope_patch": [
+        "src/esaa/oplog.py",
+        "tests/test_oplog.py"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-13T18:31:04Z",
+      "verification": {
+        "checks": [
+          "unit: seven regression cases cover partial UTF8 writes (1/7-byte chunks), zero/error before and after progress, interrupted write; original implementation failed five cases; patched focused oplog/store-lock suite30passed.",
+          "regression: full pytest1076passed5skipped; coverage88.69% >=88.07 (full-tests.log,coverage.json).",
+          "compatibility: focused30tests passed separately in Python3.11/3.12/3.13/3.14, including eight-process concurrency and silent logging failures.",
+          "quality: ruff check src tests, black --check src tests, mypy src/esaa allpass; onlyoplog.py/test_oplog.py differ; version/protocol/schema/policy unchanged.",
+          "integrity: original workingtree clean at a304baa, real fullverifyokseq2495 beforeissue; signedclaimcodex acceptedseq2499 andverify--fullok. BaseSHAguarded edits preserve concurrent sourcechanges."
+        ]
+      },
+      "completed_at": "2026-11-13T18:47:45Z"
+    },
+    {
+      "task_id": "HF-ISS-DOC-ESAA-OPLOG-20261118",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-DOC-ESAA-OPLOG-20261118",
+      "description": "Apply a minimal hotfix to resolve issue ISS-DOC-ESAA-OPLOG-20261118 without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-DOC-ESAA-OPLOG-20261118"
+      ],
+      "outputs": {
+        "files": [
+          "CHANGELOG.md",
+          "docs/guides/esaa-cli-reference.md",
+          "docs/guides/esaa-cli-reference.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-DOC-ESAA-OPLOG-20261118",
+      "fixes": "AUD-O2-100",
+      "scope_patch": [
+        "CHANGELOG.md",
+        "docs/guides/esaa-cli-reference.md",
+        "docs/guides/esaa-cli-reference.en.md"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        "CHANGELOG.md",
+        "docs/guides/esaa-cli-reference.md",
+        "docs/guides/esaa-cli-reference.en.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-18T16:53:19Z",
+      "verification": {
+        "checks": [
+          "Comparação com a tag v0.5.0b34 e o código local confirma o lock dedicado e o comportamento do hotfix.",
+          "Paridade dos campos ESAA_LOG entre a referência PT e EN conferida.",
+          "A primeira seção de versão do changelog segue compatível com o teste de versão do pacote."
+        ]
+      },
+      "completed_at": "2026-11-18T16:54:35Z"
+    },
+    {
+      "task_id": "HF-ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+      "task_kind": "impl",
+      "title": "Hotfix for ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+      "description": "Apply a minimal hotfix to resolve issue ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118 without regressing immutable done tasks.",
+      "status": "done",
+      "depends_on": [],
+      "targets": [
+        "ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118"
+      ],
+      "outputs": {
+        "files": [
+          "docs/qa/AUD-O2-closeout.md",
+          "docs/qa/identity-activation.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-DOC-ESAA-IDENTITY-CLOSEOUT-20261118",
+      "fixes": "AUD-O2-110",
+      "scope_patch": [
+        "docs/qa/AUD-O2-closeout.md",
+        "docs/qa/identity-activation.md"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        "docs/qa/AUD-O2-closeout.md",
+        "docs/qa/identity-activation.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-18T16:53:21Z",
+      "verification": {
+        "checks": [
+          "Roadmap confirmado: AUD-O2-110 done e eventos 2479 e 2484–2487 conferidos no log.",
+          "Relatório distingue o ensaio da evidência real e vincula o fechamento ao documento de identidade."
+        ]
+      },
+      "completed_at": "2026-11-18T16:54:38Z"
+    },
+    {
+      "task_id": "HF-ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
+      "task_kind": "impl",
+      "title": "Documentar autorização assinada por runner com identidade ativa",
+      "description": "Atualizar as referências da CLI e de runners em PT/EN. Usar os comandos e opções confirmados no runtime para orientar Codex, Claude Code, Grok e terminal humano sobre trust root público, autorização de claim, complete e review, nonce novo e separação entre actor e runner. Usar exemplos com placeholders ou ambiente descartável, sem copiar chaves, tokens ou autorizações reais. Conferir a instrumentação de assinatura e os comandos via ajuda, e validar os links e a paridade das traduções. Aguardar o hotfix de documentação do ESAA_LOG para evitar edição concorrente nas referências da CLI.",
+      "status": "done",
+      "depends_on": [
+        "HF-ISS-DOC-ESAA-OPLOG-20261118"
+      ],
+      "targets": [
+        "ISS-AUD-O2-110-RUNNER-GUIDES-20261113"
+      ],
+      "outputs": {
+        "files": [
+          "docs/guides/esaa-cli-reference.md",
+          "docs/guides/esaa-cli-reference.en.md",
+          "docs/guides/esaa-runners-codex-claude-code.md",
+          "docs/guides/esaa-runners-codex-claude-code.en.md"
+        ]
+      },
+      "immutability": {
+        "done_is_immutable": true
+      },
+      "is_hotfix": true,
+      "issue_id": "ISS-AUD-O2-110-RUNNER-GUIDES-20261113",
+      "fixes": "AUD-O2-110",
+      "scope_patch": [
+        "docs/guides/esaa-cli-reference.md",
+        "docs/guides/esaa-cli-reference.en.md",
+        "docs/guides/esaa-runners-codex-claude-code.md",
+        "docs/guides/esaa-runners-codex-claude-code.en.md"
+      ],
+      "required_verification": [
+        "unit",
+        "regression"
+      ],
+      "baseline_id": "B-000",
+      "boundary_grant": [
+        "docs/guides/esaa-cli-reference.md",
+        "docs/guides/esaa-cli-reference.en.md",
+        "docs/guides/esaa-runners-codex-claude-code.md",
+        "docs/guides/esaa-runners-codex-claude-code.en.md"
+      ],
+      "assigned_to": "agent-impl",
+      "started_at": "2026-11-18T16:54:48Z",
+      "verification": {
+        "checks": [
+          "Sintaxe de claim, submit e review confirmada na ajuda, e escopo dos payloads conferido em identity.py.",
+          "Blocos de comando idênticos em PT e EN; referências CLI apontam para seções existentes nos guias correspondentes."
+        ]
+      },
+      "completed_at": "2026-11-18T16:54:54Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 166
+      "done": 170
     },
     "by_kind": {
-      "impl": 110,
+      "impl": 114,
       "qa": 28,
       "spec": 28
     }

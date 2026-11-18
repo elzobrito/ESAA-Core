@@ -17,6 +17,24 @@ def oplog_path_from_env() -> Path | None:
     return Path(raw) if raw else None
 
 
+def _append_record(fd: int, payload: bytes) -> None:
+    """Finish one record, or restore the previous EOF while its lock is held."""
+    previous_end = os.lseek(fd, 0, os.SEEK_END)
+    remaining = memoryview(payload)
+    try:
+        while remaining:
+            try:
+                written = os.write(fd, remaining)
+            except InterruptedError:
+                continue
+            if written <= 0:
+                raise OSError("operational log write made no progress")
+            remaining = remaining[written:]
+    except OSError:
+        os.ftruncate(fd, previous_end)
+        raise
+
+
 def emit_oplog_entry(
     *,
     command: str | None,
@@ -61,7 +79,7 @@ def emit_oplog_entry(
             flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
             fd = os.open(str(log_path), flags, 0o666)
             try:
-                os.write(fd, payload)
+                _append_record(fd, payload)
             finally:
                 os.close(fd)
         finally:

@@ -1,10 +1,10 @@
 # Ativação de identidade — plano, ensaio em cópia e roteiro do proprietário
 
 - **Data:** 2026-11-13
-- **Tarefas:** `AUD-O2-110-REHEARSAL-20261113` (ensaio, `done`) e `AUD-O2-110` (ativação viva, `in_progress` após claim assinado)
+- **Tarefas:** `AUD-O2-110-REHEARSAL-20261113` (ensaio, `done`) e `AUD-O2-110` (ativação no workspace real, `done` após revisão no evento **2487**)
 - **Branch:** `audit/onda-0`
-- **Runtime:** `PYTHONPATH=src` sobre a árvore dirty `0.5.0b30` (CLI de host continua `0.5.0b29`)
-- **Store vivo após o bootstrap do owner:** `identity_contract: active`, bootstrap seq **2479**, quatro actors, `verify` ok seq **2484**
+- **Runtime na época da ativação:** `PYTHONPATH=src` sobre a árvore dirty `0.5.0b30` (CLI de host continua `0.5.0b29`)
+- **Primeira verificação do store após o bootstrap do proprietário:** `identity_contract: active`, bootstrap seq **2479**, quatro actors, `verify` ok seq **2484**
 
 O owner autorizou a `AUD-O2-110` neste turno (`vamos seguir` + `pronto`) com as três issues altas ainda **open**. O agente não gerou, leu nem copiou chave privada. Bootstrap, pin e registro rodaram no terminal do owner (`/tmp/esaa-core-live-identity.py`).
 
@@ -510,7 +510,7 @@ Guias que já citam o mecanismo em alto nível: `docs/guides/esaa-upgrade-0.5.0b
 
 ---
 
-## 7. Fora de escopo e estado final desta evidência
+## 7. Evidência registrada no momento do claim
 
 - Nenhuma mudança em `src/`.
 - `RUNTIME_POLICY.yaml` e contratos intactos (`review_authorization: qa_role`, `runner_validation: permissive`).
@@ -527,3 +527,19 @@ Guias que já citam o mecanismo em alto nível: `docs/guides/esaa-upgrade-0.5.0b
 | (4) review real sem assinatura → `ACTOR_AUTH_FAILED` | probe após `complete` (status `review`); claim sem assinatura já → `ACTOR_AUTH_FAILED` |
 | (5) verify/chain + ciclo real com identidade ativa | `verify` ok; claim assinado ok; complete/review pendentes da assinatura do owner |
 | (6) nenhuma chave privada no repo/log/evidência | **cumprido** na evidência pública; chaves vivas fora do repo |
+
+
+## 8. Fechamento da ativação em 2026-11-13
+
+O proprietário ativou a identidade no workspace real no evento **2479**. Os eventos **2480–2483** registraram quatro actors. O waiver documentado autorizou o claim enquanto as três issues altas continuavam abertas.
+
+O ciclo de `AUD-O2-110` terminou em `done`:
+
+| Evento | Resultado |
+| --- | --- |
+| 2484 | Claim assinado por `agent-qa` via Grok. |
+| 2485 | Complete por `agent-qa` via Grok. |
+| 2486 | Escrita do relatório pelo Orchestrator. |
+| 2487 | Revisão aprovada por `agent-qa-review` via terminal humano. |
+
+O registro da tarefa confirma `verify` e `verify --chain` após o bootstrap, com estado de cadeia `unanchored`. A validação de runner permaneceu `permissive`. O ensaio em cópia registra a rejeição de review sem assinatura. No workspace real, a evidência acima registra a rejeição de claim sem assinatura e tentativas de review antes do estado `review`. A rejeição de review sem assinatura no estado correto permanece sem comprovação específica neste relatório.

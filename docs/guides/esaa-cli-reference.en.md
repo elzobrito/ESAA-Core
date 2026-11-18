@@ -638,4 +638,16 @@ activity list [--task-id ID] [--action ACTION]... [--exclude-action ACTION]...
 
 These additive interfaces preserve declarative tasks. Enable the catalog explicitly before assigning executable checks; complete requires an approved execution bound to the current candidate. Grant/scope amendments require todo. Queries never initialize or rewrite state.
 
+## Active identity and signed authorization
+
+With active identity, `claim`, `complete`, and `review` require `--authorization FILE` (or `ESAA_AUTHORIZATION`). Use the enrolled public trust root and the actual runner. See [how to prepare and pass authorization](esaa-runners-codex-claude-code.en.md#signed-authorization-with-active-identity).
+
+## Structured log per command (`ESAA_LOG`)
+
+When `ESAA_LOG` points to a file, the CLI attempts to append one UTF-8 JSON line at the end of each invocation. Since b34, concurrent writes to the same file have been serialized by a lock dedicated to the log path, using the event store's locking mechanism. Logging failures are silent and preserve `stdout`, `stderr`, and the exit code. When `ESAA_LOG` is unset or empty, no file is created.
+
+The unreleased partial-write fix holds the lock until the line is complete. If a write fails, it attempts to restore the previous file size.
+
+Each line includes `ts` (UTC timestamp), `esaa_version`, `pid`, `command`, `runner`, `root`, `duration_ms`, `lock_wait_ms`, `lock_retries`, `lock_takeovers`, `events_appended`, `exit_code`, `error_code`, and `dry_run`. The log excludes free-text arguments, `notes`, `checks`, `file_updates` contents, and environment variables.
+
 [Complete workflow and semantics](esaa-grok-antigravity.en.md).

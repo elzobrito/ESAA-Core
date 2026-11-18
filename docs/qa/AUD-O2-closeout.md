@@ -21,7 +21,7 @@
 | `AUD-O2-090` | `DOC` | Revisão de guias e referências documentais | Concluída (`done`); pendência editorial menor registrada em `ISS-AUD-O2-090-EDITORIAL-20261112` |
 | `AUD-O2-095` | `UTL-03`, `UTL-02` | `src/esaa/py.typed` empacotado, Python `3.14` no CI e `classifiers`, levantamento de dependências demo (`stdlib` apenas -> sem extra vazio), marcação `[demo]` no `--help` | `tests/test_packaging_extras.py`, `python3 -m build` + `twine check` (`PASSED`) |
 | `AUD-O2-100` | `ENG-04` | `src/esaa/oplog.py` (`ESAA_LOG`) com escrita atômica `O_APPEND` fora do lock, métricas `lock_retries` e `events_appended` em `store.py` | `tests/test_oplog.py` (`6 passed`), `docs/guides/esaa-cli-reference.md` |
-| `AUD-O2-110` | `SEC` | Ativação de identidade no próprio repositório (operada pelo proprietário) | **Não executada nesta onda** — aguarda pré-condições em `ISS-AUD-O2-110-PRECONDITIONS-20261112` |
+| `AUD-O2-110` | `SEC` | Ativação de identidade no próprio repositório (operada pelo proprietário) | **Concluída (`done`)** em 2026-11-13. Bootstrap 2479 e revisão aprovada 2487. Ver [evidência da ativação](identity-activation.md). |
 
 ---
 
@@ -67,10 +67,10 @@ Observações:
 
 ## 5. Fora de Escopo e Issues Abertas
 
-- **Fora de escopo:** redução de complexidade C901 em `validate_plugin_dir`, `validate_identity_history`, `_apply_task_amend`, `run`; remoção de comandos/flags demo; movimentação de saída de `hotfix` ou `tools/audit`; ativação de identidade (`AUD-O2-110`); bump de `PACKAGE_VERSION` e `CHANGELOG.md` (`AUD-O2-130`).
-- **Issues abertas na Onda 2:**
+- **Fora de escopo:** redução de complexidade C901 em `validate_plugin_dir`, `validate_identity_history`, `_apply_task_amend`, `run`; remoção de comandos/flags demo; movimentação de saída de `hotfix` ou `tools/audit`; ativação de identidade na rodada inicial de QA (concluída separadamente em `AUD-O2-110`); bump de `PACKAGE_VERSION` e `CHANGELOG.md` (`AUD-O2-130`).
+- **Issues registradas na Onda 2:**
   - `ISS-AUD-O2-040-SCOPE-20261112`: integração do snapshot incremental em consumidores adicionais (`claim`, `eligible`, etc.).
   - `ISS-AUD-O2-050-HISTORICAL-RUNNER-20261112`, `ISS-AUD-O2-050-SCOPE-20261112`, `ISS-AUD-O2-050-TEST-SCOPE-20261112`, `ISS-AUD-O2-050-VERIFICATION-SCOPE-20261112`: acompanhamentos da validação de schema por ação.
   - `ISS-AUD-O2-090-EDITORIAL-20261112`: referência editorial remanescente no guia de backup.
-  - `ISS-AUD-O2-110-PRECONDITIONS-20261112`: pré-condições para ativação de identidade assistida pelo proprietário.
-  - `ISS-AUD-O2-120-SNAPSHOT-HASH-20261112`: `create_task` após `create_snapshot` falha com `CorruptedStoreError: projection_hash_after mismatch` (reproduzível com 200 eventos e `create_snapshot(before=100)`).
+  - `ISS-AUD-O2-110-PRECONDITIONS-20261112`: registro histórico das pré-condições. A ativação foi concluída com dispensa expressa do proprietário; a issue continua aberta.
+  - `ISS-AUD-O2-120-SNAPSHOT-HASH-20261112` (resolvida): `create_task` após `create_snapshot` falha com `CorruptedStoreError: projection_hash_after mismatch` (reproduzível com 200 eventos e `create_snapshot(before=100)`).

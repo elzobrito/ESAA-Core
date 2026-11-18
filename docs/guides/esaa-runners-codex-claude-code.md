@@ -114,6 +114,19 @@ exigido pela tarefa. `request_changes` retorna a `in_progress`; `approve` chega 
 `done`. Não reabra done: reporte issue e siga hotfix, preservando a tarefa original.
 Em issue sobre done, `prior_status` deve ser `done`.
 
+## Autorização assinada com identidade ativa
+
+Use o trust root público já cadastrado para o workspace e informe o executor real em `--runner` (`codex`, `claude-code`, `grok` ou `human-terminal`, conforme o registro local). `--actor` identifica o principal que assina. Claim e complete usam o mesmo principal. Review exige um principal distinto com o papel previsto na política.
+
+Peça ao responsável pela chave do actor que assine os bytes de `canonical_json_bytes(payload)` com Ed25519. O payload de `canonical_authorization_payload` inclui a operação, a impressão digital SHA-256 da autoridade do bootstrap como `project_id`, um nonce hexadecimal novo de pelo menos 16 bytes e o escopo. O escopo contém `actor_id` e `task_id`; para review, inclua também `decision`. O arquivo passado a `--authorization` contém `payload` e `signature_hex`. Guarde chaves e arquivos assinados fora do repositório.
+
+```bash
+export ESAA_TRUST_ROOT=/path/to/public-trust-root
+python -m esaa --root /path/to/workspace --runner codex claim T-EXAMPLE --actor agent-impl --authorization /path/to/claim.json
+python -m esaa --root /path/to/workspace --runner codex submit --actor agent-impl --authorization /path/to/complete-auth.json complete.json
+python -m esaa --root /path/to/workspace --runner human-terminal review T-EXAMPLE --actor agent-qa --decision approve --authorization /path/to/review.json
+```
+
 ## Autonomia e impedimentos
 
 Consultas são somente leitura, sem transições; relate resultado e limites úteis.

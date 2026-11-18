@@ -113,6 +113,19 @@ required review mode. `request_changes` returns to `in_progress`; `approve` reac
 `done`. Never reopen done: report an issue and follow hotfix, preserving the original
 task. An issue on done must declare `prior_status` as `done`.
 
+## Signed authorization with active identity
+
+Use the public trust root enrolled for the workspace and pass the actual executor in `--runner` (`codex`, `claude-code`, `grok`, or `human-terminal`, according to local registration). `--actor` identifies the signing principal. Claim and complete use the same principal. Review requires a distinct principal with the role defined by policy.
+
+Ask the actor key custodian to sign `canonical_json_bytes(payload)` with Ed25519. The `canonical_authorization_payload` payload includes the operation, the bootstrap authority's SHA-256 fingerprint as `project_id`, a fresh hexadecimal nonce of at least 16 bytes, and the scope. The scope contains `actor_id` and `task_id`; for review, also include `decision`. The file passed to `--authorization` contains `payload` and `signature_hex`. Keep keys and signed files outside the repository.
+
+```bash
+export ESAA_TRUST_ROOT=/path/to/public-trust-root
+python -m esaa --root /path/to/workspace --runner codex claim T-EXAMPLE --actor agent-impl --authorization /path/to/claim.json
+python -m esaa --root /path/to/workspace --runner codex submit --actor agent-impl --authorization /path/to/complete-auth.json complete.json
+python -m esaa --root /path/to/workspace --runner human-terminal review T-EXAMPLE --actor agent-qa --decision approve --authorization /path/to/review.json
+```
+
 ## Autonomy and blockers
 
 Queries are read-only, without transitions; report useful results and limitations.
